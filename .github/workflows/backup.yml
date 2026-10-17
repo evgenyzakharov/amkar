@@ -1,0 +1,40 @@
+name: Backup database
+
+on:
+  schedule:
+    # По понедельникам в 03:00 UTC. После импорта база — единственный источник данных,
+    # а на бесплатном тарифе Supabase своих скачиваемых бэкапов нет.
+    - cron: '0 3 * * 1'
+  workflow_dispatch: # перед массовым дозаполнением — запустить вручную
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install pg_dump 17
+        # pg_dump должен быть не старше сервера; клиент 17 снимает дамп и с Postgres 15/17
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -yq postgresql-client-17
+
+      - name: Dump public schema
+        env:
+          # Строка подключения Session pooler (IPv4) — прямое подключение у раннеров GitHub не работает
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
+            --schema=public --no-owner --no-privileges \
+            --exclude-table-data=public.admins \
+            --file="amkar-$(date +%F).sql"
+          ls -lh amkar-*.sql
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: amkar-db-${{ github.run_number }}
+          path: amkar-*.sql
+          retention-days: 90

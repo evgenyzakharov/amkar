@@ -1,0 +1,45 @@
+name: Keep Supabase alive
+
+on:
+  schedule:
+    # Каждый день в 10:00 UTC. Бесплатный проект Supabase засыпает без активности,
+    # а пинга раз в 5 дней (опыт SquashApp) не хватало.
+    - cron: '0 10 * * *'
+  workflow_dispatch: # можно запустить вручную из GitHub Actions
+
+permissions:
+  contents: write # нужно для пустого коммита в шаге ниже
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Ping Supabase
+        run: |
+          # Несколько запросов за прогон — чтобы уверенно превысить порог "слишком мало запросов".
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "apikey: ${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
+              "${{ secrets.VITE_SUPABASE_URL }}/rest/v1/season?select=id&limit=1")
+            echo "Ping $i — HTTP status: $STATUS"
+            [ "$STATUS" = "200" ] || exit 1
+            sleep 2
+          done
+
+      - name: Keep the schedule enabled
+        # GitHub автоматически отключает cron-воркфлоу после 60 дней без активности
+        # в репозитории — а тогда и пинги выше перестанут идти. Пустой коммит раз в
+        # ~50 дней сбрасывает этот счётчик. Push от GITHUB_TOKEN не запускает
+        # воркфлоу, так что ci.yml (сборка и деплой) от этого не триггерится.
+        run: |
+          DAYS=$(( ( $(date +%s) - $(git log -1 --format=%ct) ) / 86400 ))
+          echo "Последний коммит был $DAYS дней назад"
+          if [ "$DAYS" -ge 50 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "chore: keep scheduled workflows enabled"
+            git push
+          fi
