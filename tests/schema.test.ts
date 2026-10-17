@@ -116,6 +116,24 @@ describe('ограничения матча', () => {
   it('старый матч может быть без счёта, но с результатом', async () => {
     await insertMatch(16, `'D', null, null, null, null`);
   });
+
+  it('техническая победа — без счёта, но обязательно с результатом', async () => {
+    await db.query(
+      `insert into match (season_id, competition_id, seq, opponent_raw, result, awarded) values (1, 1, 17, 'Москва', 'W', true)`,
+    );
+    await expect(
+      db.query(`insert into match (season_id, competition_id, seq, opponent_raw, awarded) values (1, 1, 18, 'Москва', true)`),
+    ).rejects.toThrow(/check constraint/);
+  });
+});
+
+describe('пропуски матчей', () => {
+  it('причина — травма, дисквалификация или сборная', async () => {
+    await db.query(`insert into absence (match_id, player_id, reason) values (1, 3, 'national_team')`);
+    await expect(
+      db.query(`insert into absence (match_id, player_id, reason) values (1, 2, 'rest')`),
+    ).rejects.toThrow(/check constraint/);
+  });
 });
 
 describe('ограничения состава на матч', () => {
