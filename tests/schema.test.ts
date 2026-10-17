@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 const MIGRATIONS_DIR = fileURLToPath(new URL('../supabase/migrations', import.meta.url));
 
 // Минимум того, что Supabase создаёт сам: роли API, схема auth и auth.uid() из JWT
-const SUPABASE_STUB = `
+const SUPABASE_BASE = `
   create role anon nologin;
   create role authenticated nologin;
   create schema auth;
@@ -16,10 +16,19 @@ const SUPABASE_STUB = `
     as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant usage on schema auth to anon, authenticated;
   grant usage on schema public to anon, authenticated;
-  -- Supabase по умолчанию выдаёт ролям API все права на новые таблицы; защищает только RLS
+`;
+
+// «Automatically expose new tables» включено: ролям API все права на новые объекты, защищает только RLS
+const SUPABASE_EXPOSED = `${SUPABASE_BASE}
   alter default privileges in schema public grant all on tables to anon, authenticated;
   alter default privileges in schema public grant all on sequences to anon, authenticated;
   alter default privileges in schema public grant all on functions to anon, authenticated;
+`;
+
+// «Automatically expose new tables» выключено, худший случай: права никто не выдаёт, даже на вызов функций.
+// Отзыв глобальный: «in schema public» не отменил бы общего права PUBLIC на функции.
+const SUPABASE_STRICT = `${SUPABASE_BASE}
+  alter default privileges revoke execute on functions from public;
 `;
 
 const ADMIN = '00000000-0000-0000-0000-00000000000a';
@@ -27,27 +36,33 @@ const STRANGER = '00000000-0000-0000-0000-00000000000b';
 
 let db: PGlite;
 
+async function migratedDb(stub: string) {
+  const conn = new PGlite();
+  await conn.exec(stub);
+  for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()) {
+    await conn.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
+  }
+  await conn.exec(`
+    insert into auth.users (id, email) values ('${ADMIN}', 'admin@example.com'), ('${STRANGER}', 'x@example.com');
+    insert into admins (user_id) values ('${ADMIN}');
+  `);
+  return conn;
+}
+
 /** Выполняет запрос так, как его выполнил бы клиент Supabase с анонимным ключом или от имени пользователя. */
-async function asUser(userId: string | null, sql: string) {
-  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [userId ?? '']);
-  await db.exec(`set role ${userId ? 'authenticated' : 'anon'}`);
+async function asUser(userId: string | null, sql: string, conn = db) {
+  await conn.query(`select set_config('request.jwt.claim.sub', $1, false)`, [userId ?? '']);
+  await conn.exec(`set role ${userId ? 'authenticated' : 'anon'}`);
   try {
-    return await db.query(sql);
+    return await conn.query(sql);
   } finally {
-    await db.exec('reset role');
+    await conn.exec('reset role');
   }
 }
 
 beforeAll(async () => {
-  db = new PGlite();
-  await db.exec(SUPABASE_STUB);
-  for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()) {
-    await db.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
-  }
-
+  db = await migratedDb(SUPABASE_EXPOSED);
   await db.exec(`
-    insert into auth.users (id, email) values ('${ADMIN}', 'admin@example.com'), ('${STRANGER}', 'x@example.com');
-    insert into admins (user_id) values ('${ADMIN}');
 
     insert into season (id, label, start_year, end_year) values (1, '2008', 2008, 2008);
     insert into player (id, display_name, last_name) values (1, 'Пеев', 'Пеев'), (2, 'Кушев', 'Кушев'), (3, 'Волков', 'Волков');
@@ -91,6 +106,28 @@ describe('права доступа', () => {
 
   it('таблица admins через API недоступна даже админу', async () => {
     await expect(asUser(ADMIN, 'select * from admins')).rejects.toThrow(/permission denied/);
+  });
+});
+
+describe('права при выключенном «Automatically expose new tables»', () => {
+  let strict: PGlite;
+  beforeAll(async () => {
+    strict = await migratedDb(SUPABASE_STRICT);
+  }, 60_000);
+
+  it('аноним читает, но не пишет', async () => {
+    const { rows } = await asUser(null, `select count(*)::int n from competition`, strict);
+    expect(rows).toEqual([{ n: 5 }]);
+    await expect(
+      asUser(null, `insert into season (label, start_year, end_year) values ('2009', 2009, 2009)`, strict),
+    ).rejects.toThrow(/permission denied|row-level security/);
+  });
+
+  it('админ пишет, посторонний — нет', async () => {
+    await asUser(ADMIN, `insert into season (label, start_year, end_year) values ('2009', 2009, 2009)`, strict);
+    await expect(
+      asUser(STRANGER, `insert into season (label, start_year, end_year) values ('2010', 2010, 2010)`, strict),
+    ).rejects.toThrow(/row-level security/);
   });
 });
 
