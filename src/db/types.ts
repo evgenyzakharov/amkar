@@ -34,6 +34,8 @@ export interface MatchRow {
   awarded: boolean;
   competition: { name: string; kind: CompetitionKind };
   team: { name: string } | null;
+  /** Соперник так, как он назывался в сезон матча (вычисляемый столбец opponent_name). */
+  opponent_name?: string | null;
 }
 
 export interface MatchDetails extends MatchRow {
@@ -156,4 +158,6 @@ export interface Transfer {
   notes: string | null;
   season: { label: string; start_year: number; end_year: number };
   team: { name: string } | null;
+  /** Клуб так, как он назывался в сезон трансфера (вычисляемый столбец other_team_name). */
+  other_team_name?: string | null;
 }

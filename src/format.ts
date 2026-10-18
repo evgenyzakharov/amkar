@@ -93,8 +93,9 @@ export const SLOT_LABEL: Record<string, string> = {
   ST2: 'Ф',
 };
 
-export const opponentName = (m: Pick<MatchRow, 'team' | 'opponent_raw'>) =>
-  m.team?.name ?? m.opponent_raw ?? 'соперник не указан';
+/** Соперник так, как он назывался в сезон матча; без названия по годам — по справочнику или тексту из Excel. */
+export const opponentName = (m: Pick<MatchRow, 'team' | 'opponent_raw' | 'opponent_name'>) =>
+  m.opponent_name ?? m.team?.name ?? m.opponent_raw ?? 'соперник не указан';
 
 /** «2:1», «1:1 д.в. (пен. 4:3)», «д.в.», если счёт ещё не внесён. Счёт — со стороны «Амкара». */
 export function formatScore(m: Pick<MatchRow, 'goals_for' | 'goals_against' | 'extra_time' | 'pens_for' | 'pens_against'>): string {

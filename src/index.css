@@ -1465,3 +1465,19 @@ input.w-short {
   margin-right: 12px;
   white-space: nowrap;
 }
+
+.team-names {
+  font-size: 0.9rem;
+}
+
+.team-names table {
+  margin: 4px 0;
+}
+
+input.w-year {
+  width: 4.5em;
+}
+
+.team-names .hint {
+  margin-right: 10px;
+}

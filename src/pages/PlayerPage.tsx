@@ -272,7 +272,7 @@ function CareerTable({ seasons }: { seasons: PlayerSeasonStats[] }) {
 
 function TransfersTable({ transfers }: { transfers: Transfer[] }) {
   const hasDates = transfers.some((t) => t.transfer_date);
-  const hasClubs = transfers.some((t) => t.team || t.other_team_raw);
+  const hasClubs = transfers.some((t) => t.other_team_name || t.team || t.other_team_raw);
   const hasNotes = transfers.some((t) => t.notes || t.kind);
   return (
     <div className="table-wrap">
@@ -296,7 +296,7 @@ function TransfersTable({ transfers }: { transfers: Transfer[] }) {
               <td>{t.transfer_window ? WINDOW_LABEL[t.transfer_window] : ''}</td>
               {hasDates && <td>{t.transfer_date ? formatDate(t.transfer_date) : ''}</td>}
               <td className={`direction-${t.direction}`}>{DIRECTION_LABEL[t.direction]}</td>
-              {hasClubs && <td>{t.team?.name ?? t.other_team_raw}</td>}
+              {hasClubs && <td>{t.other_team_name ?? t.team?.name ?? t.other_team_raw}</td>}
               {/* Примечание автора точнее типа: «выкуп», «из аренды» */}
               {hasNotes && <td>{t.notes ?? (t.kind && TRANSFER_KIND_LABEL[t.kind])}</td>}
             </tr>

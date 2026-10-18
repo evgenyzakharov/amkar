@@ -62,6 +62,11 @@ describe('трансферы сезона', () => {
     expect(transferValues({ ...d, club: 'динамо москва' }, base)).toMatchObject({ other_team_id: 2, other_team_raw: 'Динамо' });
     expect(transferValues({ ...d, club: 'Спартак' }, base)).toMatchObject({ other_team_id: null, other_team_raw: 'Спартак' });
     expect(transferValues({ ...d, club: '' }, base)).toMatchObject({ other_team_id: null, other_team_raw: null });
+    // клуб текстом совпал с клубом справочника, но поле не трогали — как было, правок нет
+    const sameAsTeam = { ...base, transfers: base.transfers.map((t) => (t.id === 2 ? { ...t, other_team_raw: 'Урал' } : t)) };
+    const untouched = transfersDraft(sameAsTeam);
+    expect(transferValues(untouched.find((x) => x.id === 2)!, sameAsTeam)).toMatchObject({ other_team_id: null, other_team_raw: 'Урал' });
+    expect(isTransfersDirty(untouched, sameAsTeam)).toBe(false);
   });
 
   it('проверки: игрок обязателен, дата далеко от сезона, двойная запись', async () => {

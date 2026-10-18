@@ -16,7 +16,7 @@ import {
 } from './match';
 import type { SquadBase, SquadPlayerInfo, SquadRecord } from './squad';
 import { TRANSFER_COLUMNS, type TransferBase, type TransferRecord } from './transfers';
-import { rawOpponents, type DirRecord, type RawOpponent } from './directory';
+import { rawOpponents, type DirRecord, type RawOpponent, type TeamNameRecord } from './directory';
 
 /** Матч в списке админки: сколько уже записано по нему. */
 export interface AdminMatchRow extends MatchRow {
@@ -347,13 +347,13 @@ export async function loadTransfersEditor(label: string): Promise<TransfersEdito
 // ===========================================================================
 
 export interface TeamsPageData {
-  records: (DirRecord & { match: { count: number }[]; transfer: { count: number }[] })[];
+  records: (DirRecord & { match: { count: number }[]; transfer: { count: number }[]; team_name: { count: number }[] })[];
   raw: RawOpponent[];
 }
 
 export async function loadTeamsPage(): Promise<TeamsPageData> {
   const [records, unbound] = await Promise.all([
-    rows<TeamsPageData['records']>(db().from('team').select('id, name, city, notes, match(count), transfer(count)').order('name')),
+    rows<TeamsPageData['records']>(db().from('team').select('id, name, city, notes, match(count), transfer(count), team_name(count)').order('name')),
     allRows<{ opponent_raw: string | null; season: { label: string; start_year: number } }>((from, to) =>
       db().from('match').select('opponent_raw, season(label, start_year)').is('opponent_id', null).order('id').range(from, to),
     ),
@@ -378,12 +378,13 @@ export interface UsageData {
   matches: (Pick<MatchRow, 'id' | 'seq' | 'match_date' | 'opponent_raw' | 'result' | 'goals_for' | 'goals_against' | 'extra_time' | 'pens_for' | 'pens_against' | 'awarded'> & {
     season: { label: string; start_year: number };
     team: { name: string } | null;
+    opponent_name: string | null;
   })[];
   transfers: { id: number; direction: 'in' | 'out'; transfer_date: string | null; player: { id: number; display_name: string }; season: { label: string; start_year: number } }[];
 }
 
 const USAGE_MATCH_COLUMNS =
-  'id, seq, match_date, opponent_raw, result, goals_for, goals_against, extra_time, pens_for, pens_against, awarded, season(label, start_year), team(name)';
+  'id, seq, match_date, opponent_raw, result, goals_for, goals_against, extra_time, pens_for, pens_against, awarded, season(label, start_year), team(name), opponent_name';
 
 export async function loadUsage(kind: 'team' | 'coach', id: number): Promise<UsageData> {
   const [matches, transfers] = await Promise.all([
@@ -404,4 +405,20 @@ export async function loadUsage(kind: 'team' | 'coach', id: number): Promise<Usa
   matches.sort((a, b) => a.season.start_year - b.season.start_year || a.season.label.localeCompare(b.season.label) || a.seq - b.seq);
   transfers.sort((a, b) => a.season.start_year - b.season.start_year || (a.transfer_date ?? '').localeCompare(b.transfer_date ?? ''));
   return { matches, transfers };
+}
+
+export interface TeamNamesData {
+  names: TeamNameRecord[];
+  /** Матчи клуба: текст из Excel и сезон — для подсказок и предпросмотра. */
+  matches: { opponent_raw: string | null; season: { label: string; start_year: number } }[];
+}
+
+export async function loadTeamNames(teamId: number): Promise<TeamNamesData> {
+  const [names, matches] = await Promise.all([
+    rows<TeamNameRecord[]>(db().from('team_name').select('id, team_id, name, from_year, to_year').eq('team_id', teamId)),
+    allRows<TeamNamesData['matches'][number]>((from, to) =>
+      db().from('match').select('opponent_raw, season(label, start_year)').eq('opponent_id', teamId).order('id').range(from, to),
+    ),
+  ]);
+  return { names, matches };
 }

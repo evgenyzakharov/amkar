@@ -86,8 +86,11 @@ export function windowByDate(date: string): TransferWindow | null {
 
 export function transferValues(d: TransferDraft, base: TransferBase): Omit<TransferRecord, 'id'> & { id?: number } {
   const club = d.club.trim();
-  const team = club ? findTeam(base.teams, club) : undefined;
   const old = d.id != null ? base.transfers.find((t) => t.id === d.id) : undefined;
+  // клуб не трогали — оставляем как в базе: текст, совпавший с новым клубом справочника, сам не перепривязываем
+  const oldClub = old ? (base.teams.find((x) => x.id === old.other_team_id)?.name ?? old.other_team_raw ?? '') : null;
+  const keep = !!old && oldClub != null && club === oldClub.trim();
+  const team = keep ? base.teams.find((x) => x.id === old.other_team_id) : club ? findTeam(base.teams, club) : undefined;
   return {
     ...(d.id != null ? { id: d.id } : {}),
     player_id: Number(d.player_id),
@@ -96,9 +99,9 @@ export function transferValues(d: TransferDraft, base: TransferBase): Omit<Trans
     transfer_window: d.transfer_window || null,
     transfer_date: d.transfer_date || null,
     kind: d.kind || null,
-    other_team_id: team?.id ?? null,
+    other_team_id: keep ? old.other_team_id : (team?.id ?? null),
     // выбран клуб из справочника — прежний текст остаётся как был, иначе клуб хранится текстом
-    other_team_raw: team ? (old?.other_team_raw ?? null) : club || null,
+    other_team_raw: keep ? old.other_team_raw : team ? (old?.other_team_raw ?? null) : club || null,
     notes: d.notes.trim() || null,
   };
 }

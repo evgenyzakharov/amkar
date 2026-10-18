@@ -32,7 +32,7 @@ export async function rows<T>(query: PromiseLike<{ data: unknown; error: { messa
 const SEASON_COLUMNS = 'id, label, start_year, end_year, division, tier, final_place, teams_count';
 export const MATCH_COLUMNS =
   'id, seq, round, match_date, venue, opponent_raw, result, goals_for, goals_against, extra_time, ' +
-  'pens_for, pens_against, awarded, competition(name, kind), team(name)';
+  'pens_for, pens_against, awarded, competition(name, kind), team(name), opponent_name';
 const STATS_COLUMNS =
   'season_id, player_id, season_label, start_year, end_year, division, display_name, academy, shirt_number, ' +
   'position, squad_group, on_loan, sort_order, games, minutes, goals, assists, goals_conceded';
@@ -191,7 +191,7 @@ export async function loadPlayer(id: number): Promise<PlayerPageData> {
       db()
         .from('transfer')
         .select(
-          'id, direction, transfer_window, transfer_date, kind, other_team_raw, notes, season(label, start_year, end_year), team(name)',
+          'id, direction, transfer_window, transfer_date, kind, other_team_raw, notes, season(label, start_year, end_year), team(name), other_team_name',
         )
         .eq('player_id', id),
     ),

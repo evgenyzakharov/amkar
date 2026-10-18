@@ -21,6 +21,7 @@ import {
 import type { Team } from './match';
 import { embeddedCount, loadCoachesPage, loadTeamsPage, type CoachesPageData, type TeamsPageData } from './queries';
 import { useUnsavedGuard } from './useUnsavedGuard';
+import { TeamNamesEditor } from './TeamNamesEditor';
 import { UsageDetails } from './UsageDetails';
 import { supabaseWriter } from './writer';
 
@@ -79,6 +80,9 @@ function Teams({ initial }: { initial: TeamsPageData }) {
           usage={(id) => usage(data.records.find((r) => r.id === id))}
           onSaved={async () => setData(await loadTeamsPage())}
           addLabel="+ соперник"
+          names={(id) => embeddedCount(data.records.find((r) => r.id === id)?.team_name ?? [])}
+          // счётчик «по годам» обновляется, открытый редактор остаётся на месте
+          onNamesSaved={() => void loadTeamsPage().then(setData)}
         />
         <p className="note">
           Название — однозначное: «Динамо Пермь», а не «Динамо». Клуб, на который ссылаются матчи или трансферы, удалить
@@ -221,11 +225,15 @@ interface DirectoryProps {
   usage: (id: number) => { count: number; text: string };
   onSaved: () => Promise<void>;
   addLabel: string;
+  /** Только у соперников: сколько прежних названий; есть — показывать редактор названий по годам. */
+  names?: (id: number) => number;
+  onNamesSaved?: () => void;
 }
 
-function Directory({ config, records, usage, onSaved, addLabel }: DirectoryProps) {
+function Directory({ config, records, usage, onSaved, addLabel, names, onNamesSaved }: DirectoryProps) {
   const [draft, setDraft] = useState<DirDraft[]>(() => dirDraft(records, config));
-  const [open, setOpen] = useState<number | null>(null);
+  const [open, setOpen] = useState<{ id: number; what: 'usage' | 'names' } | null>(null);
+  const toggle = (id: number, what: 'usage' | 'names') => setOpen(open?.id === id && open.what === what ? null : { id, what });
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<Status | null>(null);
   const errors = validateDir(draft, config);
@@ -264,6 +272,7 @@ function Directory({ config, records, usage, onSaved, addLabel }: DirectoryProps
               {config.fields.map((f) => (
                 <th key={f.key}>{f.label}</th>
               ))}
+              {names && <th title="прежние названия клуба по годам">Названия</th>}
               <th>Где встречается</th>
               <th></th>
             </tr>
@@ -286,13 +295,27 @@ function Directory({ config, records, usage, onSaved, addLabel }: DirectoryProps
                       />
                     </td>
                   ))}
+                  {names && (
+                    <td>
+                      {r.id != null && (
+                        <button
+                          type="button"
+                          className="link-button"
+                          aria-expanded={open?.id === r.id && open.what === 'names'}
+                          onClick={() => toggle(r.id!, 'names')}
+                        >
+                          {names(r.id) ? `по годам: ${names(r.id)}` : 'добавить'}
+                        </button>
+                      )}
+                    </td>
+                  )}
                   <td>
                     {u.count > 0 && (
                       <button
                         type="button"
                         className="link-button"
-                        aria-expanded={open === r.id}
-                        onClick={() => setOpen(open === r.id ? null : r.id)}
+                        aria-expanded={open?.id === r.id && open.what === 'usage'}
+                        onClick={() => toggle(r.id!, 'usage')}
                       >
                         {u.text}
                       </button>
@@ -310,10 +333,18 @@ function Directory({ config, records, usage, onSaved, addLabel }: DirectoryProps
                     </button>
                   </td>
                 </tr>
-                {open === r.id && r.id != null && (
+                {open?.id === r.id && r.id != null && (
                   <tr className="usage-row">
-                    <td colSpan={config.fields.length + 2}>
-                      <UsageDetails kind={config.table} id={r.id} />
+                    <td colSpan={config.fields.length + (names ? 3 : 2)}>
+                      {open.what === 'usage' ? (
+                        <UsageDetails kind={config.table} id={r.id} />
+                      ) : (
+                        <TeamNamesEditor
+                          teamId={r.id}
+                          current={String(records.find((x) => x.id === r.id)?.name ?? '')}
+                          onSaved={onNamesSaved}
+                        />
+                      )}
                     </td>
                   </tr>
                 )}

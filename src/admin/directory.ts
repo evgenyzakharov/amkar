@@ -185,3 +185,154 @@ export async function ensureTeam(w: Writer, teams: Team[], teamName: string): Pr
 export async function bindRawOpponent(w: Writer, raw: string, teamId: number): Promise<void> {
   await w.update('match', { opponent_id: teamId }, { opponent_raw: raw, opponent_id: null });
 }
+
+// ===========================================================================
+// Названия клуба по годам (team_name)
+// ===========================================================================
+
+export interface TeamNameRecord {
+  id: number;
+  team_id: number;
+  name: string;
+  from_year: number | null;
+  to_year: number | null;
+}
+
+export interface TeamNameDraft {
+  key: string;
+  id: number | null;
+  name: string;
+  from_year: string;
+  to_year: string;
+}
+
+export function teamNamesDraft(records: TeamNameRecord[]): TeamNameDraft[] {
+  return [...records]
+    .sort((a, b) => (a.from_year ?? 0) - (b.from_year ?? 0) || a.id - b.id)
+    .map((r) => ({
+      key: `id-${r.id}`,
+      id: r.id,
+      name: r.name,
+      from_year: r.from_year == null ? '' : String(r.from_year),
+      to_year: r.to_year == null ? '' : String(r.to_year),
+    }));
+}
+
+const year = (s: string) => {
+  const t = s.trim();
+  if (t === '') return null;
+  return /^\d{4}$/.test(t) && Number(t) >= 1900 && Number(t) <= 2100 ? Number(t) : NaN;
+};
+
+/** Название клуба в году — как функция team_name_in в базе: подходящая запись с самым поздним началом, иначе текущее. */
+export function nameInYear(names: Pick<TeamNameRecord, 'id' | 'name' | 'from_year' | 'to_year'>[], y: number, current: string): string {
+  const fit = names
+    .filter((n) => (n.from_year == null || n.from_year <= y) && (n.to_year == null || n.to_year >= y))
+    .sort((a, b) => (b.from_year ?? -Infinity) - (a.from_year ?? -Infinity) || b.id - a.id);
+  return fit[0]?.name ?? current;
+}
+
+export function teamNameValues(draft: TeamNameDraft[]) {
+  return draft.map((d, i) => ({
+    id: d.id ?? -(i + 1),
+    name: d.name.trim(),
+    from_year: year(d.from_year),
+    to_year: year(d.to_year),
+  }));
+}
+
+export function validateTeamNames(draft: TeamNameDraft[]) {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const values = teamNameValues(draft);
+  values.forEach((v, i) => {
+    const label = v.name || `Строка ${i + 1}`;
+    if (!v.name) errors.push(`Строка ${i + 1}: введите название.`);
+    if (Number.isNaN(v.from_year) || Number.isNaN(v.to_year)) errors.push(`${label}: год — четыре цифры, например 1996.`);
+    else if (v.from_year != null && v.to_year != null && v.from_year > v.to_year) errors.push(`${label}: «с» позже, чем «по».`);
+  });
+  const ok = values.filter((v) => !Number.isNaN(v.from_year) && !Number.isNaN(v.to_year));
+  for (let i = 0; i < ok.length; i++) {
+    for (let j = i + 1; j < ok.length; j++) {
+      const [a, b] = [ok[i], ok[j]];
+      const overlap = (a.from_year ?? -Infinity) <= (b.to_year ?? Infinity) && (b.from_year ?? -Infinity) <= (a.to_year ?? Infinity);
+      if (overlap) warnings.push(`«${a.name}» и «${b.name}» пересекаются по годам — на сайте будет то, что началось позже.`);
+    }
+  }
+  return { errors, warnings };
+}
+
+export function isTeamNamesDirty(draft: TeamNameDraft[], records: TeamNameRecord[]) {
+  if (draft.length !== records.length) return true;
+  const byId = new Map(records.map((r) => [r.id, r]));
+  return teamNameValues(draft).some((v, i) => {
+    const r = draft[i].id != null ? byId.get(draft[i].id!) : undefined;
+    return !r || r.name !== v.name || r.from_year !== v.from_year || r.to_year !== v.to_year;
+  });
+}
+
+export interface TeamNamesSaveOutcome {
+  records: TeamNameRecord[];
+  draft: TeamNameDraft[];
+  error: unknown;
+}
+
+/** Удалить убранные → изменить правленые → вставить новые. */
+export async function saveTeamNames(w: Writer, teamId: number, records0: TeamNameRecord[], draft0: TeamNameDraft[]): Promise<TeamNamesSaveOutcome> {
+  let records = records0;
+  let draft = draft0;
+  try {
+    const kept = new Set(draft.flatMap((d) => (d.id != null ? [d.id] : [])));
+    const removed = records.filter((r) => !kept.has(r.id)).map((r) => r.id);
+    if (removed.length > 0) {
+      await w.remove('team_name', { team_id: teamId }, ['id', removed]);
+      records = records.filter((r) => kept.has(r.id));
+    }
+    const values = teamNameValues(draft);
+    const byId = new Map(records.map((r) => [r.id, r]));
+    const changed = values
+      .filter((_, i) => draft[i].id != null)
+      .filter((v) => {
+        const r = byId.get(v.id)!;
+        return r.name !== v.name || r.from_year !== v.from_year || r.to_year !== v.to_year;
+      })
+      .map((v) => ({ ...v, team_id: teamId }));
+    if (changed.length > 0) {
+      await w.upsert('team_name', changed, 'id');
+      const next = new Map(changed.map((c) => [c.id, c]));
+      records = records.map((r) => next.get(r.id) ?? r);
+    }
+    const added = values.filter((_, i) => draft[i].id == null).map(({ name, from_year, to_year }) => ({ team_id: teamId, name, from_year, to_year }));
+    if (added.length > 0) {
+      const inserted = await w.insert<TeamNameRecord>('team_name', added);
+      let i = 0;
+      draft = draft.map((d) => (d.id == null ? { ...d, id: inserted[i++].id } : d));
+      records = [...records, ...inserted];
+    }
+    return { records, draft, error: null };
+  } catch (error) {
+    return { records, draft, error };
+  }
+}
+
+/** Как клуб записан в Excel: названия с годами — подсказка для названий по годам. */
+export interface ExcelName {
+  raw: string;
+  first: number;
+  last: number;
+  matches: number;
+}
+
+export function excelNames(matches: { opponent_raw: string | null; season: { start_year: number } }[]): ExcelName[] {
+  const by = new Map<string, ExcelName>();
+  for (const m of matches) {
+    if (!m.opponent_raw) continue;
+    const y = m.season.start_year;
+    const e = by.get(m.opponent_raw) ?? { raw: m.opponent_raw, first: y, last: y, matches: 0 };
+    e.first = Math.min(e.first, y);
+    e.last = Math.max(e.last, y);
+    e.matches++;
+    by.set(m.opponent_raw, e);
+  }
+  return [...by.values()].sort((a, b) => a.first - b.first || b.matches - a.matches);
+}

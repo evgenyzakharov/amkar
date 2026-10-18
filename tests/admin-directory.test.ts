@@ -12,7 +12,14 @@ import {
   rawOpponents,
   saveDir,
   validateDir,
+  excelNames,
+  isTeamNamesDirty,
+  nameInYear,
+  saveTeamNames,
+  teamNamesDraft,
+  validateTeamNames,
   type DirRecord,
+  type TeamNameRecord,
 } from '../src/admin/directory';
 import { migratedDb, pgliteWriter } from './db';
 
@@ -86,5 +93,61 @@ describe('справочники', () => {
       { id: 5, opponent_id: 1, opponent_raw: null },
     ]);
     expect((await ensureTeam(w, [...teams, team], 'урал')).created).toBe(false);
+  });
+});
+
+describe('названия клуба по годам', () => {
+  it('выбор названия на год — как в базе', async () => {
+    await db.exec(`
+      insert into team (id, name) values (50, 'Урал Екатеринбург');
+      insert into team_name (team_id, name, from_year, to_year) values (50, 'Уралмаш', null, 2002), (50, 'Урал-Сверд', 2003, 2003), (50, 'Урал Екб', 2001, 2001);
+    `);
+    const names = (await db.query<TeamNameRecord>('select * from team_name where team_id = 50')).rows;
+    for (const y of [1995, 2001, 2002, 2003, 2004, 2020]) {
+      const sql = (await db.query<{ n: string }>('select team_name_in(50, $1) n', [y])).rows[0].n;
+      expect(nameInYear(names, y, 'Урал Екатеринбург')).toBe(sql);
+    }
+    expect(nameInYear(names, 2001, 'Урал Екатеринбург')).toBe('Урал Екб');
+  });
+
+  it('проверки и сохранение; подсказки из Excel с годами', async () => {
+    const records = (await db.query<TeamNameRecord>('select * from team_name where team_id = 50')).rows;
+    let draft = teamNamesDraft(records);
+    expect(draft.map((d) => [d.name, d.from_year, d.to_year])).toEqual([
+      ['Уралмаш', '', '2002'],
+      ['Урал Екб', '2001', '2001'],
+      ['Урал-Сверд', '2003', '2003'],
+    ]);
+    expect(validateTeamNames(draft).warnings).toEqual(['«Уралмаш» и «Урал Екб» пересекаются по годам — на сайте будет то, что началось позже.']);
+    expect(validateTeamNames([{ key: 'k', id: null, name: ' ', from_year: '96', to_year: '' }]).errors).toEqual([
+      'Строка 1: введите название.',
+      'Строка 1: год — четыре цифры, например 1996.',
+    ]);
+    // Урал Екб убрали, Урал-Сверд продлили, добавили «Уралмаш-2»
+    draft = draft.filter((d) => d.name !== 'Урал Екб').map((d) => (d.name === 'Урал-Сверд' ? { ...d, to_year: '2004' } : d));
+    draft.push({ key: 'n', id: null, name: 'Уралмаш-2', from_year: '1990', to_year: '1991' });
+    expect(isTeamNamesDirty(draft, records)).toBe(true);
+    const out = await saveTeamNames(pgliteWriter(db), 50, records, draft);
+    expect(out.error).toBeNull();
+    const after = (await db.query('select name, from_year, to_year from team_name where team_id = 50 order by from_year nulls first')).rows;
+    expect(after).toEqual([
+      { name: 'Уралмаш', from_year: null, to_year: 2002 },
+      { name: 'Уралмаш-2', from_year: 1990, to_year: 1991 },
+      { name: 'Урал-Сверд', from_year: 2003, to_year: 2004 },
+    ]);
+    const fresh = (await db.query<TeamNameRecord>('select * from team_name where team_id = 50')).rows;
+    expect(isTeamNamesDirty(teamNamesDraft(fresh), fresh)).toBe(false);
+
+    expect(
+      excelNames([
+        { opponent_raw: 'Урал', season: { start_year: 2005 } },
+        { opponent_raw: 'Уралмаш', season: { start_year: 1996 } },
+        { opponent_raw: 'Уралмаш', season: { start_year: 2001 } },
+        { opponent_raw: 'Урал', season: { start_year: 2017 } },
+      ]),
+    ).toEqual([
+      { raw: 'Уралмаш', first: 1996, last: 2001, matches: 2 },
+      { raw: 'Урал', first: 2005, last: 2017, matches: 2 },
+    ]);
   });
 });
