@@ -1,12 +1,13 @@
 import { LoadStatus } from '../components/common';
 import { loadSeasons } from '../db/queries';
-import { useLoad } from '../load';
+import { useDocumentTitle, useLoad } from '../load';
 import { adminSeasonHref } from '../router';
 
 const loadAll = () => loadSeasons();
 
 export function AdminHome() {
   const state = useLoad(null, loadAll);
+  useDocumentTitle('Админка');
   if (state.status !== 'ready') return <LoadStatus state={state} />;
 
   // Свежие сезоны сверху: вводить чаще всего придётся текущий

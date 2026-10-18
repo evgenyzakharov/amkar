@@ -1,64 +1,11 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { join } from 'node:path';
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { beforeAll, describe, expect, it } from 'vitest';
-
-const MIGRATIONS_DIR = fileURLToPath(new URL('../supabase/migrations', import.meta.url));
-
-// Минимум того, что Supabase создаёт сам: роли API, схема auth и auth.uid() из JWT
-const SUPABASE_BASE = `
-  create role anon nologin;
-  create role authenticated nologin;
-  create schema auth;
-  create table auth.users (id uuid primary key, email text);
-  create function auth.uid() returns uuid language sql stable
-    as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-  grant usage on schema auth to anon, authenticated;
-  grant usage on schema public to anon, authenticated;
-`;
-
-// «Automatically expose new tables» включено: ролям API все права на новые объекты, защищает только RLS
-const SUPABASE_EXPOSED = `${SUPABASE_BASE}
-  alter default privileges in schema public grant all on tables to anon, authenticated;
-  alter default privileges in schema public grant all on sequences to anon, authenticated;
-  alter default privileges in schema public grant all on functions to anon, authenticated;
-`;
-
-// «Automatically expose new tables» выключено, худший случай: права никто не выдаёт, даже на вызов функций.
-// Отзыв глобальный: «in schema public» не отменил бы общего права PUBLIC на функции.
-const SUPABASE_STRICT = `${SUPABASE_BASE}
-  alter default privileges revoke execute on functions from public;
-`;
-
-const ADMIN = '00000000-0000-0000-0000-00000000000a';
-const STRANGER = '00000000-0000-0000-0000-00000000000b';
+import { ADMIN, STRANGER, SUPABASE_EXPOSED, SUPABASE_STRICT, asUser as asUserIn, migratedDb } from './db';
 
 let db: PGlite;
 
-async function migratedDb(stub: string) {
-  const conn = new PGlite();
-  await conn.exec(stub);
-  for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()) {
-    await conn.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
-  }
-  await conn.exec(`
-    insert into auth.users (id, email) values ('${ADMIN}', 'admin@example.com'), ('${STRANGER}', 'x@example.com');
-    insert into admins (user_id) values ('${ADMIN}');
-  `);
-  return conn;
-}
-
 /** Выполняет запрос так, как его выполнил бы клиент Supabase с анонимным ключом или от имени пользователя. */
-async function asUser(userId: string | null, sql: string, conn = db) {
-  await conn.query(`select set_config('request.jwt.claim.sub', $1, false)`, [userId ?? '']);
-  await conn.exec(`set role ${userId ? 'authenticated' : 'anon'}`);
-  try {
-    return await conn.query(sql);
-  } finally {
-    await conn.exec('reset role');
-  }
-}
+const asUser = (userId: string | null, sql: string, conn = db) => asUserIn(conn, userId, sql);
 
 beforeAll(async () => {
   db = await migratedDb(SUPABASE_EXPOSED);

@@ -1,6 +1,6 @@
 import { LoadStatus, PageNav, ResultBadge, Tag } from '../components/common';
 import { COMPETITION_SHORT, formatDate, formatScore, opponentName } from '../format';
-import { useLoad } from '../load';
+import { useDocumentTitle, useLoad } from '../load';
 import { adminHref, adminMatchHref, adminNewMatchHref, seasonHref } from '../router';
 import { embeddedCount, loadAdminSeason } from './queries';
 
@@ -8,6 +8,7 @@ const VENUE_SHORT = { home: 'д', away: 'г', neutral: 'н' } as const;
 
 export function AdminSeason({ label }: { label: string }) {
   const state = useLoad(label, loadAdminSeason);
+  useDocumentTitle(`Правка сезона ${label}`);
   if (state.status !== 'ready') return <LoadStatus state={state} />;
   const { season, matches } = state.data;
 

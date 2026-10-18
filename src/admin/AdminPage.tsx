@@ -1,15 +1,13 @@
 import { signOut, useAuth } from '../auth';
-import { NotFound } from '../components/common';
-import { useDocumentTitle } from '../load';
 import type { AdminRoute } from '../router';
 import { AdminHome } from './AdminHome';
 import { AdminSeason } from './AdminSeason';
 import { LoginForm } from './LoginForm';
+import { MatchEditor, NewMatchEditor } from './MatchEditor';
 
 /** #/admin/…: без входа — форма входа, без прав админа — объяснение, иначе раздел админки. */
 export function AdminPage({ route }: { route: AdminRoute }) {
   const auth = useAuth();
-  useDocumentTitle('Админка');
 
   if (auth.status === 'loading') return <p className="muted">Загрузка…</p>;
   if (auth.status === 'signed-out') return <LoginForm />;
@@ -35,7 +33,9 @@ export function AdminPage({ route }: { route: AdminRoute }) {
       return <AdminHome />;
     case 'season':
       return <AdminSeason label={route.label} />;
-    default:
-      return <NotFound message="Такого раздела в админке пока нет." />;
+    case 'match':
+      return <MatchEditor id={route.id} />;
+    case 'new-match':
+      return <NewMatchEditor label={route.label} />;
   }
 }

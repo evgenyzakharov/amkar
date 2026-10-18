@@ -83,6 +83,20 @@ export interface Appearance {
   player: { display_name: string };
 }
 
+/** Гол матча с именами автора и ассистента. */
+export interface Goal {
+  id: number;
+  side: 'amkar' | 'opponent';
+  minute: number | null;
+  added_time: number | null;
+  kind: 'open_play' | 'penalty' | 'own_goal';
+  scorer_id: number | null;
+  scorer_name: string | null;
+  assist_id: number | null;
+  scorer: { display_name: string } | null;
+  assist: { display_name: string } | null;
+}
+
 export interface Absence {
   player_id: number;
   reason: AbsenceReason;

@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { signIn } from '../auth';
+import { useDocumentTitle } from '../load';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useDocumentTitle('Вход');
 
   async function submit(e: FormEvent) {
     e.preventDefault();

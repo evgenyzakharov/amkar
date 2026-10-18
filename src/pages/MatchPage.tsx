@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { EditLink, LoadStatus, PageNav, ResultBadge, Tag } from '../components/common';
 import { loadMatch } from '../db/queries';
-import type { Absence, AbsenceReason, Appearance, SquadEntry } from '../db/types';
+import type { Absence, AbsenceReason, Appearance, Goal, SquadEntry } from '../db/types';
 import {
   ABSENCE_LABEL,
   AWARDED_LABEL,
@@ -21,7 +21,7 @@ export function MatchPage({ id }: { id: number }) {
   useDocumentTitle(match ? `${opponentName(match)}, ${match.season.label}` : `Матч №${id}`);
   if (state.status !== 'ready') return <LoadStatus state={state} />;
 
-  const { lineup, absences, squad, prevId, nextId } = state.data;
+  const { lineup, goals, absences, squad, prevId, nextId } = state.data;
   const m = state.data.match;
   const score = formatScore(m);
   const details = [
@@ -59,6 +59,8 @@ export function MatchPage({ id }: { id: number }) {
         </p>
       )}
       {m.notes && <p>{m.notes}</p>}
+
+      {goals.length > 0 && <Goals goals={goals} opponent={opponentName(m)} />}
 
       {lineup.length > 0 ? (
         <Lineup lineup={lineup} squad={squad} />
@@ -194,6 +196,56 @@ function Lineup({ lineup, squad }: { lineup: Appearance[]; squad: SquadEntry[] }
         </section>
       )}
     </>
+  );
+}
+
+/** Голы по ходу матча: забитые «Амкаром» — слева, соперником — справа. */
+function Goals({ goals, opponent }: { goals: Goal[]; opponent: string }) {
+  const minute = (g: Goal) => (g.minute == null ? '' : `${g.minute}${g.added_time ? `+${g.added_time}` : ''}'`);
+  const describe = (g: Goal) => {
+    const name = g.scorer_id ? (
+      <a href={playerHref(g.scorer_id)}>{g.scorer?.display_name}</a>
+    ) : (
+      (g.scorer_name ?? <span className="muted">автор неизвестен</span>)
+    );
+    return (
+      <>
+        {name}
+        {g.kind === 'penalty' && <Tag title="с пенальти">пен.</Tag>}
+        {g.kind === 'own_goal' && <Tag title="автогол">автогол</Tag>}
+        {g.assist_id && (
+          <span className="muted">
+            {' '}
+            (пас <a href={playerHref(g.assist_id)}>{g.assist?.display_name}</a>)
+          </span>
+        )}
+      </>
+    );
+  };
+  return (
+    <section>
+      <h3>Голы</h3>
+      <div className="table-wrap">
+        <table className="data-table goals-table">
+          <thead>
+            <tr>
+              <th className="num">Мин</th>
+              <th>Амкар</th>
+              <th>{opponent}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {goals.map((g) => (
+              <tr key={g.id}>
+                <td className="num">{minute(g)}</td>
+                <td>{g.side === 'amkar' && describe(g)}</td>
+                <td>{g.side === 'opponent' && describe(g)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

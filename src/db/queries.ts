@@ -5,6 +5,7 @@ import type {
   Absence,
   Appearance,
   BestXiSlot,
+  Goal,
   MatchDetails,
   MatchRow,
   Player,
@@ -73,6 +74,7 @@ export async function loadSeason(label: string): Promise<SeasonPageData> {
 export interface MatchPageData {
   match: MatchDetails;
   lineup: Appearance[];
+  goals: Goal[];
   absences: Absence[];
   squad: SquadEntry[];
   prevId: number | null;
@@ -89,11 +91,20 @@ export async function loadMatch(id: number): Promise<MatchPageData> {
   );
   if (!match) throw new NotFoundError(`Матча №${id} в базе нет.`);
 
-  const [lineup, absences, squad, seasonMatches] = await Promise.all([
+  const [lineup, goals, absences, squad, seasonMatches] = await Promise.all([
     rows<Appearance[]>(
       db()
         .from('appearance')
         .select('player_id, role, minutes, minute_on, minute_off, replaced_player_id, injured, sent_off, player(display_name)')
+        .eq('match_id', id),
+    ),
+    rows<Goal[]>(
+      db()
+        .from('goal')
+        .select(
+          'id, side, minute, added_time, kind, scorer_id, scorer_name, assist_id, ' +
+            'scorer:player!scorer_id(display_name), assist:player!assist_id(display_name)',
+        )
         .eq('match_id', id),
     ),
     rows<Absence[]>(db().from('absence').select('player_id, reason, player(display_name)').eq('match_id', id)),
@@ -103,9 +114,12 @@ export async function loadMatch(id: number): Promise<MatchPageData> {
     rows<{ id: number }[]>(db().from('match').select('id').eq('season_id', match.season_id).order('seq')),
   ]);
   const i = seasonMatches.findIndex((m) => m.id === id);
+  // Голы по ходу матча; без минуты — в конце, в порядке записи
+  goals.sort((a, b) => (a.minute ?? 999) - (b.minute ?? 999) || (a.added_time ?? 0) - (b.added_time ?? 0) || a.id - b.id);
   return {
     match,
     lineup,
+    goals,
     absences,
     squad,
     prevId: seasonMatches[i - 1]?.id ?? null,

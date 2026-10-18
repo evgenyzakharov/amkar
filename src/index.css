@@ -395,3 +395,168 @@ input:invalid,
   flex-direction: column;
   gap: 2px;
 }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px 16px;
+  align-items: start;
+}
+
+.form-grid > label,
+.form-grid > fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.form-grid label.inline,
+label.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
+.form-grid > label.inline {
+  align-self: end;
+  padding-bottom: 4px;
+}
+
+.form-grid .span-2 {
+  grid-column: span 2;
+}
+
+.form-grid .span-all {
+  grid-column: 1 / -1;
+}
+
+.form-grid fieldset.score {
+  grid-column: span 2;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.form-grid fieldset.score legend {
+  padding: 0;
+  margin-bottom: 2px;
+}
+
+.score .pens {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.field-note {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+input.w-num {
+  width: 3.5em;
+}
+
+input.w-min {
+  width: 4em;
+}
+
+input.w-short {
+  width: 7em;
+}
+
+/* Таблицы ввода: поля впритык, строки поплотнее */
+.edit-table td {
+  padding: 2px 6px;
+}
+
+.edit-table td.center {
+  text-align: center;
+}
+
+.edit-table select {
+  max-width: 14em;
+}
+
+.edit-table .row-off td {
+  color: var(--muted);
+}
+
+.edit-table input.auto {
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.minutes-cell {
+  white-space: nowrap;
+}
+
+.goal-against td:first-child {
+  border-left: 3px solid var(--loss);
+}
+
+.goal-for td:first-child {
+  border-left: 3px solid var(--win);
+}
+
+.lineup-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  font-size: 0.9rem;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Кнопки сохранения всегда под рукой */
+.save-bar {
+  position: sticky;
+  bottom: 0;
+  margin-top: 24px;
+  padding: 8px 0;
+  border-top: 2px solid var(--border);
+  background: var(--bg);
+}
+
+.save-bar ul {
+  margin: 0 0 8px;
+  padding-left: 20px;
+  font-size: 0.9rem;
+}
+
+.save-bar .warnings {
+  color: var(--draw);
+}
+
+.save-bar p {
+  margin: 4px 0;
+}
+
+.ok {
+  color: var(--win);
+}
+
+.danger-zone {
+  margin-top: 48px;
+}

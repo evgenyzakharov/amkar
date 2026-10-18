@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { AdminPage } from './admin/AdminPage';
+import { lazy, Suspense, useEffect } from 'react';
 import { signOut, useAuth } from './auth';
 import { AuthProvider } from './components/AuthProvider';
 import { NotFound } from './components/common';
@@ -8,6 +7,9 @@ import { PlayerPage } from './pages/PlayerPage';
 import { SeasonPage } from './pages/SeasonPage';
 import { SeasonsPage } from './pages/SeasonsPage';
 import { adminHref, parseRoute, useHash, type Route } from './router';
+
+// Админка — отдельным файлом: посетителям сайта её код не нужен
+const AdminPage = lazy(() => import('./admin/AdminPage').then((m) => ({ default: m.AdminPage })));
 
 function Page({ route }: { route: Route }) {
   switch (route.page) {
@@ -20,7 +22,11 @@ function Page({ route }: { route: Route }) {
     case 'player':
       return <PlayerPage id={route.id} />;
     case 'admin':
-      return <AdminPage route={route.admin} />;
+      return (
+        <Suspense fallback={<p className="muted">Загрузка…</p>}>
+          <AdminPage route={route.admin} />
+        </Suspense>
+      );
     case 'not-found':
       return <NotFound message="Такой страницы нет." />;
   }
