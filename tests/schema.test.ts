@@ -129,6 +129,108 @@ describe('права при выключенном «Automatically expose new ta
       asUser(STRANGER, `insert into season (label, start_year, end_year) values ('2010', 2010, 2010)`, strict),
     ).rejects.toThrow(/row-level security/);
   });
+
+  it('аноним читает статистику игроков', async () => {
+    const { rows } = await asUser(null, `select count(*)::int n from player_season_stats`, strict);
+    expect(rows).toEqual([{ n: 0 }]);
+  });
+});
+
+describe('статистика игрока за сезон (player_season_stats)', () => {
+  let stats: PGlite;
+  beforeAll(async () => {
+    stats = await migratedDb(SUPABASE_EXPOSED);
+    await stats.exec(`
+      insert into season (id, label, start_year, end_year) values (1, '2011/12', 2011, 2012), (2, '2012/13', 2012, 2013);
+      insert into player (id, display_name, last_name, academy) values
+        (1, 'Нарубин', 'Нарубин', false), (2, 'Пеев', 'Пеев', false), (3, 'Кушев', 'Кушев', true),
+        (4, 'Запасной', 'Запасной', false), (5, 'Новичок', 'Новичок', false);
+      insert into squad_member (season_id, player_id, shirt_number, position, on_loan) values
+        (1, 1, 1, 'GK', false), (1, 2, 7, 'MF', false), (1, 3, 29, 'FW', true), (1, 4, 30, 'DF', false),
+        (1, 5, 31, 'DF', false), (2, 2, 7, 'MF', false);
+      insert into match (id, season_id, competition_id, seq, opponent_raw, result, extra_time) values
+        (1, 1, (select id from competition where kind = 'league'), 1, 'Зенит', 'W', false),
+        (2, 1, (select id from competition where kind = 'cup'), 2, 'Енисей', 'L', true),
+        (3, 1, (select id from competition where kind = 'friendly'), 3, 'Звезда', 'D', false),
+        (4, 2, (select id from competition where kind = 'league'), 1, 'Рубин', 'D', false);
+      insert into appearance (match_id, player_id, role, minutes, minute_on, minute_off, replaced_player_id) values
+        (1, 1, 'start', 90, null, null, null),
+        (1, 3, 'start', 60, null, 60, null),
+        (1, 2, 'sub', 30, 61, null, 3),
+        (1, 4, 'bench', 0, null, null, null),
+        (2, 1, 'start', 120, null, null, null),
+        (2, 2, 'bench', 0, null, null, null),
+        (2, 3, null, 45, null, null, null),   -- старый матч: роль неизвестна, есть только минуты
+        (2, 4, null, null, null, null, null), -- в заявке, минуты неизвестны
+        (3, 1, 'start', 90, null, null, null),
+        (3, 5, 'start', 90, null, null, null),
+        (4, 2, 'start', 90, null, null, null);
+      insert into player_season_totals (season_id, player_id, competition_id, goals, assists, goals_conceded) values
+        (1, 1, (select id from competition where kind = 'league'), null, null, 1),
+        (1, 1, (select id from competition where kind = 'cup'), null, null, 2),
+        (1, 2, (select id from competition where kind = 'league'), 1, 0, null),
+        (1, 2, (select id from competition where kind = 'cup'), 2, null, null),
+        (1, 3, (select id from competition where kind = 'league'), null, 1, null);
+    `);
+  }, 60_000);
+
+  const season = async (seasonId: number) =>
+    (
+      await stats.query(
+        `select player_id, games, minutes, goals, assists, goals_conceded from player_season_stats
+         where season_id = $1 order by player_id`,
+        [seasonId],
+      )
+    ).rows;
+
+  it('игры и минуты по матчам, голы и передачи из итогов, без товарищеских', async () => {
+    expect(await season(1)).toEqual([
+      { player_id: 1, games: 2, minutes: 210, goals: null, assists: null, goals_conceded: 3 },
+      { player_id: 2, games: 1, minutes: 30, goals: 3, assists: 0, goals_conceded: null },
+      { player_id: 3, games: 2, minutes: 105, goals: null, assists: 1, goals_conceded: null },
+      // запас и «минуты неизвестны» — не игры
+      { player_id: 4, games: 0, minutes: 0, goals: null, assists: null, goals_conceded: null },
+      // в заявке, но играл только в товарищеском
+      { player_id: 5, games: 0, minutes: 0, goals: null, assists: null, goals_conceded: null },
+    ]);
+  });
+
+  it('сезоны игрока не смешиваются, рядом — заявка и сезон', async () => {
+    const { rows } = await stats.query(
+      `select season_label, shirt_number, position, on_loan, academy, games, minutes
+       from player_season_stats where player_id in (2, 3) order by player_id, start_year`,
+    );
+    expect(rows).toEqual([
+      { season_label: '2011/12', shirt_number: 7, position: 'MF', on_loan: false, academy: false, games: 1, minutes: 30 },
+      { season_label: '2012/13', shirt_number: 7, position: 'MF', on_loan: false, academy: false, games: 1, minutes: 90 },
+      { season_label: '2011/12', shirt_number: 29, position: 'FW', on_loan: true, academy: true, games: 2, minutes: 105 },
+    ]);
+  });
+
+  it('ролям API — только чтение, хотя Supabase по умолчанию выдал бы всё', async () => {
+    const { rows } = await asUser(null, `select count(*)::int n from player_season_stats`, stats);
+    expect(rows).toEqual([{ n: 6 }]);
+    const privileges = await stats.query(`
+      select r.role, string_agg(p.privilege, ',' order by p.privilege) granted
+      from unnest(array['anon', 'authenticated']) r(role)
+      cross join unnest(array['select', 'insert', 'update', 'delete', 'truncate']) p(privilege)
+      where has_table_privilege(r.role, 'player_season_stats', p.privilege)
+      group by r.role order by r.role`);
+    expect(privileges.rows).toEqual([
+      { role: 'anon', granted: 'select' },
+      { role: 'authenticated', granted: 'select' },
+    ]);
+  });
+
+  it('читает с правами спрашивающего: RLS таблиц действует и через view', async () => {
+    await stats.exec(`begin; create policy "скрыть" on squad_member as restrictive for select to anon using (season_id <> 1)`);
+    try {
+      const { rows } = await asUser(null, `select season_label from player_season_stats`, stats);
+      expect(rows).toEqual([{ season_label: '2012/13' }]);
+    } finally {
+      await stats.exec('rollback');
+    }
+  });
 });
 
 describe('ограничения матча', () => {
