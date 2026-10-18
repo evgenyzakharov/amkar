@@ -1,57 +1,45 @@
-import { useEffect, useState } from 'react';
-import { supabase } from './db/supabase';
-import type { Season } from './db/types';
+import { useEffect } from 'react';
+import { NotFound } from './components/common';
+import { MatchPage } from './pages/MatchPage';
+import { PlayerPage } from './pages/PlayerPage';
+import { SeasonPage } from './pages/SeasonPage';
+import { SeasonsPage } from './pages/SeasonsPage';
+import { parseRoute, useHash, type Route } from './router';
 
-type SeasonsState =
-  | { status: 'loading' }
-  | { status: 'error'; message: string }
-  | { status: 'ready'; seasons: Season[] };
+function Page({ route }: { route: Route }) {
+  switch (route.page) {
+    case 'seasons':
+      return <SeasonsPage />;
+    case 'season':
+      return <SeasonPage label={route.label} />;
+    case 'match':
+      return <MatchPage id={route.id} />;
+    case 'player':
+      return <PlayerPage id={route.id} />;
+    case 'not-found':
+      return <NotFound message="Такой страницы нет." />;
+  }
+}
 
 function App() {
-  const [state, setState] = useState<SeasonsState>(() =>
-    supabase ? { status: 'loading' } : { status: 'error', message: 'Supabase не настроен: заполните .env' },
-  );
+  const hash = useHash();
 
+  // Переход по ссылке — новая страница: начинаем её сверху
   useEffect(() => {
-    if (!supabase) return;
-    supabase
-      .from('season')
-      .select('id, label, start_year, end_year, division, tier, final_place, teams_count')
-      .order('start_year')
-      .order('end_year')
-      .then(({ data, error }) => {
-        setState(error ? { status: 'error', message: error.message } : { status: 'ready', seasons: data ?? [] });
-      });
-  }, []);
+    window.scrollTo(0, 0);
+  }, [hash]);
 
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Амкар</h1>
+        <h1>
+          <a href="#/">Амкар</a>
+        </h1>
         <p>История клуба в цифрах</p>
       </header>
 
       <main>
-        <h2>Сезоны</h2>
-        {state.status === 'loading' && <p className="muted">Загрузка…</p>}
-        {state.status === 'error' && <p className="error">{state.message}</p>}
-        {state.status === 'ready' && state.seasons.length === 0 && <p className="muted">Данных пока нет.</p>}
-        {state.status === 'ready' && state.seasons.length > 0 && (
-          <ul className="season-list">
-            {state.seasons.map((s) => (
-              <li key={s.id}>
-                <span className="season-label">{s.label}</span>
-                {s.division && <span className="muted"> · {s.division}</span>}
-                {s.final_place && (
-                  <span className="muted">
-                    {' '}
-                    · {s.final_place} место{s.teams_count ? ` из ${s.teams_count}` : ''}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        <Page route={parseRoute(hash)} />
       </main>
     </div>
   );

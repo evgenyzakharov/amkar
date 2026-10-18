@@ -10,6 +10,13 @@
 - Явные id при вставке не двигают identity — после них `setval` (пример в [tests/schema.test.ts](tests/schema.test.ts)).
 - Схема меняется только новой миграцией в `supabase/migrations` + тест в `tests/schema.test.ts`.
 
+## Сайт
+
+- Маршруты на hash: `#/season/2011-12` (в метке сезона `/` заменён на `-`), `#/match/<id>`, `#/player/<id>` — [src/router.ts](src/router.ts).
+- Агрегаты считаются во view (`player_season_stats`), не на клиенте: PostgREST отдаёт не больше 1000 строк за запрос. Игра — минуты больше нуля или роль `start`/`sub`, товарищеские не в счёт.
+- Части страниц из view грузятся отдельно (`part()` в [src/load.ts](src/load.ts)): пока автор не выполнил новую миграцию, остальная страница работает.
+- Браузерные инструменты на машине автора не запускать. Страницы проверять сборкой в один IIFE-файл и прогоном в jsdom против настоящего Supabase.
+
 ## Разовый импорт из Амкар.xlsx
 
 Импортёр в репозитории не хранится. Пока импорт не принят, всё лежит в `local/import/`: `import_amkar.py` (`py -3 -I import_amkar.py <xlsx> local/import`), готовые `01…04*.sql`, `import-report.md` с нестыковками и `verify.mjs` — прогон миграций и импорта на PGlite (`node local/import/verify.mjs`). Файл xlsx лежит у автора; путь спросить.
