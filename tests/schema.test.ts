@@ -415,6 +415,92 @@ describe('голы за сезон по матчам (season.goals_from_matches)
   });
 });
 
+describe('итоги за карьеру (player_career_stats)', () => {
+  let cs: PGlite;
+  beforeAll(async () => {
+    cs = await migratedDb(SUPABASE_EXPOSED);
+    await cs.exec(`
+      -- 2011/12 — голы из таблицы автора, 2012/13 — по матчам
+      insert into season (id, label, start_year, end_year, goals_from_matches) values
+        (1, '2011/12', 2011, 2012, false), (2, '2012/13', 2012, 2013, true);
+      insert into player (id, display_name, last_name) values (1, 'Пеев', 'Пеев'), (2, 'Кушев', 'Кушев'), (3, 'Новичок', 'Новичок');
+      insert into squad_member (season_id, player_id) values (1, 1), (1, 2), (1, 3), (2, 1), (2, 2);
+      insert into match (id, season_id, competition_id, seq, opponent_raw) values
+        (1, 1, (select id from competition where kind = 'league'), 1, 'Зенит'),
+        (2, 1, (select id from competition where kind = 'cup'), 2, 'Енисей'),
+        (3, 1, (select id from competition where kind = 'friendly'), 3, 'Звезда'),
+        (4, 1, (select id from competition where kind = 'playoff'), 4, 'Луч'),
+        (5, 2, (select id from competition where kind = 'league'), 1, 'Рубин'),
+        (6, 2, (select id from competition where kind = 'cup'), 2, 'Урал');
+      insert into appearance (match_id, player_id, role, minutes, minute_on) values
+        (1, 1, 'start', 90, null), (2, 1, 'start', 90, null), (3, 1, 'start', 90, null), (4, 1, 'sub', 20, 71),
+        (1, 2, 'bench', 0, null), (2, 2, null, 45, null),
+        (5, 1, 'start', 90, null), (6, 1, 'start', 90, null), (5, 2, 'sub', 10, 81);
+      insert into player_season_totals (season_id, player_id, competition_id, goals, assists, goals_conceded) values
+        (1, 1, (select id from competition where kind = 'league'), 5, null, null),
+        (1, 1, (select id from competition where kind = 'cup'), 2, null, null),
+        (1, 2, (select id from competition where kind = 'league'), null, null, null),
+        (1, 2, (select id from competition where kind = 'cup'), 1, null, null),
+        -- сезон по матчам: итоги из таблицы автора не считаются
+        (2, 1, (select id from competition where kind = 'league'), 99, null, null);
+      insert into goal (match_id, side, minute, kind, scorer_id, scorer_name) values
+        (5, 'amkar', 10, 'open_play', 1, null), (5, 'amkar', 80, 'penalty', 1, null),
+        (5, 'amkar', 85, 'own_goal', null, 'Защитник Рубина'),
+        (6, 'amkar', 30, 'open_play', 2, null),
+        (6, 'opponent', 40, 'own_goal', 1, null);
+    `);
+  }, 60_000);
+
+  it('игры и голы во всех турнирах и в чемпионате, без товарищеских, годы в клубе', async () => {
+    const { rows } = await asUserIn(
+      cs,
+      null,
+      `select player_id, seasons, first_season, last_season, first_year, last_year, games, games_league, goals, goals_league
+       from player_career_stats order by player_id`,
+    );
+    expect(rows).toEqual([
+      // 2011/12: чемпионат, кубок и стыки (товарищеский не в счёт); голы 5 + 2 из таблицы автора.
+      // 2012/13: голы по матчам — два своих, автогол соперника и автогол в свои ворота не в счёт
+      { player_id: 1, seasons: 2, first_season: '2011/12', last_season: '2012/13', first_year: 2011, last_year: 2013, games: 5, games_league: 2, goals: 9, goals_league: 7 },
+      // в чемпионате 2011/12 голы неизвестны, в 2012/13 — ноль по матчам
+      { player_id: 2, seasons: 2, first_season: '2011/12', last_season: '2012/13', first_year: 2011, last_year: 2013, games: 2, games_league: 1, goals: 2, goals_league: 0 },
+      { player_id: 3, seasons: 1, first_season: '2011/12', last_season: '2011/12', first_year: 2011, last_year: 2012, games: 0, games_league: 0, goals: null, goals_league: null },
+    ]);
+  });
+
+  it('итог за карьеру — сумма сезонов из player_season_stats, голы не задваиваются', async () => {
+    const { rows } = await cs.query(`
+      select c.player_id from player_career_stats c
+      join (select player_id, sum(games)::int games, sum(goals)::int goals from player_season_stats group by player_id) s
+        on s.player_id = c.player_id
+      where c.games <> s.games or c.goals is distinct from s.goals`);
+    expect(rows).toEqual([]);
+  });
+
+  it('ролям API — только чтение, RLS таблиц действует и через view', async () => {
+    const privileges = await cs.query(`
+      select r.role, string_agg(p.privilege, ',' order by p.privilege) granted
+      from unnest(array['anon', 'authenticated']) r(role)
+      cross join unnest(array['select', 'insert', 'update', 'delete', 'truncate']) p(privilege)
+      where has_table_privilege(r.role, 'player_career_stats', p.privilege)
+      group by r.role order by r.role`);
+    expect(privileges.rows).toEqual([
+      { role: 'anon', granted: 'select' },
+      { role: 'authenticated', granted: 'select' },
+    ]);
+    await cs.exec(`begin; create policy "скрыть" on squad_member as restrictive for select to anon using (season_id <> 1)`);
+    try {
+      const { rows } = await asUserIn(cs, null, `select player_id, seasons from player_career_stats order by player_id`);
+      expect(rows).toEqual([
+        { player_id: 1, seasons: 1 },
+        { player_id: 2, seasons: 1 },
+      ]);
+    } finally {
+      await cs.exec('rollback');
+    }
+  });
+});
+
 describe('фото игрока по ссылке (player.photo_url)', () => {
   let ph: PGlite;
   beforeAll(async () => {
