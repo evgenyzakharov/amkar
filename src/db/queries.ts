@@ -5,6 +5,7 @@ import type {
   Absence,
   Appearance,
   BestXiSlot,
+  CareerStats,
   ExternalLink,
   Goal,
   MatchDetails,
@@ -248,3 +249,13 @@ export async function loadPlayers(): Promise<PlayersPageItem[]> {
     (a, b) => a.last_name.localeCompare(b.last_name, 'ru') || a.display_name.localeCompare(b.display_name, 'ru'),
   );
 }
+
+/** Итоги всех игроков за карьеру — для страницы лидеров; сортирует и режет страница. */
+export const loadLeaders = () =>
+  allRows<CareerStats>((from, to) =>
+    db()
+      .from('player_career_stats')
+      .select('player_id, display_name, last_name, first_year, last_year, games, games_league, goals, goals_league')
+      .order('player_id')
+      .range(from, to),
+  );

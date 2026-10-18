@@ -961,6 +961,81 @@ h3 {
   font-size: 13px;
 }
 
+/* Заголовок страницы-списка и переключатель рядом */
+.page-title {
+  margin: 0;
+  font-size: clamp(32px, 7vw, 44px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+}
+
+.segmented a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 19px;
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.segmented a.active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* Сезоны колонками по эпохам; на телефоне — друг под другом */
+.epochs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: start;
+  gap: 24px;
+}
+
+.epochs .season-list li:last-child {
+  border-bottom: 0;
+}
+
+/* Лидеры по играм и голам */
+.leaders-table .rank {
+  width: 3.5em;
+  color: var(--muted);
+}
+
+.leaders-table .value {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.leaders-table td {
+  vertical-align: baseline;
+}
+
+.show-all {
+  margin-top: 12px;
+}
+
 /* ===== Админка ===== */
 
 .admin-links {

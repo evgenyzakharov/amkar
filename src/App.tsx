@@ -4,10 +4,11 @@ import { AuthProvider } from './components/AuthProvider';
 import { NotFound } from './components/common';
 import { MatchPage } from './pages/MatchPage';
 import { PlayerPage } from './pages/PlayerPage';
+import { LeadersPage } from './pages/LeadersPage';
 import { PlayersPage } from './pages/PlayersPage';
 import { SeasonPage } from './pages/SeasonPage';
 import { SeasonsPage } from './pages/SeasonsPage';
-import { adminHref, parseRoute, playersHref, useHash, type Route } from './router';
+import { adminHref, leadersHref, parseRoute, playersHref, useHash, type Route } from './router';
 
 // Админка — отдельным файлом: посетителям сайта её код не нужен
 const AdminPage = lazy(() => import('./admin/AdminPage').then((m) => ({ default: m.AdminPage })));
@@ -24,6 +25,8 @@ function Page({ route }: { route: Route }) {
       return <PlayerPage id={route.id} />;
     case 'players':
       return <PlayersPage />;
+    case 'leaders':
+      return <LeadersPage scope={route.scope} />;
     case 'admin':
       return (
         <Suspense fallback={<p className="muted">Загрузка…</p>}>
@@ -53,7 +56,8 @@ function AdminLinks() {
 }
 
 /** Раздел шапки, к которому относится страница: матчи — часть сезонов. */
-function sectionOf(route: Route): 'seasons' | 'players' | null {
+function sectionOf(route: Route): 'seasons' | 'players' | 'leaders' | null {
+  if (route.page === 'leaders') return 'leaders';
   if (route.page === 'seasons' || route.page === 'season' || route.page === 'match') return 'seasons';
   if (route.page === 'players' || route.page === 'player') return 'players';
   return null;
@@ -82,6 +86,9 @@ function App() {
             </a>
             <a href={playersHref} className={section === 'players' ? 'active' : undefined}>
               Игроки
+            </a>
+            <a href={leadersHref()} className={section === 'leaders' ? 'active' : undefined}>
+              Лидеры
             </a>
           </nav>
           <AdminLinks />
