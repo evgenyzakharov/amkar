@@ -17,7 +17,7 @@ import {
 import type { SquadBase, SquadPlayerInfo, SquadRecord } from './squad';
 import { TRANSFER_COLUMNS, type TransferBase, type TransferRecord } from './transfers';
 import { rawOpponents, type DirRecord, type RawOpponent, type TeamNameRecord } from './directory';
-import { PLAYER_COLUMNS, type BestXiRecord, type PlayerRecord } from './people';
+import { PLAYER_COLUMNS, SEASON_RECORD_COLUMNS, type BestXiRecord, type PlayerRecord, type SeasonRecord } from './people';
 
 /** Матч в списке админки: сколько уже записано по нему. */
 export interface AdminMatchRow extends MatchRow {
@@ -478,4 +478,16 @@ export async function loadPlayerCard(id: number): Promise<PlayerCardData> {
     rows<{ season: { label: string; start_year: number } }[]>(db().from('squad_member').select('season(label, start_year)').eq('player_id', id)),
   ]);
   return { player, links, seasons: squad.map((s) => s.season).sort((a, b) => a.start_year - b.start_year) };
+}
+
+export interface SeasonInfoData {
+  season: SeasonRecord;
+  links: { site: LinkSite; url: string }[];
+}
+
+export async function loadSeasonInfo(label: string): Promise<SeasonInfoData> {
+  const season = await rows<SeasonRecord | null>(db().from('season').select(SEASON_RECORD_COLUMNS).eq('label', label).maybeSingle());
+  if (!season) throw new NotFoundError(`Сезона «${label}» в базе нет.`);
+  const links = await rows<{ site: LinkSite; url: string }[]>(db().from('season_link').select('site, url').eq('season_id', season.id));
+  return { season, links };
 }

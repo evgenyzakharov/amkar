@@ -74,9 +74,13 @@ export interface PlayerRecord {
   academy: boolean;
   position: Position | null;
   notes: string | null;
+  /** Путь к фото в бакете player-photos; меняется загрузкой фото, не формой. */
+  photo_path: string | null;
+  photo_credit: string | null;
 }
 
-export const PLAYER_COLUMNS = 'id, display_name, last_name, first_name, middle_name, birth_date, academy, position, notes';
+export const PLAYER_COLUMNS =
+  'id, display_name, last_name, first_name, middle_name, birth_date, academy, position, notes, photo_path, photo_credit';
 
 export interface PlayerDraft {
   display_name: string;
@@ -87,6 +91,7 @@ export interface PlayerDraft {
   academy: boolean;
   position: '' | Position;
   notes: string;
+  photo_credit: string;
   links: Record<LinkSite, string>;
 }
 
@@ -100,7 +105,8 @@ export function playerDraft(p: PlayerRecord, links: { site: LinkSite; url: strin
     academy: p.academy,
     position: p.position ?? '',
     notes: p.notes ?? '',
-    links: Object.fromEntries(LINK_SITE_KEYS.map((s) => [s, links.find((l) => l.site === s)?.url ?? ''])) as Record<LinkSite, string>,
+    photo_credit: p.photo_credit ?? '',
+    links: linksDraft(links),
   };
 }
 
@@ -115,16 +121,15 @@ function playerValues(d: PlayerDraft) {
     academy: d.academy,
     position: d.position || null,
     notes: text(d.notes),
+    photo_credit: text(d.photo_credit),
   };
 }
 
-export function validatePlayer(d: PlayerDraft, siteLabel: (s: LinkSite) => string) {
+/** Ссылки на сайты: только https://, как проверка в базе. */
+export function validateLinks(links: Record<LinkSite, string>, siteLabel: (s: LinkSite) => string) {
   const errors: string[] = [];
-  if (!d.display_name.trim()) errors.push('«Как показывать» не может быть пустым.');
-  if (!d.last_name.trim()) errors.push('Фамилия не может быть пустой.');
-  if (d.birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(d.birth_date)) errors.push('Дата рождения — в формате ГГГГ-ММ-ДД.');
   for (const s of LINK_SITE_KEYS) {
-    const url = d.links[s].trim();
+    const url = links[s].trim();
     if (!url) continue;
     let ok = url.startsWith('https://');
     try {
@@ -135,6 +140,14 @@ export function validatePlayer(d: PlayerDraft, siteLabel: (s: LinkSite) => strin
     if (!ok) errors.push(`${siteLabel(s)}: адрес должен начинаться с https://`);
   }
   return errors;
+}
+
+export function validatePlayer(d: PlayerDraft, siteLabel: (s: LinkSite) => string) {
+  const errors: string[] = [];
+  if (!d.display_name.trim()) errors.push('«Как показывать» не может быть пустым.');
+  if (!d.last_name.trim()) errors.push('Фамилия не может быть пустой.');
+  if (d.birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(d.birth_date)) errors.push('Дата рождения — в формате ГГГГ-ММ-ДД.');
+  return [...errors, ...validateLinks(d.links, siteLabel)];
 }
 
 export function isPlayerDirty(d: PlayerDraft, p: PlayerRecord, links: { site: LinkSite; url: string }[]) {
@@ -150,12 +163,114 @@ export async function savePlayer(w: Writer, p: PlayerRecord, links: { site: Link
   const values = playerValues(d);
   const saved = playerDraft(p, links);
   if (JSON.stringify(playerValues(saved)) !== JSON.stringify(values)) await w.update('player', values, { id: p.id });
-  const changed = LINK_SITE_KEYS.filter((s) => d.links[s].trim() && d.links[s].trim() !== saved.links[s]).map((site) => ({
-    player_id: p.id,
+  await saveLinks(w, 'player', p.id, saved.links, d.links);
+}
+
+export const linksDraft = (links: { site: LinkSite; url: string }[]) =>
+  Object.fromEntries(LINK_SITE_KEYS.map((s) => [s, links.find((l) => l.site === s)?.url ?? ''])) as Record<LinkSite, string>;
+
+/** Ссылки игрока или сезона: заполненные — upsert, стёртые — удалить. */
+export async function saveLinks(
+  w: Writer,
+  owner: 'player' | 'season',
+  id: number,
+  saved: Record<LinkSite, string>,
+  draft: Record<LinkSite, string>,
+) {
+  const key = owner === 'player' ? 'player_id' : 'season_id';
+  const changed = LINK_SITE_KEYS.filter((s) => draft[s].trim() && draft[s].trim() !== saved[s]).map((site) => ({
+    [key]: id,
     site,
-    url: d.links[site].trim(),
+    url: draft[site].trim(),
   }));
-  if (changed.length > 0) await w.upsert('player_link', changed, 'player_id,site');
-  const removed = LINK_SITE_KEYS.filter((s) => !d.links[s].trim() && saved.links[s]);
-  if (removed.length > 0) await w.remove('player_link', { player_id: p.id }, ['site', removed]);
+  if (changed.length > 0) await w.upsert(`${owner}_link`, changed, `${key},site`);
+  const removed = LINK_SITE_KEYS.filter((s) => !draft[s].trim() && saved[s]);
+  if (removed.length > 0) await w.remove(`${owner}_link`, { [key]: id }, ['site', removed]);
+}
+
+// ===========================================================================
+// Сезон: лига, место, число команд, заметки, ссылки
+// ===========================================================================
+
+export interface SeasonRecord {
+  id: number;
+  label: string;
+  start_year: number;
+  end_year: number;
+  division: string | null;
+  tier: number | null;
+  final_place: number | null;
+  teams_count: number | null;
+  notes: string | null;
+}
+
+export const SEASON_RECORD_COLUMNS = 'id, label, start_year, end_year, division, tier, final_place, teams_count, notes';
+
+export interface SeasonDraft {
+  division: string;
+  tier: string;
+  final_place: string;
+  teams_count: string;
+  notes: string;
+  links: Record<LinkSite, string>;
+}
+
+const numText = (n: number | null) => (n == null ? '' : String(n));
+
+export function seasonDraft(s: SeasonRecord, links: { site: LinkSite; url: string }[]): SeasonDraft {
+  return {
+    division: s.division ?? '',
+    tier: numText(s.tier),
+    final_place: numText(s.final_place),
+    teams_count: numText(s.teams_count),
+    notes: s.notes ?? '',
+    links: linksDraft(links),
+  };
+}
+
+const intOrNull = (s: string) => {
+  const t = s.trim();
+  if (t === '') return null;
+  return /^\d+$/.test(t) ? Number(t) : NaN;
+};
+
+function seasonValues(d: SeasonDraft) {
+  const num = (s: string) => {
+    const n = intOrNull(s);
+    return n == null || Number.isNaN(n) ? null : n;
+  };
+  return {
+    division: d.division.trim() || null,
+    tier: num(d.tier),
+    final_place: num(d.final_place),
+    teams_count: num(d.teams_count),
+    notes: d.notes.trim() || null,
+  };
+}
+
+export function validateSeason(d: SeasonDraft, siteLabel: (s: LinkSite) => string) {
+  const errors: string[] = [];
+  const [tier, place, teams] = [intOrNull(d.tier), intOrNull(d.final_place), intOrNull(d.teams_count)];
+  if (tier != null && (Number.isNaN(tier) || tier < 1 || tier > 5)) errors.push('Уровень лиги — от 1 до 5 (1 — высший дивизион).');
+  if (place != null && (Number.isNaN(place) || place < 1)) errors.push('Место — целое число больше нуля.');
+  if (teams != null && (Number.isNaN(teams) || teams < 1)) errors.push('Число команд — целое число больше нуля.');
+  if (place != null && teams != null && !Number.isNaN(place) && !Number.isNaN(teams) && place > teams) {
+    errors.push('Место не может быть больше числа команд.');
+  }
+  return [...errors, ...validateLinks(d.links, siteLabel)];
+}
+
+export function isSeasonDirty(d: SeasonDraft, s: SeasonRecord, links: { site: LinkSite; url: string }[]) {
+  const saved = seasonDraft(s, links);
+  return (
+    JSON.stringify(seasonValues(saved)) !== JSON.stringify(seasonValues(d)) ||
+    LINK_SITE_KEYS.some((k) => saved.links[k] !== d.links[k].trim())
+  );
+}
+
+export async function saveSeason(w: Writer, s: SeasonRecord, links: { site: LinkSite; url: string }[], d: SeasonDraft) {
+  const saved = seasonDraft(s, links);
+  const values = seasonValues(d);
+  if (JSON.stringify(seasonValues(saved)) !== JSON.stringify(values)) await w.update('season', values, { id: s.id });
+  await saveLinks(w, 'season', s.id, saved.links, d.links);
 }

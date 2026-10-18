@@ -1491,3 +1491,28 @@ input.w-year {
 .players-admin {
   columns: 2 22em;
 }
+
+/* Фото игрока в админке */
+.player-photo-edit {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin: 8px 0 16px;
+}
+
+.player-photo-edit img,
+.player-photo-edit .photo-empty {
+  width: 120px;
+  height: 150px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.player-photo-edit .photo-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}

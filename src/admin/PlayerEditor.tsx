@@ -6,6 +6,7 @@ import { useDocumentTitle, useLoad } from '../load';
 import { adminHref, adminPlayerHref, adminPlayersHref, adminSeasonHref, playerHref } from '../router';
 import { dbErrorMessage } from './dbErrors';
 import { LINK_SITE_KEYS, isPlayerDirty, playerDraft, savePlayer, validatePlayer, type PlayerDraft } from './people';
+import { PHOTO_TYPES, photoErrorMessage, removePhoto, replacePhoto, supabasePhotoStore } from './photos';
 import { loadAllPlayers, loadPlayerCard, type PlayerCardData } from './queries';
 import { useUnsavedGuard } from './useUnsavedGuard';
 import { supabaseWriter } from './writer';
@@ -63,7 +64,37 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
   const [draft, setDraft] = useState<PlayerDraft>(() => playerDraft(initial.player, initial.links));
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const { player, links, seasons } = data;
+  const photoUrl = player.photo_path ? supabasePhotoStore.publicUrl(player.photo_path) : null;
+
+  // Фото пишется сразу, отдельно от формы: несохранённые правки формы при этом не теряются
+  async function uploadPhoto(file: File) {
+    setPhotoBusy(true);
+    setStatus(null);
+    try {
+      const path = await replacePhoto(supabaseWriter, supabasePhotoStore, player, file);
+      setData((d) => ({ ...d, player: { ...d.player, photo_path: path } }));
+      setStatus({ kind: 'ok', text: 'Фото загружено.' });
+    } catch (e) {
+      setStatus({ kind: 'error', text: photoErrorMessage(e) });
+    }
+    setPhotoBusy(false);
+  }
+
+  async function deletePhoto() {
+    if (!window.confirm('Убрать фото игрока?')) return;
+    setPhotoBusy(true);
+    setStatus(null);
+    try {
+      await removePhoto(supabaseWriter, supabasePhotoStore, player);
+      setData((d) => ({ ...d, player: { ...d.player, photo_path: null } }));
+      setStatus({ kind: 'ok', text: 'Фото убрано.' });
+    } catch (e) {
+      setStatus({ kind: 'error', text: photoErrorMessage(e) });
+    }
+    setPhotoBusy(false);
+  }
 
   const errors = validatePlayer(draft, siteLabel);
   const dirty = isPlayerDirty(draft, player, links);
@@ -104,6 +135,32 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
           ))}
         </p>
       )}
+      <div className="player-photo-edit">
+        {photoUrl ? <img src={photoUrl} alt={`Фото: ${player.display_name}`} /> : <div className="photo-empty">фото нет</div>}
+        <div>
+          <label className="button">
+            {photoBusy ? 'Загрузка…' : photoUrl ? 'Заменить фото' : 'Загрузить фото'}
+            <input
+              type="file"
+              accept={Object.keys(PHOTO_TYPES).join(',')}
+              aria-label="файл фото"
+              disabled={photoBusy}
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) void uploadPhoto(file);
+              }}
+            />
+          </label>{' '}
+          {photoUrl && (
+            <button type="button" className="link-button" disabled={photoBusy} onClick={() => void deletePhoto()}>
+              убрать
+            </button>
+          )}
+          <p className="field-note">JPEG, PNG или WebP до 2 МБ. Фото сохраняется сразу; подпись — кнопкой «Сохранить».</p>
+        </div>
+      </div>
       <div className="form-grid">
         <label>
           Как показывать
@@ -139,6 +196,11 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
         </label>
         <label className="inline">
           <input type="checkbox" checked={draft.academy} onChange={(e) => set('academy', e.target.checked)} /> воспитанник клуба
+        </label>
+        <label className="span-2">
+          Подпись к фото
+          <input value={draft.photo_credit} placeholder="Фото: И. Иванов, CC BY-SA 4.0" onChange={(e) => set('photo_credit', e.target.value)} />
+          <span className="field-note">автор и лицензия — показывается под фото</span>
         </label>
         {LINK_SITE_KEYS.map((s) => (
           <label key={s} className="span-2">

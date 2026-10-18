@@ -4,8 +4,14 @@ import { dbErrorMessage } from '../src/admin/dbErrors';
 import {
   bestXiDraft,
   isBestXiDirty,
+  SEASON_RECORD_COLUMNS,
   isPlayerDirty,
+  isSeasonDirty,
   playerDraft,
+  saveSeason,
+  seasonDraft,
+  validateSeason,
+  type SeasonRecord,
   saveBestXi,
   savePlayer,
   validateBestXi,
@@ -84,5 +90,39 @@ describe('карточка игрока', () => {
     await expect(savePlayer(pgliteWriter(db, STRANGER), p, links, { ...playerDraft(p, links), notes: 'взлом' })).rejects.toSatisfy(
       (e) => dbErrorMessage(e) === 'Запись не изменилась: её нет в базе или нет прав на запись.',
     );
+  });
+});
+
+describe('сезон: сведения и ссылки', () => {
+  const load = async () => {
+    const s = (await db.query<SeasonRecord>(`select ${SEASON_RECORD_COLUMNS} from season where id = 1`)).rows[0];
+    const links = (await db.query<{ site: LinkSite; url: string }>('select site, url from season_link where season_id = 1')).rows;
+    return { s, links };
+  };
+
+  it('лига, уровень, место, число команд, ссылки; место больше числа команд — ошибка', async () => {
+    const { s, links } = await load();
+    const d = seasonDraft(s, links);
+    expect(isSeasonDirty(d, s, links)).toBe(false);
+    const next = {
+      ...d,
+      division: 'Премьер-лига',
+      tier: '1',
+      final_place: '8',
+      teams_count: '16',
+      links: { transfermarkt: '', championat: 'https://www.championat.com/football/_russiapl/tournament/1/', wikipedia: 'https://ru.wikipedia.org/wiki/2008' },
+    };
+    expect(validateSeason({ ...next, final_place: '17', tier: '6' }, label)).toEqual([
+      'Уровень лиги — от 1 до 5 (1 — высший дивизион).',
+      'Место не может быть больше числа команд.',
+    ]);
+    await saveSeason(pgliteWriter(db), s, links, next);
+    const after = await load();
+    expect(after.s).toMatchObject({ division: 'Премьер-лига', tier: 1, final_place: 8, teams_count: 16 });
+    expect(after.links.map((l) => l.site).sort()).toEqual(['championat', 'wikipedia']);
+    expect(isSeasonDirty(seasonDraft(after.s, after.links), after.s, after.links)).toBe(false);
+    // стёрли ссылку — удалилась
+    await saveSeason(pgliteWriter(db), after.s, after.links, { ...seasonDraft(after.s, after.links), links: { transfermarkt: '', championat: '', wikipedia: 'https://ru.wikipedia.org/wiki/2008' } });
+    expect((await load()).links.map((l) => l.site)).toEqual(['wikipedia']);
   });
 });

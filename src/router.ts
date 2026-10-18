@@ -22,8 +22,8 @@ export type AdminRoute =
   | { page: 'players' }
   | { page: 'player'; id: number };
 
-/** Вкладки сезона в админке: матчи, сетка «игроки × матчи», заявка, трансферы, сборная сезона. */
-export type SeasonTab = 'matches' | 'grid' | 'squad' | 'transfers' | 'best';
+/** Вкладки сезона в админке: матчи, сетка «игроки × матчи», заявка, трансферы, сборная, сведения о сезоне. */
+export type SeasonTab = 'matches' | 'grid' | 'squad' | 'transfers' | 'best' | 'info';
 
 // «2011/12» в адресе — «2011-12»: косая черта разделяет части маршрута
 const labelPart = (label: string) => label.replace('/', '-');
@@ -56,7 +56,7 @@ function parseAdminRoute(parts: string[]): Route {
   if (page === 'season' && parts.length === 3 && extra === 'new') {
     return admin({ page: 'new-match', label: labelFromPart(param) });
   }
-  if (page === 'season' && parts.length === 3 && (extra === 'grid' || extra === 'squad' || extra === 'transfers' || extra === 'best')) {
+  if (page === 'season' && parts.length === 3 && (extra === 'grid' || extra === 'squad' || extra === 'transfers' || extra === 'best' || extra === 'info')) {
     return admin({ page: 'season', label: labelFromPart(param), tab: extra });
   }
   if (page === 'match' && parts.length === 2 && isId(param)) return admin({ page: 'match', id: Number(param) });
