@@ -18,6 +18,8 @@ import type { SquadBase, SquadPlayerInfo, SquadRecord } from './squad';
 import { TRANSFER_COLUMNS, type TransferBase, type TransferRecord } from './transfers';
 import { rawOpponents, type DirRecord, type RawOpponent, type TeamNameRecord } from './directory';
 import { PLAYER_COLUMNS, SEASON_RECORD_COLUMNS, type BestXiRecord, type PlayerRecord, type SeasonRecord } from './people';
+import type { CheckGoal, CheckMatch, CheckTotal } from './goalsCheck';
+import { opponentName } from '../format';
 
 /** Матч в списке админки: сколько уже записано по нему. */
 export interface AdminMatchRow extends MatchRow {
@@ -490,4 +492,46 @@ export async function loadSeasonInfo(label: string): Promise<SeasonInfoData> {
   if (!season) throw new NotFoundError(`Сезона «${label}» в базе нет.`);
   const links = await rows<{ site: LinkSite; url: string }[]>(db().from('season_link').select('site, url').eq('season_id', season.id));
   return { season, links };
+}
+
+// ===========================================================================
+// Сверка голов сезона: Excel против карточек матчей
+// ===========================================================================
+
+export interface GoalsCheckData {
+  matches: CheckMatch[];
+  goals: CheckGoal[];
+  totals: CheckTotal[];
+  names: Map<number, string>;
+}
+
+export async function loadGoalsCheck(seasonId: number): Promise<GoalsCheckData> {
+  const [matchRows, totals, squad] = await Promise.all([
+    rows<(MatchRow & { goal: CheckGoal[] })[]>(
+      db()
+        .from('match')
+        .select(`${MATCH_COLUMNS}, goal(match_id, side, kind, scorer_id, assist_id)`)
+        .eq('season_id', seasonId)
+        .order('seq'),
+    ),
+    rows<{ player_id: number; goals: number | null; assists: number | null; competition: { kind: string } }[]>(
+      db().from('player_season_totals').select('player_id, goals, assists, competition(kind)').eq('season_id', seasonId),
+    ),
+    rows<{ player_id: number; player: { display_name: string } }[]>(
+      db().from('squad_member').select('player_id, player(display_name)').eq('season_id', seasonId),
+    ),
+  ]);
+  return {
+    matches: matchRows.map((m) => ({
+      id: m.id,
+      seq: m.seq,
+      opponent: opponentName(m),
+      goals_for: m.goals_for,
+      goals_against: m.goals_against,
+      friendly: m.competition.kind === 'friendly',
+    })),
+    goals: matchRows.flatMap((m) => m.goal),
+    totals: totals.map((t) => ({ player_id: t.player_id, goals: t.goals, assists: t.assists, friendly: t.competition.kind === 'friendly' })),
+    names: new Map(squad.map((s) => [s.player_id, s.player.display_name])),
+  };
 }

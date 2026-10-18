@@ -129,8 +129,9 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
           <summary className="card-title">{squadLabel}</summary>
           <SquadTable squad={players} />
           <p className="note">
-            Игры и минуты — без товарищеских матчей. Голы и передачи — итоги сезона из таблицы автора, пустая ячейка —
-            данных нет.
+            {players[0]?.goals_source === 'matches'
+              ? 'Игры, минуты, голы и передачи — по записанным матчам, без товарищеских.'
+              : 'Игры и минуты — без товарищеских матчей. Голы и передачи — итоги сезона из таблицы автора, пустая ячейка — данных нет.'}
           </p>
         </details>
       ) : (

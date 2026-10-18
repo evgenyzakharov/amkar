@@ -1516,3 +1516,19 @@ input.w-year {
   color: var(--muted);
   font-size: 0.85rem;
 }
+
+/* Сверка голов на вкладке «Сезон» */
+.goals-check .check-diff {
+  color: var(--loss);
+  font-weight: 600;
+}
+
+.goals-check .check-list a {
+  display: inline-block;
+  margin-right: 12px;
+  white-space: nowrap;
+}
+
+.goals-switch {
+  flex-wrap: wrap;
+}

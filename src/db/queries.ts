@@ -35,7 +35,7 @@ export const MATCH_COLUMNS =
   'pens_for, pens_against, awarded, competition(name, kind), team(name), opponent_name';
 const STATS_COLUMNS =
   'season_id, player_id, season_label, start_year, end_year, division, display_name, academy, shirt_number, ' +
-  'position, squad_group, on_loan, sort_order, games, minutes, goals, assists, goals_conceded';
+  'position, squad_group, on_loan, sort_order, games, minutes, goals, assists, goals_conceded, goals_source';
 
 /** Все строки запроса, страницами по 1000: больше PostgREST за раз не отдаёт. Запросу нужен устойчивый порядок. */
 async function allRows<T>(

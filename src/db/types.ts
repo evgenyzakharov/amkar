@@ -66,6 +66,8 @@ export interface PlayerSeasonStats {
   goals: number | null;
   assists: number | null;
   goals_conceded: number | null;
+  /** Откуда голы и передачи: matches — по матчам, excel — итоги из таблицы автора. */
+  goals_source?: 'matches' | 'excel';
 }
 
 export interface BestXiSlot {
