@@ -97,7 +97,7 @@ export const opponentName = (m: Pick<MatchRow, 'team' | 'opponent_raw'>) =>
   m.team?.name ?? m.opponent_raw ?? 'соперник не указан';
 
 /** «2:1», «1:1 д.в. (пен. 4:3)», «д.в.», если счёт ещё не внесён. Счёт — со стороны «Амкара». */
-export function formatScore(m: MatchRow): string {
+export function formatScore(m: Pick<MatchRow, 'goals_for' | 'goals_against' | 'extra_time' | 'pens_for' | 'pens_against'>): string {
   let s = m.goals_for != null && m.goals_against != null ? `${m.goals_for}:${m.goals_against}` : '';
   if (m.extra_time) s += ' д.в.';
   if (m.pens_for != null && m.pens_against != null) s += ` (пен. ${m.pens_for}:${m.pens_against})`;

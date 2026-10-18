@@ -372,3 +372,36 @@ export async function loadCoachesPage(): Promise<CoachesPageData> {
     ),
   };
 }
+
+/** Где встречается клуб или тренер: матчи (и трансферы клуба) по сезонам. */
+export interface UsageData {
+  matches: (Pick<MatchRow, 'id' | 'seq' | 'match_date' | 'opponent_raw' | 'result' | 'goals_for' | 'goals_against' | 'extra_time' | 'pens_for' | 'pens_against' | 'awarded'> & {
+    season: { label: string; start_year: number };
+    team: { name: string } | null;
+  })[];
+  transfers: { id: number; direction: 'in' | 'out'; transfer_date: string | null; player: { id: number; display_name: string }; season: { label: string; start_year: number } }[];
+}
+
+const USAGE_MATCH_COLUMNS =
+  'id, seq, match_date, opponent_raw, result, goals_for, goals_against, extra_time, pens_for, pens_against, awarded, season(label, start_year), team(name)';
+
+export async function loadUsage(kind: 'team' | 'coach', id: number): Promise<UsageData> {
+  const [matches, transfers] = await Promise.all([
+    allRows<UsageData['matches'][number]>((from, to) =>
+      db()
+        .from('match')
+        .select(USAGE_MATCH_COLUMNS)
+        .eq(kind === 'team' ? 'opponent_id' : 'coach_id', id)
+        .order('id')
+        .range(from, to),
+    ),
+    kind === 'team'
+      ? rows<UsageData['transfers']>(
+          db().from('transfer').select('id, direction, transfer_date, player(id, display_name), season(label, start_year)').eq('other_team_id', id),
+        )
+      : Promise.resolve([]),
+  ]);
+  matches.sort((a, b) => a.season.start_year - b.season.start_year || a.season.label.localeCompare(b.season.label) || a.seq - b.seq);
+  transfers.sort((a, b) => a.season.start_year - b.season.start_year || (a.transfer_date ?? '').localeCompare(b.transfer_date ?? ''));
+  return { matches, transfers };
+}

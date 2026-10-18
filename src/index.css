@@ -1446,3 +1446,22 @@ input.w-short {
 .raw-opponents input.as-new {
   border-style: dashed;
 }
+
+.usage-row td {
+  background: var(--highlight);
+  white-space: normal;
+}
+
+.usage {
+  font-size: 0.85rem;
+}
+
+.usage-season {
+  margin: 2px 0;
+}
+
+.usage-match {
+  display: inline-block;
+  margin-right: 12px;
+  white-space: nowrap;
+}

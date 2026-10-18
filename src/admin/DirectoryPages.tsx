@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { LoadStatus, PageNav } from '../components/common';
 import { useDocumentTitle, useLoad } from '../load';
 import { adminHref } from '../router';
@@ -21,6 +21,7 @@ import {
 import type { Team } from './match';
 import { embeddedCount, loadCoachesPage, loadTeamsPage, type CoachesPageData, type TeamsPageData } from './queries';
 import { useUnsavedGuard } from './useUnsavedGuard';
+import { UsageDetails } from './UsageDetails';
 import { supabaseWriter } from './writer';
 
 type Status = { kind: 'ok' | 'error'; text: string };
@@ -224,6 +225,7 @@ interface DirectoryProps {
 
 function Directory({ config, records, usage, onSaved, addLabel }: DirectoryProps) {
   const [draft, setDraft] = useState<DirDraft[]>(() => dirDraft(records, config));
+  const [open, setOpen] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<Status | null>(null);
   const errors = validateDir(draft, config);
@@ -271,7 +273,8 @@ function Directory({ config, records, usage, onSaved, addLabel }: DirectoryProps
               const u = r.id != null ? usage(r.id) : { count: 0, text: '' };
               const name = config.nameOf(r.values);
               return (
-                <tr key={r.key} className={r.id == null ? 'row-new' : undefined}>
+                <Fragment key={r.key}>
+                <tr className={r.id == null ? 'row-new' : undefined}>
                   {config.fields.map((f) => (
                     <td key={f.key}>
                       <input
@@ -283,7 +286,18 @@ function Directory({ config, records, usage, onSaved, addLabel }: DirectoryProps
                       />
                     </td>
                   ))}
-                  <td className="muted">{u.text}</td>
+                  <td>
+                    {u.count > 0 && (
+                      <button
+                        type="button"
+                        className="link-button"
+                        aria-expanded={open === r.id}
+                        onClick={() => setOpen(open === r.id ? null : r.id)}
+                      >
+                        {u.text}
+                      </button>
+                    )}
+                  </td>
                   <td>
                     <button
                       type="button"
@@ -296,6 +310,14 @@ function Directory({ config, records, usage, onSaved, addLabel }: DirectoryProps
                     </button>
                   </td>
                 </tr>
+                {open === r.id && r.id != null && (
+                  <tr className="usage-row">
+                    <td colSpan={config.fields.length + 2}>
+                      <UsageDetails kind={config.table} id={r.id} />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
           </tbody>
