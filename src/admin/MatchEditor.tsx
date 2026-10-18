@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { LoadStatus, PageNav } from '../components/common';
 import { useDocumentTitle, useLoad } from '../load';
 import { adminMatchHref, adminSeasonHref, matchHref } from '../router';
@@ -9,6 +9,7 @@ import { cardDraft, matchEnd, validateCard, type CardDraft } from './match';
 import { MatchHeaderForm } from './MatchHeaderForm';
 import { loadMatchCard, loadNewMatchCard, type MatchCardData } from './queries';
 import { isDirty, saveMatchCard } from './save';
+import { useUnsavedGuard } from './useUnsavedGuard';
 import { supabaseWriter } from './writer';
 
 export function MatchEditor({ id }: { id: number }) {
@@ -42,21 +43,7 @@ function MatchCard({ initial }: { initial: MatchCardData }) {
   const dirty = isDirty(base, draft);
   const end = matchEnd(draft.header);
 
-  // Несохранённое не теряем: ни при закрытии вкладки, ни при переходе по ссылке внутри сайта
-  useEffect(() => {
-    if (!dirty) return;
-    const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
-    const onClick = (e: MouseEvent) => {
-      const link = e.target instanceof Element ? e.target.closest('a[href^="#"]') : null;
-      if (link && !window.confirm('Есть несохранённые изменения. Уйти без сохранения?')) e.preventDefault();
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    document.addEventListener('click', onClick, true);
-    return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload);
-      document.removeEventListener('click', onClick, true);
-    };
-  }, [dirty]);
+  useUnsavedGuard(dirty);
 
   const reset = (fresh: MatchCardData) => {
     setData(fresh);

@@ -68,6 +68,8 @@ type Named<T> = T & { player: { display_name: string } };
 
 const POSITION_RANK: Record<string, number> = { GK: 0, DF: 1, MF: 2, FW: 3 };
 
+const SQUAD_COLUMNS = 'player_id, shirt_number, position, squad_group, sort_order, player(display_name)';
+
 function squadPlayers(squad: SquadRow[], others: Named<{ player_id: number }>[]): SquadPlayer[] {
   const list: SquadPlayer[] = squad.map((s) => ({
     player_id: s.player_id,
@@ -111,7 +113,7 @@ async function loadCard(season: Season, match: MatchRecord | null): Promise<Matc
     rows<SquadRow[]>(
       db()
         .from('squad_member')
-        .select('player_id, shirt_number, position, squad_group, sort_order, player(display_name)')
+        .select(SQUAD_COLUMNS)
         .eq('season_id', season.id),
     ),
     rows<{ id: number; seq: number }[]>(db().from('match').select('id, seq').eq('season_id', season.id).order('seq')),
@@ -159,4 +161,72 @@ export async function loadNewMatchCard(label: string): Promise<MatchCardData> {
   const season = (await loadSeasons()).find((s) => s.label === label);
   if (!season) throw new NotFoundError(`Сезона «${label}» в базе нет.`);
   return loadCard(season, null);
+}
+
+// ===========================================================================
+// Сетка сезона
+// ===========================================================================
+
+/** Все строки запроса: PostgREST отдаёт не больше 1000 за раз. */
+async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>) {
+  const size = 1000;
+  const out: T[] = [];
+  for (let from = 0; ; from += size) {
+    const chunk = await rows<T[]>(page(from, from + size - 1));
+    out.push(...chunk);
+    if (chunk.length < size) return out;
+  }
+}
+
+export interface SeasonGridData {
+  season: Season;
+  matches: MatchRow[];
+  players: SquadPlayer[];
+  appearances: AppearanceRecord[];
+  absences: AbsenceRecord[];
+}
+
+const APPEARANCE_COLUMNS = 'match_id, player_id, role, minutes, minute_on, minute_off, replaced_player_id, injured, sent_off';
+
+export async function loadSeasonGrid(label: string): Promise<SeasonGridData> {
+  const season = (await loadSeasons()).find((s) => s.label === label);
+  if (!season) throw new NotFoundError(`Сезона «${label}» в базе нет.`);
+  const [matches, squad] = await Promise.all([
+    rows<MatchRow[]>(db().from('match').select(MATCH_COLUMNS).eq('season_id', season.id).order('seq')),
+    rows<SquadRow[]>(db().from('squad_member').select(SQUAD_COLUMNS).eq('season_id', season.id)),
+  ]);
+  const ids = matches.map((m) => m.id);
+  const [appearances, absences] = ids.length
+    ? await Promise.all([
+        allRows<Named<AppearanceRecord>>((from, to) =>
+          db()
+            .from('appearance')
+            .select(`${APPEARANCE_COLUMNS}, player(display_name)`)
+            .in('match_id', ids)
+            .order('match_id')
+            .order('player_id')
+            .range(from, to),
+        ),
+        allRows<Named<AbsenceRecord>>((from, to) =>
+          db()
+            .from('absence')
+            .select('match_id, player_id, reason, player(display_name)')
+            .in('match_id', ids)
+            .order('match_id')
+            .order('player_id')
+            .range(from, to),
+        ),
+      ])
+    : [[], []];
+  const strip = <T extends { player: unknown }>({ player, ...rest }: T) => {
+    void player;
+    return rest;
+  };
+  return {
+    season,
+    matches,
+    players: squadPlayers(squad, [...appearances, ...absences]),
+    appearances: appearances.map(strip),
+    absences: absences.map(strip),
+  };
 }

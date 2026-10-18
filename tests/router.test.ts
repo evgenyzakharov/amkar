@@ -11,7 +11,11 @@ describe('маршруты', () => {
 
   it('админка', () => {
     expect(parseRoute('#/admin')).toEqual({ page: 'admin', admin: { page: 'home' } });
-    expect(parseRoute(adminSeasonHref('2011/12'))).toEqual({ page: 'admin', admin: { page: 'season', label: '2011/12' } });
+    expect(parseRoute(adminSeasonHref('2011/12'))).toEqual({ page: 'admin', admin: { page: 'season', label: '2011/12', tab: 'matches' } });
+    expect(parseRoute(adminSeasonHref('2011/12', 'grid'))).toEqual({
+      page: 'admin',
+      admin: { page: 'season', label: '2011/12', tab: 'grid' },
+    });
     expect(parseRoute(adminMatchHref(7))).toEqual({ page: 'admin', admin: { page: 'match', id: 7 } });
     expect(parseRoute(adminNewMatchHref('2008'))).toEqual({ page: 'admin', admin: { page: 'new-match', label: '2008' } });
     expect(parseRoute('#/admin/match/abc')).toEqual({ page: 'not-found' });

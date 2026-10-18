@@ -1,21 +1,39 @@
 import { LoadStatus, PageNav, ResultBadge, Tag } from '../components/common';
 import { COMPETITION_SHORT, formatDate, formatScore, opponentName } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { adminHref, adminMatchHref, adminNewMatchHref, seasonHref } from '../router';
+import { adminHref, adminMatchHref, adminNewMatchHref, adminSeasonHref, seasonHref, type SeasonTab } from '../router';
 import { embeddedCount, loadAdminSeason } from './queries';
+import { SeasonGrid } from './SeasonGrid';
 
 const VENUE_SHORT = { home: 'д', away: 'г', neutral: 'н' } as const;
 
-export function AdminSeason({ label }: { label: string }) {
-  const state = useLoad(label, loadAdminSeason);
+export function AdminSeason({ label, tab }: { label: string; tab: SeasonTab }) {
   useDocumentTitle(`Правка сезона ${label}`);
+  const tabLink = (t: SeasonTab, text: string) => (
+    <a href={adminSeasonHref(label, t)} className={tab === t ? 'active' : undefined} aria-current={tab === t ? 'page' : undefined}>
+      {text}
+    </a>
+  );
+  return (
+    <>
+      <PageNav up={<a href={adminHref}>← Админка</a>} next={<a href={seasonHref(label)}>на сайте ›</a>} />
+      <h2>Сезон {label}</h2>
+      <nav className="tabs">
+        {tabLink('matches', 'Матчи')}
+        {tabLink('grid', 'Сетка «игроки × матчи»')}
+      </nav>
+      {tab === 'grid' ? <SeasonGrid label={label} /> : <SeasonMatches label={label} />}
+    </>
+  );
+}
+
+function SeasonMatches({ label }: { label: string }) {
+  const state = useLoad(label, loadAdminSeason);
   if (state.status !== 'ready') return <LoadStatus state={state} />;
   const { season, matches } = state.data;
 
   return (
     <>
-      <PageNav up={<a href={adminHref}>← Админка</a>} next={<a href={seasonHref(season.label)}>на сайте ›</a>} />
-      <h2>Сезон {season.label}</h2>
       <p>
         <a className="button" href={adminNewMatchHref(season.label)}>
           + Добавить матч

@@ -13,9 +13,12 @@ export type Route =
 /** Разделы админки: #/admin/… */
 export type AdminRoute =
   | { page: 'home' }
-  | { page: 'season'; label: string }
+  | { page: 'season'; label: string; tab: SeasonTab }
   | { page: 'match'; id: number }
   | { page: 'new-match'; label: string };
+
+/** Вкладки сезона в админке: список матчей и сетка «игроки × матчи». */
+export type SeasonTab = 'matches' | 'grid';
 
 // «2011/12» в адресе — «2011-12»: косая черта разделяет части маршрута
 const labelPart = (label: string) => label.replace('/', '-');
@@ -26,7 +29,8 @@ export const matchHref = (id: number) => `#/match/${id}`;
 export const playerHref = (id: number) => `#/player/${id}`;
 
 export const adminHref = '#/admin';
-export const adminSeasonHref = (label: string) => `#/admin/season/${labelPart(label)}`;
+export const adminSeasonHref = (label: string, tab: SeasonTab = 'matches') =>
+  `#/admin/season/${labelPart(label)}${tab === 'matches' ? '' : `/${tab}`}`;
 export const adminMatchHref = (id: number) => `#/admin/match/${id}`;
 export const adminNewMatchHref = (label: string) => `${adminSeasonHref(label)}/new`;
 
@@ -36,9 +40,12 @@ function parseAdminRoute(parts: string[]): Route {
   const [page, param, extra] = parts;
   const admin = (r: AdminRoute): Route => ({ page: 'admin', admin: r });
   if (parts.length === 0) return admin({ page: 'home' });
-  if (page === 'season' && parts.length === 2) return admin({ page: 'season', label: labelFromPart(param) });
+  if (page === 'season' && parts.length === 2) return admin({ page: 'season', label: labelFromPart(param), tab: 'matches' });
   if (page === 'season' && parts.length === 3 && extra === 'new') {
     return admin({ page: 'new-match', label: labelFromPart(param) });
+  }
+  if (page === 'season' && parts.length === 3 && extra === 'grid') {
+    return admin({ page: 'season', label: labelFromPart(param), tab: 'grid' });
   }
   if (page === 'match' && parts.length === 2 && isId(param)) return admin({ page: 'match', id: Number(param) });
   return { page: 'not-found' };

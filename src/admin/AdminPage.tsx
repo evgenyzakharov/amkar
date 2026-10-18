@@ -32,7 +32,7 @@ export function AdminPage({ route }: { route: AdminRoute }) {
     case 'home':
       return <AdminHome />;
     case 'season':
-      return <AdminSeason label={route.label} />;
+      return <AdminSeason label={route.label} tab={route.tab} />;
     case 'match':
       return <MatchEditor id={route.id} />;
     case 'new-match':
