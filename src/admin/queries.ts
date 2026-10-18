@@ -56,6 +56,8 @@ export interface MatchCardData {
   squad: SquadPlayer[];
   prevId: number | null;
   nextId: number | null;
+  /** Как соперник назывался в сезон матча (opponent_name): «Ростсельмаш» у клуба «Ростов» в 1998. */
+  opponentThen: string | null;
 }
 
 interface SquadRow {
@@ -107,7 +109,7 @@ function squadPlayers(squad: SquadRow[], others: Named<{ player_id: number }>[])
   );
 }
 
-async function loadCard(season: Season, match: MatchRecord | null): Promise<MatchCardData> {
+async function loadCard(season: Season, match: MatchRecord | null, opponentThen: string | null = null): Promise<MatchCardData> {
   const matchId = match?.id ?? -1;
   const [competitions, teams, coaches, squad, seasonMatches, goals, appearances, absences] = await Promise.all([
     rows<Competition[]>(db().from('competition').select('id, name, kind').order('id')),
@@ -149,15 +151,20 @@ async function loadCard(season: Season, match: MatchRecord | null): Promise<Matc
     squad: squadPlayers(squad, [...appearances, ...absences]),
     prevId: i > 0 ? seasonMatches[i - 1].id : null,
     nextId: i >= 0 ? (seasonMatches[i + 1]?.id ?? null) : null,
+    opponentThen,
   };
 }
 
 export async function loadMatchCard(id: number): Promise<MatchCardData> {
-  const match = await rows<MatchRecord | null>(db().from('match').select(MATCH_RECORD_COLUMNS).eq('id', id).maybeSingle());
-  if (!match) throw new NotFoundError(`Матча №${id} в базе нет.`);
+  const row = await rows<(MatchRecord & { opponent_name: string | null }) | null>(
+    db().from('match').select(`${MATCH_RECORD_COLUMNS}, opponent_name`).eq('id', id).maybeSingle(),
+  );
+  if (!row) throw new NotFoundError(`Матча №${id} в базе нет.`);
+  // название на тот сезон — отдельно: в строке match для сохранения его быть не должно
+  const { opponent_name, ...match } = row;
   const season = (await loadSeasons()).find((s) => s.id === match.season_id);
   if (!season) throw new NotFoundError(`Сезона матча №${id} в базе нет.`);
-  return loadCard(season, match);
+  return loadCard(season, match, opponent_name);
 }
 
 export async function loadNewMatchCard(label: string): Promise<MatchCardData> {

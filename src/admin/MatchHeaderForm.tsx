@@ -9,11 +9,13 @@ interface Props {
   header: HeaderDraft;
   base: CardBase;
   competitions: Competition[];
+  /** Прежнее название клуба в сезон матча, если оно отличается от названия в справочнике. */
+  nameThen?: string | null;
   /** Правка — функцией от текущего значения: несколько событий подряд не затирают друг друга. */
   onChange: (update: (h: HeaderDraft) => HeaderDraft) => void;
 }
 
-export function MatchHeaderForm({ header: h, base, competitions, onChange }: Props) {
+export function MatchHeaderForm({ header: h, base, competitions, nameThen, onChange }: Props) {
   const set = <K extends keyof HeaderDraft>(key: K, value: HeaderDraft[K]) => onChange((old) => ({ ...old, [key]: value }));
   // Счёт и серия пенальти: результат подстраивается сам
   const setScore = (key: 'goals_for' | 'goals_against' | 'pens_for' | 'pens_against', value: string) =>
@@ -73,7 +75,12 @@ export function MatchHeaderForm({ header: h, base, competitions, onChange }: Pro
           ))}
         </datalist>
         <span className="field-note">
-          {newTeam ? (
+          {nameThen ? (
+            <>
+              В сезоне {base.season.label} клуб назывался «{nameThen}» — так он и показан на сайте. Названия по годам — в
+              справочнике соперников.
+            </>
+          ) : newTeam ? (
             <>Нового соперника «{opponent}» добавим в справочник. Название — однозначное: «Динамо Пермь», а не «Динамо».</>
           ) : raw && !opponent ? (
             <>

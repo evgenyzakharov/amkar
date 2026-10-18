@@ -101,7 +101,11 @@ function MatchCard({ initial }: { initial: MatchCardData }) {
 
   const played = squad.filter((p) => ['start', 'sub', 'unknown'].includes(draft.lineup[p.player_id]?.status ?? ''));
   const others = squad.filter((p) => p.inSquad && !played.includes(p));
-  const title = draft.header.opponent.trim() || match?.opponent_raw || 'соперник';
+  // Клуб в поле — как в справочнике; в заголовке — как он назывался в тот сезон, пока клуб не сменили
+  const savedTeam = base.teams.find((t) => t.id === match?.opponent_id)?.name ?? '';
+  const sameTeam = draft.header.opponent.trim() === savedTeam;
+  const nameThen = sameTeam ? data.opponentThen : null;
+  const title = nameThen || draft.header.opponent.trim() || match?.opponent_raw || 'соперник';
 
   return (
     <div className="match-card">
@@ -123,6 +127,7 @@ function MatchCard({ initial }: { initial: MatchCardData }) {
           header={draft.header}
           base={base}
           competitions={competitions}
+          nameThen={nameThen && nameThen !== savedTeam ? nameThen : null}
           onChange={(update) => setDraft((d) => ({ ...d, header: update(d.header) }))}
         />
       </section>
