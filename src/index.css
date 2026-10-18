@@ -1258,6 +1258,261 @@ h3 {
   outline-offset: 1px;
 }
 
+/* История: уровень лиги по сезонам — столбики, шкала 1 (высший дивизион) сверху */
+.tier-chart {
+  display: flex;
+  gap: 8px;
+  min-width: 760px;
+  /* подпись «1» выступает над графиком, а прокрутка вбок обрезала бы её */
+  padding-top: 8px;
+}
+
+.tier-axis {
+  position: relative;
+  flex: 0 0 14px;
+  height: 150px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tier-axis span {
+  position: absolute;
+  right: 0;
+  transform: translateY(50%);
+}
+
+.tier-plot {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+}
+
+.tier-col {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 22px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+/* Линии уровней: каждые 30 px от основания, верхняя — уровень 1 */
+.tier-slot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 150px;
+  border-top: 1px solid var(--border);
+  background: repeating-linear-gradient(to top, var(--border) 0 1px, transparent 1px 30px);
+}
+
+.tier-bar {
+  display: block;
+  width: 100%;
+  max-width: 24px;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+}
+
+.tier-col:hover .tier-bar,
+.tier-col:focus-visible .tier-bar {
+  filter: brightness(1.2);
+}
+
+.tier-label {
+  padding-top: 4px;
+  font-size: 11px;
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.tier-break {
+  display: flex;
+  flex: 0 0 36px;
+  align-items: flex-end;
+  justify-content: center;
+  height: 150px;
+}
+
+.tier-break span {
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+/* История: сезоны строками. Ничья — нейтральный серый между полюсами: красный и зелёный рядом
+   плохо различимы при дальтонизме (проверено валидатором), числа рядом с полосой — дублируют цвет */
+.ribbon {
+  --wdl-w: var(--win);
+  --wdl-d: #c9c2ba;
+  --wdl-l: var(--loss);
+}
+
+.wdl-legend {
+  --wdl-w: var(--win);
+  --wdl-d: #c9c2ba;
+  --wdl-l: var(--loss);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ribbon,
+  .wdl-legend {
+    --wdl-d: #9d968e;
+  }
+}
+
+.wdl-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+
+.ribbon-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.3fr);
+  grid-template-areas: 'season league ppg wdl';
+  align-items: center;
+  gap: 4px 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.ribbon-head {
+  padding-top: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.ribbon-row > :nth-child(1) {
+  grid-area: season;
+}
+
+.ribbon-row > :nth-child(2) {
+  grid-area: league;
+}
+
+.ribbon-row > :nth-child(3) {
+  grid-area: ppg;
+}
+
+.ribbon-row > :nth-child(4) {
+  grid-area: wdl;
+}
+
+.ribbon-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ribbon-epoch-title {
+  margin: 20px 0 4px;
+  font-size: 18px;
+  color: var(--accent);
+}
+
+.ribbon-break {
+  margin: 20px 0 0;
+  padding: 10px 14px;
+  border-left: 4px solid var(--border);
+  background: var(--highlight);
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.ribbon-season {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.ribbon-league {
+  font-size: 14px;
+}
+
+.ribbon-ppg,
+.ribbon-wdl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ribbon-num {
+  font-size: 14px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.meter {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bar);
+}
+
+.meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+}
+
+.wdl-bar {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  height: 10px;
+}
+
+.wdl-bar span:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.wdl-bar span:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+.wdl-bar span:only-child {
+  border-radius: 4px;
+}
+
+.wdl-W {
+  background: var(--wdl-w);
+}
+
+.wdl-D {
+  background: var(--wdl-d);
+}
+
+.wdl-L {
+  background: var(--wdl-l);
+}
+
+@media (max-width: 640px) {
+  .ribbon-row {
+    grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'season league league'
+      '. ppg wdl';
+  }
+
+  .ribbon-head {
+    display: none;
+  }
+}
+
 /* ===== Админка ===== */
 
 .admin-links {

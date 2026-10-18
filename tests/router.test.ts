@@ -12,6 +12,7 @@ describe('маршруты', () => {
     expect(parseRoute(leadersHref())).toEqual({ page: 'leaders', scope: 'all' });
     expect(parseRoute(leadersHref('league'))).toEqual({ page: 'leaders', scope: 'league' });
     expect(parseRoute('#/leaders?scope=junk')).toEqual({ page: 'leaders', scope: 'all' });
+    expect(parseRoute('#/history')).toEqual({ page: 'history' });
   });
 
   it('админка', () => {

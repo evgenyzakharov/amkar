@@ -4,11 +4,12 @@ import { AuthProvider } from './components/AuthProvider';
 import { NotFound } from './components/common';
 import { MatchPage } from './pages/MatchPage';
 import { PlayerPage } from './pages/PlayerPage';
+import { HistoryPage } from './pages/HistoryPage';
 import { LeadersPage } from './pages/LeadersPage';
 import { PlayersPage } from './pages/PlayersPage';
 import { SeasonPage } from './pages/SeasonPage';
 import { SeasonsPage } from './pages/SeasonsPage';
-import { adminHref, leadersHref, parseRoute, playersHref, useHash, type Route } from './router';
+import { adminHref, historyHref, leadersHref, parseRoute, playersHref, useHash, type Route } from './router';
 
 // Админка — отдельным файлом: посетителям сайта её код не нужен
 const AdminPage = lazy(() => import('./admin/AdminPage').then((m) => ({ default: m.AdminPage })));
@@ -25,6 +26,8 @@ function Page({ route }: { route: Route }) {
       return <PlayerPage id={route.id} />;
     case 'players':
       return <PlayersPage />;
+    case 'history':
+      return <HistoryPage />;
     case 'leaders':
       return <LeadersPage scope={route.scope} />;
     case 'admin':
@@ -56,8 +59,9 @@ function AdminLinks() {
 }
 
 /** Раздел шапки, к которому относится страница: матчи — часть сезонов. */
-function sectionOf(route: Route): 'seasons' | 'players' | 'leaders' | null {
+function sectionOf(route: Route): 'seasons' | 'history' | 'players' | 'leaders' | null {
   if (route.page === 'leaders') return 'leaders';
+  if (route.page === 'history') return 'history';
   if (route.page === 'seasons' || route.page === 'season' || route.page === 'match') return 'seasons';
   if (route.page === 'players' || route.page === 'player') return 'players';
   return null;
@@ -83,6 +87,9 @@ function App() {
           <nav className="site-nav" aria-label="Разделы сайта">
             <a href="#/" className={section === 'seasons' ? 'active' : undefined}>
               Сезоны
+            </a>
+            <a href={historyHref} className={section === 'history' ? 'active' : undefined}>
+              История
             </a>
             <a href={playersHref} className={section === 'players' ? 'active' : undefined}>
               Игроки

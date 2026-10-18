@@ -195,3 +195,23 @@ export interface GridAbsence {
   player_id: number;
   reason: AbsenceReason;
 }
+
+/** Строка view season_summary: сезон одной строкой для истории клуба. */
+export interface SeasonSummary {
+  season_id: number;
+  label: string;
+  start_year: number;
+  end_year: number;
+  division: string | null;
+  tier: number | null;
+  final_place: number | null;
+  teams_count: number | null;
+  league_played: number;
+  league_wins: number;
+  league_draws: number;
+  league_losses: number;
+  league_unknown: number;
+  league_points: number;
+  minutes: number;
+  academy_minutes: number;
+}

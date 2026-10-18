@@ -16,6 +16,7 @@ import type {
   PlayerSeasonStats,
   Season,
   SeasonMatch,
+  SeasonSummary,
   SquadEntry,
   Transfer,
 } from './types';
@@ -291,3 +292,16 @@ export async function loadSeasonGrid(seasonId: number): Promise<SeasonGridData> 
   ]);
   return { appearances, absences };
 }
+
+/** Все сезоны одной строкой — для истории клуба. */
+export const loadHistory = () =>
+  rows<SeasonSummary[]>(
+    db()
+      .from('season_summary')
+      .select(
+        'season_id, label, start_year, end_year, division, tier, final_place, teams_count, league_played, league_wins, ' +
+          'league_draws, league_losses, league_unknown, league_points, minutes, academy_minutes',
+      )
+      .order('start_year')
+      .order('end_year'),
+  );

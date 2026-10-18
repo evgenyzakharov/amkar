@@ -2,19 +2,13 @@ import { Card } from '../components/cards';
 import { LoadStatus } from '../components/common';
 import { loadSeasons } from '../db/queries';
 import type { Season } from '../db/types';
+import { SEASON_EPOCHS } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { seasonHref } from '../router';
 
 // Ключ один: список сезонов не зависит от адреса
 const ALL = 'all';
 const load = () => loadSeasons();
-
-/** Эпохи клуба — колонки списка. Сезон попадает в эпоху по году начала. */
-const EPOCHS: { title: string; until: number }[] = [
-  { title: '1995–2003', until: 2003 },
-  { title: '2004–2018', until: 2018 },
-  { title: 'с 2021', until: Infinity },
-];
 
 export function SeasonsPage() {
   useDocumentTitle(null);
@@ -27,8 +21,8 @@ export function SeasonsPage() {
       {state.status === 'ready' && state.data.length === 0 && <p className="muted">Данных пока нет.</p>}
       {state.status === 'ready' && state.data.length > 0 && (
         <div className="epochs">
-          {EPOCHS.map((epoch, i) => {
-            const from = i === 0 ? -Infinity : EPOCHS[i - 1].until;
+          {SEASON_EPOCHS.map((epoch, i) => {
+            const from = i === 0 ? -Infinity : SEASON_EPOCHS[i - 1].until;
             const seasons = state.data.filter((s) => s.start_year > from && s.start_year <= epoch.until);
             return (
               seasons.length > 0 && (

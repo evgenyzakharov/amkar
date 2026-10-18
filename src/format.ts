@@ -119,3 +119,13 @@ export function sumKnown(values: (number | null)[]): number | null {
   const known = values.filter((v): v is number => v != null);
   return known.length ? known.reduce((a, b) => a + b, 0) : null;
 }
+
+/** Эпохи клуба: колонки списка сезонов и разделы истории. Сезон попадает в эпоху по году начала. */
+export const SEASON_EPOCHS: { title: string; until: number }[] = [
+  { title: '1995–2003', until: 2003 },
+  { title: '2004–2018', until: 2018 },
+  { title: 'с 2021', until: Infinity },
+];
+
+/** Нынешний «Амкар» — новый клуб: с этого года начала сезона серии и история идут заново. */
+export const NEW_CLUB_FROM = 2021;
