@@ -15,6 +15,7 @@ import {
   type Team,
 } from './match';
 import type { SquadBase, SquadPlayerInfo, SquadRecord } from './squad';
+import { TRANSFER_COLUMNS, type TransferBase, type TransferRecord } from './transfers';
 
 /** Матч в списке админки: сколько уже записано по нему. */
 export interface AdminMatchRow extends MatchRow {
@@ -253,23 +254,40 @@ interface PlayerRow {
   squad_member: { season: { label: string; start_year: number } }[];
 }
 
+/** Все игроки базы с их сезонами в «Амкаре» — чтобы выбирать и отличать однофамильцев. */
+async function loadAllPlayers(): Promise<SquadPlayerInfo[]> {
+  const players = await allRows<PlayerRow>((from, to) =>
+    db()
+      .from('player')
+      .select('id, display_name, last_name, first_name, birth_date, academy, squad_member(season(label, start_year))')
+      .order('id')
+      .range(from, to),
+  );
+  return players.map((p) => ({
+    id: p.id,
+    display_name: p.display_name,
+    last_name: p.last_name,
+    first_name: p.first_name,
+    birth_date: p.birth_date,
+    academy: p.academy,
+    seasons: p.squad_member
+      .map((s) => s.season)
+      .sort((a, b) => a.start_year - b.start_year)
+      .map((s) => s.label),
+  }));
+}
+
 export async function loadSquadEditor(label: string): Promise<SquadEditorData> {
   const season = (await loadSeasons()).find((s) => s.label === label);
   if (!season) throw new NotFoundError(`Сезона «${label}» в базе нет.`);
-  const [rowsOfSeason, players, matches] = await Promise.all([
+  const [rowsOfSeason, allPlayers, matches] = await Promise.all([
     rows<SquadRecord[]>(
       db()
         .from('squad_member')
         .select('season_id, player_id, shirt_number, position, squad_group, on_loan, sort_order')
         .eq('season_id', season.id),
     ),
-    allRows<PlayerRow>((from, to) =>
-      db()
-        .from('player')
-        .select('id, display_name, last_name, first_name, birth_date, academy, squad_member(season(label, start_year))')
-        .order('id')
-        .range(from, to),
-    ),
+    loadAllPlayers(),
     rows<{ id: number }[]>(db().from('match').select('id').eq('season_id', season.id)),
   ]);
   const ids = matches.map((m) => m.id);
@@ -285,21 +303,40 @@ export async function loadSquadEditor(label: string): Promise<SquadEditorData> {
     ]);
     for (const r of [...apps, ...abs]) inMatches.add(r.player_id);
   }
-  const allPlayers: SquadPlayerInfo[] = players.map((p) => ({
-    id: p.id,
-    display_name: p.display_name,
-    last_name: p.last_name,
-    first_name: p.first_name,
-    birth_date: p.birth_date,
-    academy: p.academy,
-    seasons: p.squad_member
-      .map((s) => s.season)
-      .sort((a, b) => a.start_year - b.start_year)
-      .map((s) => s.label),
-  }));
   return {
     season,
     base: { seasonId: season.id, rows: rowsOfSeason, players: new Map(allPlayers.map((p) => [p.id, p])), inMatches },
     allPlayers,
+  };
+}
+
+// ===========================================================================
+// Трансферы сезона
+// ===========================================================================
+
+export interface TransfersEditorData {
+  base: TransferBase;
+  players: SquadPlayerInfo[];
+  /** Игроки заявки сезона — их удобнее выбирать первыми. */
+  squadIds: Set<number>;
+}
+
+export async function loadTransfersEditor(label: string): Promise<TransfersEditorData> {
+  const season = (await loadSeasons()).find((s) => s.label === label);
+  if (!season) throw new NotFoundError(`Сезона «${label}» в базе нет.`);
+  const [transfers, teams, players, squad] = await Promise.all([
+    rows<TransferRecord[]>(db().from('transfer').select(TRANSFER_COLUMNS).eq('season_id', season.id)),
+    rows<Team[]>(db().from('team').select('id, name').order('name')),
+    loadAllPlayers(),
+    rows<{ player_id: number }[]>(db().from('squad_member').select('player_id').eq('season_id', season.id)),
+  ]);
+  return {
+    base: {
+      season: { id: season.id, label: season.label, start_year: season.start_year, end_year: season.end_year },
+      transfers,
+      teams,
+    },
+    players,
+    squadIds: new Set(squad.map((s) => s.player_id)),
   };
 }

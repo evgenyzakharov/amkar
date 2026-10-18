@@ -5,6 +5,7 @@ import { adminHref, adminMatchHref, adminNewMatchHref, adminSeasonHref, seasonHr
 import { embeddedCount, loadAdminSeason } from './queries';
 import { SeasonGrid } from './SeasonGrid';
 import { SquadEditor } from './SquadEditor';
+import { TransfersEditor } from './TransfersEditor';
 
 const VENUE_SHORT = { home: 'д', away: 'г', neutral: 'н' } as const;
 
@@ -23,8 +24,17 @@ export function AdminSeason({ label, tab }: { label: string; tab: SeasonTab }) {
         {tabLink('matches', 'Матчи')}
         {tabLink('grid', 'Сетка «игроки × матчи»')}
         {tabLink('squad', 'Заявка')}
+        {tabLink('transfers', 'Трансферы')}
       </nav>
-      {tab === 'grid' ? <SeasonGrid label={label} /> : tab === 'squad' ? <SquadEditor label={label} /> : <SeasonMatches label={label} />}
+      {tab === 'grid' ? (
+        <SeasonGrid label={label} />
+      ) : tab === 'squad' ? (
+        <SquadEditor label={label} />
+      ) : tab === 'transfers' ? (
+        <TransfersEditor label={label} />
+      ) : (
+        <SeasonMatches label={label} />
+      )}
     </>
   );
 }

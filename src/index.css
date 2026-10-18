@@ -1412,3 +1412,20 @@ input.w-short {
   padding-left: 20px;
   font-size: 0.9rem;
 }
+
+/* Трансферы сезона в админке */
+.transfers-edit .transfer-in td:first-child {
+  border-left: 3px solid var(--win);
+}
+
+.transfers-edit .transfer-out td:first-child {
+  border-left: 3px solid var(--loss);
+}
+
+.transfers-edit select[aria-label='игрок'] {
+  max-width: 16em;
+}
+
+.transfers-edit input.as-text {
+  border-style: dashed;
+}
