@@ -4,9 +4,10 @@ import { AuthProvider } from './components/AuthProvider';
 import { NotFound } from './components/common';
 import { MatchPage } from './pages/MatchPage';
 import { PlayerPage } from './pages/PlayerPage';
+import { PlayersPage } from './pages/PlayersPage';
 import { SeasonPage } from './pages/SeasonPage';
 import { SeasonsPage } from './pages/SeasonsPage';
-import { adminHref, parseRoute, useHash, type Route } from './router';
+import { adminHref, parseRoute, playersHref, useHash, type Route } from './router';
 
 // Админка — отдельным файлом: посетителям сайта её код не нужен
 const AdminPage = lazy(() => import('./admin/AdminPage').then((m) => ({ default: m.AdminPage })));
@@ -21,6 +22,8 @@ function Page({ route }: { route: Route }) {
       return <MatchPage id={route.id} />;
     case 'player':
       return <PlayerPage id={route.id} />;
+    case 'players':
+      return <PlayersPage />;
     case 'admin':
       return (
         <Suspense fallback={<p className="muted">Загрузка…</p>}>
@@ -49,8 +52,17 @@ function AdminLinks() {
   );
 }
 
+/** Раздел шапки, к которому относится страница: матчи — часть сезонов. */
+function sectionOf(route: Route): 'seasons' | 'players' | null {
+  if (route.page === 'seasons' || route.page === 'season' || route.page === 'match') return 'seasons';
+  if (route.page === 'players' || route.page === 'player') return 'players';
+  return null;
+}
+
 function App() {
   const hash = useHash();
+  const route = parseRoute(hash);
+  const section = sectionOf(route);
 
   // Переход по ссылке — новая страница: начинаем её сверху
   useEffect(() => {
@@ -59,21 +71,26 @@ function App() {
 
   return (
     <AuthProvider>
-      <div className="app">
-        <header className="app-header">
-          <div>
-            <h1>
-              <a href="#/">Амкар</a>
-            </h1>
-            <p>История клуба в цифрах</p>
-          </div>
+      <header className="site-header">
+        <div className="site-header-inner">
+          <a className="site-logo" href="#/" title="Амкар — история в цифрах">
+            Амкар
+          </a>
+          <nav className="site-nav" aria-label="Разделы сайта">
+            <a href="#/" className={section === 'seasons' ? 'active' : undefined}>
+              Сезоны
+            </a>
+            <a href={playersHref} className={section === 'players' ? 'active' : undefined}>
+              Игроки
+            </a>
+          </nav>
           <AdminLinks />
-        </header>
+        </div>
+      </header>
 
-        <main>
-          <Page route={parseRoute(hash)} />
-        </main>
-      </div>
+      <main className="site-main">
+        <Page route={route} />
+      </main>
     </AuthProvider>
   );
 }

@@ -5,12 +5,14 @@ import type {
   Absence,
   Appearance,
   BestXiSlot,
+  ExternalLink,
   Goal,
   MatchDetails,
-  MatchRow,
   Player,
+  PlayerListItem,
   PlayerSeasonStats,
   Season,
+  SeasonMatch,
   SquadEntry,
   Transfer,
 } from './types';
@@ -35,6 +37,25 @@ const STATS_COLUMNS =
   'season_id, player_id, season_label, start_year, end_year, division, display_name, academy, shirt_number, ' +
   'position, squad_group, on_loan, sort_order, games, minutes, goals, assists, goals_conceded';
 
+/** Все строки запроса, страницами по 1000: больше PostgREST за раз не отдаёт. Запросу нужен устойчивый порядок. */
+async function allRows<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+): Promise<T[]> {
+  const size = 1000;
+  const result: T[] = [];
+  for (let from = 0; ; from += size) {
+    const chunk = await rows<T[]>(page(from, from + size - 1));
+    result.push(...chunk);
+    if (chunk.length < size) return result;
+  }
+}
+
+/** Необязательная часть страницы — ссылки на внешние сайты: не загрузились — страница без них. */
+async function optional<T>(promise: Promise<T[]>): Promise<T[]> {
+  const result = await part(promise);
+  return 'data' in result ? result.data : [];
+}
+
 export const loadSeasons = () =>
   rows<Season[]>(db().from('season').select(SEASON_COLUMNS).order('start_year').order('end_year'));
 
@@ -42,10 +63,11 @@ export interface SeasonPageData {
   season: Season;
   prev: Season | null;
   next: Season | null;
-  matches: MatchRow[];
+  matches: SeasonMatch[];
   /** Из view: пока миграция не выполнена, остальная страница всё равно показывается. */
   squad: Part<PlayerSeasonStats[]>;
   bestXi: BestXiSlot[];
+  links: ExternalLink[];
 }
 
 export async function loadSeason(label: string): Promise<SeasonPageData> {
@@ -54,8 +76,10 @@ export async function loadSeason(label: string): Promise<SeasonPageData> {
   if (i < 0) throw new NotFoundError(`Сезона «${label}» в базе нет.`);
   const season = seasons[i];
 
-  const [matches, squad, bestXi] = await Promise.all([
-    rows<MatchRow[]>(db().from('match').select(MATCH_COLUMNS).eq('season_id', season.id).order('seq')),
+  const [matches, squad, bestXi, links] = await Promise.all([
+    rows<SeasonMatch[]>(
+      db().from('match').select(`${MATCH_COLUMNS}, coach(id, full_name)`).eq('season_id', season.id).order('seq'),
+    ),
     part(
       rows<PlayerSeasonStats[]>(
         db()
@@ -67,8 +91,9 @@ export async function loadSeason(label: string): Promise<SeasonPageData> {
       ),
     ),
     rows<BestXiSlot[]>(db().from('season_best_xi').select('slot, player(id, display_name)').eq('season_id', season.id)),
+    optional(rows<ExternalLink[]>(db().from('season_link').select('site, url').eq('season_id', season.id))),
   ]);
-  return { season, prev: seasons[i - 1] ?? null, next: seasons[i + 1] ?? null, matches, squad, bestXi };
+  return { season, prev: seasons[i - 1] ?? null, next: seasons[i + 1] ?? null, matches, squad, bestXi, links };
 }
 
 export interface MatchPageData {
@@ -129,6 +154,9 @@ export async function loadMatch(id: number): Promise<MatchPageData> {
 
 export interface PlayerPageData {
   player: Player;
+  /** Публичная ссылка на фото из бакета player-photos. */
+  photoUrl: string | null;
+  links: ExternalLink[];
   career: Part<PlayerSeasonStats[]>;
   transfers: Transfer[];
 }
@@ -145,13 +173,15 @@ export async function loadPlayer(id: number): Promise<PlayerPageData> {
   const player = await rows<Player | null>(
     db()
       .from('player')
-      .select('id, display_name, last_name, first_name, middle_name, birth_date, academy, notes')
+      // * — а не список: до миграции 20261018150000 столбцов позиции и фото нет, и страница открывается без них
+      .select('*')
       .eq('id', id)
       .maybeSingle(),
   );
   if (!player) throw new NotFoundError(`Игрока №${id} в базе нет.`);
 
-  const [career, transfers] = await Promise.all([
+  const [links, career, transfers] = await Promise.all([
+    optional(rows<ExternalLink[]>(db().from('player_link').select('site, url').eq('player_id', id))),
     part(
       rows<PlayerSeasonStats[]>(
         db().from('player_season_stats').select(STATS_COLUMNS).eq('player_id', id).order('start_year').order('end_year'),
@@ -174,5 +204,47 @@ export async function loadPlayer(id: number): Promise<PlayerPageData> {
       (a.transfer_date ?? '').localeCompare(b.transfer_date ?? '') ||
       a.id - b.id,
   );
-  return { player, career, transfers };
+  const photoUrl = player.photo_path
+    ? db().storage.from('player-photos').getPublicUrl(player.photo_path).data.publicUrl
+    : null;
+  return { player, photoUrl, links, career, transfers };
+}
+
+export interface PlayersPageItem extends PlayerListItem {
+  /** Первый и последний сезон в заявке «Амкара»; null — игрок известен только по трансферам. */
+  firstYear: number | null;
+  lastYear: number | null;
+  seasons: number;
+  games: number;
+}
+
+export async function loadPlayers(): Promise<PlayersPageItem[]> {
+  const [players, stats] = await Promise.all([
+    allRows<PlayerListItem>((from, to) =>
+      db().from('player').select('id, display_name, last_name').order('id').range(from, to),
+    ),
+    allRows<Pick<PlayerSeasonStats, 'player_id' | 'start_year' | 'end_year' | 'games'>>((from, to) =>
+      db()
+        .from('player_season_stats')
+        .select('player_id, start_year, end_year, games')
+        .order('player_id')
+        .order('season_id')
+        .range(from, to),
+    ),
+  ]);
+
+  const byPlayer = new Map<number, PlayersPageItem>(
+    players.map((p) => [p.id, { ...p, firstYear: null, lastYear: null, seasons: 0, games: 0 }]),
+  );
+  for (const s of stats) {
+    const p = byPlayer.get(s.player_id);
+    if (!p) continue;
+    p.firstYear = Math.min(p.firstYear ?? s.start_year, s.start_year);
+    p.lastYear = Math.max(p.lastYear ?? s.end_year, s.end_year);
+    p.seasons += 1;
+    p.games += s.games;
+  }
+  return [...byPlayer.values()].sort(
+    (a, b) => a.last_name.localeCompare(b.last_name, 'ru') || a.display_name.localeCompare(b.display_name, 'ru'),
+  );
 }

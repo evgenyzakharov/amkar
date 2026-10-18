@@ -5,6 +5,7 @@ import { useSyncExternalStore } from 'react';
 export type Route =
   | { page: 'seasons' }
   | { page: 'season'; label: string }
+  | { page: 'players' }
   | { page: 'match'; id: number }
   | { page: 'player'; id: number }
   | { page: 'admin'; admin: AdminRoute }
@@ -27,6 +28,7 @@ const labelFromPart = (part: string) => part.replace('-', '/');
 export const seasonHref = (label: string) => `#/season/${labelPart(label)}`;
 export const matchHref = (id: number) => `#/match/${id}`;
 export const playerHref = (id: number) => `#/player/${id}`;
+export const playersHref = '#/players';
 
 export const adminHref = '#/admin';
 export const adminSeasonHref = (label: string, tab: SeasonTab = 'matches') =>
@@ -60,6 +62,7 @@ export function parseRoute(hash: string): Route {
   }
   if (parts.length === 0) return { page: 'seasons' };
   if (parts[0] === 'admin') return parseAdminRoute(parts.slice(1));
+  if (parts.length === 1 && parts[0] === 'players') return { page: 'players' };
   if (parts.length !== 2) return { page: 'not-found' };
 
   const [page, param] = parts;

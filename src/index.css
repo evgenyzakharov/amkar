@@ -1,18 +1,25 @@
 :root {
-  /* Цвета клуба: красный и чёрный */
-  --amkar-red: #d0021b;
-  --bg: #ffffff;
-  --text: #1a1a1a;
-  --muted: #6b6b6b;
-  --border: #e4e4e4;
-  --link: #a8001a;
-  --highlight: #f5f5f5;
-  --win: #2e8b57;
-  --draw: #b08a1e;
-  --loss: #c62f3a;
-  --pitch: #edf5ee;
+  /* Цвета клуба: красный и чёрный. Палитра — из макета «матч-программы» */
+  --accent: #c8102e;
+  --amkar-red: var(--accent);
+  --bg: #f3f1ee;
+  --surface: #ffffff;
+  --text: #16130f;
+  --muted: #5c5752;
+  --border: #e0dbd4;
+  --band: #121212;
+  --band-text: #ffffff;
+  --band-muted: #bdbdbd;
+  --bar: #e8e3dc;
+  --link: var(--accent);
+  --highlight: #f7f5f2;
+  --win: #1f7a45;
+  --draw: #8a6a0c;
+  --loss: #b3242f;
+  --pitch: #e9f1ea;
+  --font-display: Oswald, 'Arial Narrow', sans-serif;
 
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
   color: var(--text);
   background: var(--bg);
@@ -20,17 +27,21 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --amkar-red: #ff3b4f;
-    --bg: #121212;
-    --text: #ececec;
-    --muted: #9a9a9a;
-    --border: #2c2c2c;
-    --link: #ff7a88;
-    --highlight: #1c1c1c;
-    --win: #3fae6c;
-    --draw: #c9a227;
-    --loss: #e5484d;
-    --pitch: #15211a;
+    /* Тёмный текст ссылок светлее акцента: #c8102e на тёмном фоне читается плохо */
+    --amkar-red: #ff4d5e;
+    --bg: #0e0e0e;
+    --surface: #191919;
+    --text: #ededed;
+    --muted: #a6a6a6;
+    --border: #2d2d2d;
+    --band: #000000;
+    --bar: #2b2b2b;
+    --link: #ff6b7d;
+    --highlight: #202020;
+    --win: #2f8f57;
+    --draw: #9a7a16;
+    --loss: #c4303b;
+    --pitch: #14211a;
   }
 }
 
@@ -42,32 +53,79 @@ body {
   margin: 0;
 }
 
-.app {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0 16px 48px;
+/* Шапка: чёрная полоса с красной линией снизу */
+.site-header {
+  background: var(--band);
+  color: var(--band-text);
+  border-bottom: 4px solid var(--accent);
 }
 
-.app-header {
+.site-header-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 6px 16px;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  align-items: flex-end;
-  gap: 8px 16px;
-  border-bottom: 4px solid var(--amkar-red);
-  padding: 24px 0 12px;
-  margin-bottom: 24px;
+  gap: 4px 24px;
 }
 
-.app-header h1 {
-  margin: 0;
-  font-size: 2rem;
-  color: var(--amkar-red);
+.site-logo {
+  padding: 6px 0;
+  color: var(--band-text);
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
 }
 
-.app-header p {
-  margin: 4px 0 0;
-  color: var(--muted);
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 24px;
+  margin-left: auto;
+  font-size: 15px;
+}
+
+.site-nav a {
+  padding: 10px 0;
+  border-bottom: 2px solid transparent;
+  color: var(--band-text);
+  text-decoration: none;
+}
+
+.site-nav a.active {
+  border-bottom-color: var(--accent);
+}
+
+.site-nav a:hover {
+  border-bottom-color: var(--band-muted);
+}
+
+.site-header .admin-links a,
+.site-header .admin-links .link-button {
+  color: var(--band-text);
+}
+
+.site-header .admin-links .muted {
+  color: var(--band-muted);
+}
+
+.site-main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 20px 16px 64px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .muted {
@@ -95,11 +153,6 @@ body {
 
 a {
   color: var(--link);
-}
-
-.app-header h1 a {
-  color: inherit;
-  text-decoration: none;
 }
 
 h2 {
@@ -278,9 +331,9 @@ h3 {
 .pitch {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px 8px;
-  border-radius: 8px;
+  gap: 14px;
+  padding: 20px 8px;
+  border-radius: 10px;
   background: var(--pitch);
 }
 
@@ -295,18 +348,617 @@ h3 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 96px;
-  padding: 4px 8px;
+  justify-content: center;
+  min-width: 92px;
+  min-height: 44px;
+  padding: 4px 10px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
+  border-radius: 8px;
+  background: var(--surface);
   color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
   text-decoration: none;
 }
 
+.pitch-player:hover {
+  border-color: var(--accent);
+}
+
 .pitch-slot {
-  font-size: 0.7rem;
+  font-size: 11px;
+  font-weight: 400;
   color: var(--muted);
+}
+
+/* ===== Карточки игрока и сезона: макет «матч-программы» ===== */
+
+.card-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.card-page section {
+  margin-top: 0;
+}
+
+.crumbs {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.crumbs-split {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.crumbs-siblings {
+  display: flex;
+  gap: 16px;
+}
+
+.card {
+  min-width: 0;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.card-aside {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.card .note {
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+
+.card-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.card-row > .card:first-child {
+  flex: 1 1 360px;
+}
+
+.card-row > .card:last-child {
+  flex: 1 1 420px;
+}
+
+/* Плитки с крупными цифрами */
+.tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.tile {
+  flex: 1 1 200px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.tile-value {
+  font-family: var(--font-display);
+  font-size: 42px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile-label {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* Кнопки-ссылки на внешние сайты */
+.ext-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ext-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.ext-link:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* Игрок: фото слева, номер и фамилия крупно. Фото до краёв карточки — и на телефоне */
+.card.player-hero {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0;
+  overflow: hidden;
+}
+
+.player-photo {
+  flex: 1 1 220px;
+  max-width: 280px;
+  min-height: 300px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-right: 4px solid var(--accent);
+  background: var(--band);
+}
+
+.player-photo img {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 300px;
+  object-fit: cover;
+}
+
+.player-photo figcaption {
+  align-self: stretch;
+  padding: 4px 10px 6px;
+  font-size: 11px;
+  color: var(--band-muted);
+}
+
+.player-info {
+  flex: 999 1 360px;
+  min-width: 0;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.player-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.player-number {
+  font-family: var(--font-display);
+  font-size: clamp(56px, 16vw, 88px);
+  font-weight: 700;
+  line-height: 0.85;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.player-name {
+  min-width: 0;
+}
+
+.player-given {
+  font-size: 20px;
+  color: var(--muted);
+}
+
+.player-surname {
+  margin: 4px 0 0;
+  font-size: clamp(34px, 9vw, 56px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.player-notes {
+  margin: 0;
+}
+
+.facts {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 40px;
+}
+
+.facts dt {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.facts dd {
+  margin: 2px 0 0;
+}
+
+.facts dd.strong {
+  font-weight: 600;
+}
+
+/* На телефоне фото — полосой над текстом */
+@media (max-width: 640px) {
+  .player-photo {
+    max-width: none;
+    min-height: 220px;
+    border-right: 0;
+    border-bottom: 4px solid var(--accent);
+  }
+
+  .player-photo img {
+    min-height: 220px;
+    max-height: 360px;
+  }
+
+  .player-info {
+    padding: 20px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .season-hero {
+    padding: 20px;
+  }
+
+  .season-hero-side {
+    align-items: flex-start;
+  }
+
+  /* Плитки по две в ряд */
+  .tile {
+    flex-basis: 140px;
+    padding: 12px 16px;
+  }
+
+  .tile-value {
+    font-size: 34px;
+  }
+
+  /* Линия сборной не должна разваливаться: 4–5 игроков в ряд */
+  .pitch {
+    padding: 16px 4px;
+  }
+
+  .pitch-line {
+    gap: 4px;
+  }
+
+  .pitch-player {
+    min-width: 0;
+    padding: 4px 6px;
+    font-size: 12.5px;
+  }
+}
+
+/* Голы по сезонам: столбики */
+.chart-scroll {
+  overflow-x: auto;
+}
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 210px;
+}
+
+.bar-col {
+  flex: 1 1 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.bar-value {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  width: 100%;
+  max-width: 40px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+}
+
+.bar-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Таблица карьеры */
+.career-table tbody th {
+  font-weight: 500;
+}
+
+.career-table td.strong {
+  font-weight: 600;
+}
+
+.career-table tfoot th,
+.career-table tfoot td {
+  border-top: 2px solid var(--text);
+}
+
+/* Сезон: тёмный блок с крупным годом */
+.season-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px;
+  border-left: 6px solid var(--accent);
+  border-radius: 12px;
+  background: var(--band);
+  color: var(--band-text);
+}
+
+.season-hero-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.season-kicker {
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--band-muted);
+}
+
+.season-title {
+  margin: 0;
+  font-size: clamp(56px, 17vw, 96px);
+  font-weight: 700;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
+.band-facts {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+}
+
+.band-facts dt {
+  font-size: 13px;
+  color: var(--band-muted);
+}
+
+.band-facts dd {
+  margin: 2px 0 0;
+}
+
+.season-hero-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.season-hero .ext-link {
+  border-color: #5a5a5a;
+  color: var(--band-text);
+}
+
+.season-hero .ext-link:hover {
+  border-color: var(--accent);
+}
+
+.season-hero .edit-link {
+  color: var(--band-muted);
+}
+
+/* Результаты по ходу сезона: квадраты В/Н/П */
+.result-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.form-square {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.form-square:hover,
+.form-square:focus-visible {
+  color: #ffffff;
+  filter: brightness(1.15);
+}
+
+.form-square.ringed {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.tone-W {
+  background: var(--win);
+}
+
+.tone-D {
+  background: var(--draw);
+}
+
+.tone-L {
+  background: var(--loss);
+}
+
+.form-square.tone-unknown {
+  background: var(--border);
+  color: var(--muted);
+}
+
+.form-letter {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.form-sub {
+  font-size: 10px;
+  line-height: 1.2;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.strip-title {
+  margin: 20px 0 10px;
+  font-size: 16px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Лучшие бомбардиры с полосками */
+.scorers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scorers li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.scorer-rank {
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.scorer-main a {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.scorer-track {
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 4px;
+  background: var(--bar);
+}
+
+.scorer-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--accent);
+}
+
+.scorer-goals {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Весь состав сезона — раскрывается по клику */
+.squad-details summary {
+  cursor: pointer;
+}
+
+.squad-details[open] summary {
+  margin-bottom: 16px;
+}
+
+/* Список игроков */
+.player-search {
+  width: 100%;
+  max-width: 360px;
+  min-height: 44px;
+  margin-bottom: 8px;
+}
+
+.letter-group {
+  margin-top: 20px;
+}
+
+.letter {
+  margin: 0 0 8px;
+  font-size: 22px;
+  color: var(--accent);
+}
+
+.player-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 4px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.player-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.player-list .muted {
+  font-size: 13px;
 }
 
 /* ===== Админка ===== */

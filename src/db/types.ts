@@ -120,6 +120,30 @@ export interface Player {
   birth_date: string | null;
   academy: boolean;
   notes: string | null;
+  /** Основная позиция для карточки игрока. */
+  position: Position | null;
+  /** Путь к фото в бакете player-photos. */
+  photo_path: string | null;
+  photo_credit: string | null;
+}
+
+/** Профиль игрока или страница сезона на внешнем сайте (player_link, season_link). */
+export type LinkSite = 'transfermarkt' | 'wikipedia' | 'championat';
+export interface ExternalLink {
+  site: LinkSite;
+  url: string;
+}
+
+/** Матч в карточке сезона: с тренером, чтобы найти главного. */
+export interface SeasonMatch extends MatchRow {
+  coach: { id: number; full_name: string } | null;
+}
+
+/** Игрок в списке всех игроков. */
+export interface PlayerListItem {
+  id: number;
+  display_name: string;
+  last_name: string;
 }
 
 export interface Transfer {

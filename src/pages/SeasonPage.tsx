@@ -1,16 +1,19 @@
-import { EditLink, LoadStatus, PageNav, ResultBadge, Tag } from '../components/common';
-import { loadSeason } from '../db/queries';
-import type { BestXiSlot, MatchRow, PlayerSeasonStats, Result } from '../db/types';
+import { useRef } from 'react';
+import { Card, ExternalLinks, Tiles, type Tile } from '../components/cards';
+import { EditLink, LoadStatus, Tag } from '../components/common';
+import { loadSeason, type SeasonPageData } from '../db/queries';
+import type { BestXiSlot, CompetitionKind, PlayerSeasonStats, SeasonMatch } from '../db/types';
 import {
+  AWARDED_LABEL,
   BEST_XI_LINES,
-  COMPETITION_SHORT,
   POSITION_LABEL,
   POSITION_TITLE,
+  RESULT_LABEL,
+  RESULT_TITLE,
   SLOT_LABEL,
-  formatDate,
-  formatScore,
   num,
   opponentName,
+  plural,
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { adminSeasonHref, matchHref, playerHref, seasonHref } from '../router';
@@ -19,129 +22,240 @@ export function SeasonPage({ label }: { label: string }) {
   useDocumentTitle(`Сезон ${label}`);
   const state = useLoad(label, loadSeason);
   if (state.status !== 'ready') return <LoadStatus state={state} />;
-
-  const { season, prev, next, matches, squad, bestXi } = state.data;
-  const standing = [
-    season.division,
-    season.final_place && `${season.final_place} место${season.teams_count ? ` из ${season.teams_count}` : ''}`,
-  ].filter(Boolean);
-
-  return (
-    <>
-      <PageNav
-        up={<a href="#/">← Все сезоны</a>}
-        prev={prev && <a href={seasonHref(prev.label)}>‹ {prev.label}</a>}
-        next={next && <a href={seasonHref(next.label)}>{next.label} ›</a>}
-      />
-      <h2>
-        Сезон {season.label} <EditLink href={adminSeasonHref(season.label)} />
-      </h2>
-      {standing.length > 0 && <p className="muted">{standing.join(' · ')}</p>}
-      <Summary matches={matches} />
-
-      <section>
-        <h3>Матчи</h3>
-        {matches.length > 0 ? <MatchesTable matches={matches} /> : <p className="muted">Матчей нет.</p>}
-      </section>
-
-      <section>
-        <h3>Заявка</h3>
-        {'error' in squad ? (
-          <p className="error">Статистика заявки не загрузилась: {squad.error}</p>
-        ) : squad.data.length > 0 ? (
-          <>
-            <SquadTable squad={squad.data} />
-            <p className="note">
-              Игры и минуты — без товарищеских матчей. Голы и передачи — итоги сезона из таблицы автора, пустая ячейка
-              — данных нет.
-            </p>
-          </>
-        ) : (
-          <p className="muted">Заявка не записана.</p>
-        )}
-      </section>
-
-      {bestXi.length > 0 && (
-        <section>
-          <h3>Сборная сезона</h3>
-          <BestXi slots={bestXi} />
-        </section>
-      )}
-    </>
-  );
+  return <SeasonCard data={state.data} />;
 }
 
-/** Итог официальных матчей сезона. */
-function Summary({ matches }: { matches: MatchRow[] }) {
+function SeasonCard({ data }: { data: SeasonPageData }) {
+  const { season, prev, next, matches, squad, bestXi, links } = data;
+  const squadRef = useRef<HTMLDetailsElement>(null);
+
   const official = matches.filter((m) => m.competition.kind !== 'friendly');
-  if (official.length === 0) return null;
+  const friendlies = matches.filter((m) => m.competition.kind === 'friendly');
+  const players = 'data' in squad ? squad.data : [];
+  const squadLabel = `Весь состав — ${players.length} ${plural(players.length, ['игрок', 'игрока', 'игроков'])}`;
+  const coach = mainCoach(official);
+  const facts = [
+    season.division && { term: 'Турнир', value: season.division },
+    season.final_place && {
+      term: 'Итоговое место',
+      value: season.teams_count ? `${season.final_place} из ${season.teams_count}` : String(season.final_place),
+    },
+    coach && { term: 'Главный тренер', value: coach },
+  ].filter((f) => !!f);
 
-  const count = (r: Result) => official.filter((m) => m.result === r).length;
-  const unknown = official.filter((m) => !m.result).length;
-  // Мячи — только когда известен счёт всех сыгранных матчей, иначе сумма вводит в заблуждение
-  const played = official.filter((m) => !m.awarded);
-  const scored = played.length > 0 && played.every((m) => m.goals_for != null && m.goals_against != null);
-  const goals = (key: 'goals_for' | 'goals_against') => played.reduce((sum, m) => sum + (m[key] ?? 0), 0);
+  const showSquad = () => {
+    const el = squadRef.current;
+    if (!el) return;
+    el.open = true;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
-    <p className="season-summary">
-      Официальных матчей: <b>{official.length}</b>
-      {(['W', 'D', 'L'] as const).map((r) => (
-        <span key={r} className="summary-item">
-          <ResultBadge result={r} /> {count(r)}
+    <div className="card-page">
+      <nav className="crumbs crumbs-split" aria-label="Путь и соседние сезоны">
+        <span>
+          <a href="#/">Сезоны</a> / {season.label}
         </span>
-      ))}
-      {unknown > 0 && <span className="summary-item muted">результат неизвестен: {unknown}</span>}
-      {scored && (
-        <span className="summary-item">
-          мячи {goals('goals_for')}–{goals('goals_against')}
+        <span className="crumbs-siblings">
+          {prev && <a href={seasonHref(prev.label)}>← {prev.label}</a>}
+          {next && <a href={seasonHref(next.label)}>{next.label} →</a>}
         </span>
+      </nav>
+
+      <section className="season-hero" aria-label="Сезон">
+        <div className="season-hero-main">
+          <div>
+            <div className="season-kicker">Сезон</div>
+            <h1 className="season-title">{season.label}</h1>
+          </div>
+          {facts.length > 0 && (
+            <dl className="band-facts">
+              {facts.map((f) => (
+                <div key={f.term}>
+                  <dt>{f.term}</dt>
+                  <dd>{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+        <div className="season-hero-side">
+          <ExternalLinks links={links} />
+          <EditLink href={adminSeasonHref(season.label)} />
+        </div>
+      </section>
+
+      <Tiles tiles={seasonTiles(official)} label="Итоги сезона" />
+
+      {matches.length > 0 ? (
+        <Card title="Результаты по ходу сезона" aside={legend(official)}>
+          {official.length > 0 && <ResultStrip matches={official} />}
+          {friendlies.length > 0 && (
+            <>
+              <h3 className="strip-title">Товарищеские матчи</h3>
+              <ResultStrip matches={friendlies} />
+            </>
+          )}
+        </Card>
+      ) : (
+        <p className="muted">Матчей нет.</p>
       )}
-    </p>
+
+      {(players.some((p) => (p.goals ?? 0) > 0) || bestXi.length > 0) && (
+        <div className="card-row">
+          {players.some((p) => (p.goals ?? 0) > 0) && (
+            <Card title="Лучшие бомбардиры">
+              <Scorers players={players} />
+              <p className="note">
+                Голы во всех турнирах.{' '}
+                <button type="button" className="link-button" onClick={showSquad}>
+                  {squadLabel}
+                </button>
+              </p>
+            </Card>
+          )}
+          {bestXi.length > 0 && (
+            <Card title="Сборная сезона">
+              <BestXi slots={bestXi} />
+            </Card>
+          )}
+        </div>
+      )}
+
+      {'error' in squad ? (
+        <p className="error">Статистика заявки не загрузилась: {squad.error}</p>
+      ) : players.length > 0 ? (
+        <details className="card squad-details" ref={squadRef}>
+          <summary className="card-title">{squadLabel}</summary>
+          <SquadTable squad={players} />
+          <p className="note">
+            Игры и минуты — без товарищеских матчей. Голы и передачи — итоги сезона из таблицы автора, пустая ячейка —
+            данных нет.
+          </p>
+        </details>
+      ) : (
+        <p className="muted">Заявка не записана.</p>
+      )}
+    </div>
   );
 }
 
-const VENUE_SHORT = { home: 'д', away: 'г', neutral: 'н' } as const;
+/** Главный тренер — тот, кто провёл больше всего официальных матчей сезона. */
+function mainCoach(matches: SeasonMatch[]): string | null {
+  const count = new Map<number, { name: string; n: number }>();
+  for (const m of matches) {
+    if (!m.coach) continue;
+    const c = count.get(m.coach.id) ?? { name: m.coach.full_name, n: 0 };
+    c.n += 1;
+    count.set(m.coach.id, c);
+  }
+  let best: { name: string; n: number } | null = null;
+  for (const c of count.values()) if (!best || c.n > best.n) best = c;
+  return best?.name ?? null;
+}
 
-function MatchesTable({ matches }: { matches: MatchRow[] }) {
-  const hasDates = matches.some((m) => m.match_date);
+// «В–Н–П» не переносится по тире: между буквами — невидимые неразрывные соединители
+const WDL = 'В⁠–⁠Н⁠–⁠П';
+
+const wdl = (matches: SeasonMatch[]) => {
+  const n = (r: string) => matches.filter((m) => m.result === r).length;
+  return { w: n('W'), d: n('D'), l: n('L'), unknown: matches.filter((m) => !m.result).length };
+};
+
+function seasonTiles(official: SeasonMatch[]): Tile[] {
+  if (official.length === 0) return [];
+  const tiles: Tile[] = [
+    { value: official.length, label: `${plural(official.length, ['матч', 'матча', 'матчей'])} в сезоне` },
+  ];
+
+  const league = official.filter((m) => m.competition.kind === 'league');
+  const lr = wdl(league);
+  // Результаты неизвестны у всех матчей — плитка «0–0–0» соврала бы
+  if (league.length > lr.unknown) {
+    tiles.push({
+      value: `${lr.w}–${lr.d}–${lr.l}`,
+      label: `чемпионат: ${WDL}${lr.unknown ? `, без результата ${lr.unknown}` : ''}`,
+    });
+    // Очки — только когда известны все результаты
+    if (lr.unknown === 0) {
+      const points = lr.w * 3 + lr.d;
+      tiles.push({ value: points, label: `${plural(points, ['очко', 'очка', 'очков'])} в чемпионате` });
+    }
+  }
+
+  // Кубок, еврокубок, стыковые — по плитке на турнир
+  const others = new Map<string, SeasonMatch[]>();
+  for (const m of official) {
+    if (m.competition.kind === 'league') continue;
+    others.set(m.competition.name, [...(others.get(m.competition.name) ?? []), m]);
+  }
+  for (const [name, list] of others) {
+    const r = wdl(list);
+    if (list.length > r.unknown) tiles.push({ value: `${r.w}–${r.d}–${r.l}`, label: `${name}: ${WDL}` });
+  }
+  return tiles;
+}
+
+const RINGED: CompetitionKind[] = ['cup', 'europe', 'playoff'];
+
+function legend(official: SeasonMatch[]) {
+  const ringed = [...new Set(official.filter((m) => RINGED.includes(m.competition.kind)).map((m) => m.competition.name))];
+  return `В — победа · Н — ничья · П — поражение${ringed.length ? ` · с рамкой — ${ringed.join(', ')}` : ''}`;
+}
+
+/** Матчи квадратами по порядку: буква результата и счёт, пока счёта нет — номер матча. */
+function ResultStrip({ matches }: { matches: SeasonMatch[] }) {
   return (
-    <div className="table-wrap">
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th className="num">№</th>
-            {hasDates && <th>Дата</th>}
-            <th>Турнир</th>
-            <th>Соперник</th>
-            <th title="результат">Рез.</th>
-            <th>Счёт</th>
-          </tr>
-        </thead>
-        <tbody>
-          {matches.map((m) => (
-            <tr key={m.id} className={m.competition.kind === 'league' ? undefined : `row-${m.competition.kind}`}>
-              <td className="num">{m.seq}</td>
-              {hasDates && <td>{m.match_date ? formatDate(m.match_date) : ''}</td>}
-              <td title={m.round ? `${m.competition.name}, ${m.round}` : m.competition.name}>
-                {COMPETITION_SHORT[m.competition.kind]}
-              </td>
-              <td>
-                <a href={matchHref(m.id)}>{opponentName(m)}</a>
-                {m.venue && <span className="muted"> ({VENUE_SHORT[m.venue]})</span>}
-              </td>
-              <td>
-                <ResultBadge result={m.result} />
-              </td>
-              <td>
-                {formatScore(m)}
-                {m.awarded && <Tag title="результат присуждён без игры">тех.</Tag>}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <ol className="result-strip">
+      {matches.map((m) => {
+        const score = m.goals_for != null && m.goals_against != null ? `${m.goals_for}:${m.goals_against}` : null;
+        const outcome = m.result ? (m.awarded ? AWARDED_LABEL[m.result] : RESULT_TITLE[m.result]) : 'результат неизвестен';
+        const other = m.competition.kind !== 'league' ? ` (${m.competition.name})` : '';
+        const title = `${m.seq}. ${opponentName(m)}${other} — ${outcome}${score ? `, ${score}` : ''}`;
+        const ringed = RINGED.includes(m.competition.kind);
+        return (
+          <li key={m.id}>
+            <a
+              href={matchHref(m.id)}
+              className={`form-square tone-${m.result ?? 'unknown'}${ringed ? ' ringed' : ''}`}
+              title={title}
+              aria-label={title}
+            >
+              <span className="form-letter">{m.result ? RESULT_LABEL[m.result] : '?'}</span>
+              <span className="form-sub">{score ?? m.seq}</span>
+            </a>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function Scorers({ players }: { players: PlayerSeasonStats[] }) {
+  const scorers = players
+    .filter((p) => (p.goals ?? 0) > 0)
+    .sort((a, b) => (b.goals ?? 0) - (a.goals ?? 0) || a.games - b.games || a.display_name.localeCompare(b.display_name, 'ru'))
+    .slice(0, 5);
+  const top = scorers[0]?.goals ?? 1;
+  return (
+    <ol className="scorers">
+      {scorers.map((s) => {
+        // Равные голы — одно место
+        const rank = scorers.findIndex((x) => x.goals === s.goals) + 1;
+        return (
+          <li key={s.player_id}>
+            <span className="scorer-rank">{rank}</span>
+            <div className="scorer-main">
+              <a href={playerHref(s.player_id)}>{s.display_name}</a>
+              <div className="scorer-track">
+                <div className="scorer-bar" style={{ width: `${Math.round(((s.goals ?? 0) / top) * 100)}%` }} />
+              </div>
+            </div>
+            <span className="scorer-goals">{s.goals}</span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -162,10 +276,18 @@ function SquadTable({ squad }: { squad: PlayerSeasonStats[] }) {
             <th className="num">№</th>
             {hasPositions && <th title="позиция">Поз.</th>}
             <th>Игрок</th>
-            <th className="num" title="игры">И</th>
-            <th className="num" title="минуты">Мин</th>
-            <th className="num" title="голы">Г</th>
-            <th className="num" title="голевые передачи">П</th>
+            <th className="num" title="игры">
+              И
+            </th>
+            <th className="num" title="минуты">
+              Мин
+            </th>
+            <th className="num" title="голы">
+              Г
+            </th>
+            <th className="num" title="голевые передачи">
+              П
+            </th>
             {hasConceded && (
               <th className="num" title="пропущенные мячи (вратари)">
                 Проп.

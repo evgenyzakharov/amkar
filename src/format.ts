@@ -1,5 +1,5 @@
 // Подписи и форматирование для страниц
-import type { AbsenceReason, CompetitionKind, MatchRow, Position, Result, Transfer } from './db/types';
+import type { AbsenceReason, CompetitionKind, LinkSite, MatchRow, Position, Result, Transfer } from './db/types';
 
 export const RESULT_LABEL: Record<Result, string> = { W: 'В', D: 'Н', L: 'П' };
 export const RESULT_TITLE: Record<Result, string> = { W: 'победа', D: 'ничья', L: 'поражение' };
@@ -17,6 +17,34 @@ export const POSITION_TITLE: Record<Position, string> = {
   FW: 'нападающий',
 };
 export const POSITION_ORDER: Record<Position, number> = { GK: 0, DF: 1, MF: 2, FW: 3 };
+export const POSITION_NAME: Record<Position, string> = {
+  GK: 'Вратарь',
+  DF: 'Защитник',
+  MF: 'Полузащитник',
+  FW: 'Нападающий',
+};
+
+/** Внешние сайты в порядке кнопок. */
+export const LINK_SITES: { site: LinkSite; label: string }[] = [
+  { site: 'transfermarkt', label: 'Transfermarkt' },
+  { site: 'championat', label: 'Чемпионат' },
+  { site: 'wikipedia', label: 'Википедия' },
+];
+
+/** Склонение по числу: plural(5, ['сезон', 'сезона', 'сезонов']) → «сезонов». */
+export function plural(n: number, forms: [string, string, string]): string {
+  const n10 = n % 10;
+  const n100 = n % 100;
+  if (n10 === 1 && n100 !== 11) return forms[0];
+  if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return forms[1];
+  return forms[2];
+}
+
+/** 38671 → «38 671». */
+export const formatInt = (n: number) => n.toLocaleString('ru-RU');
+
+/** 0.4 → «0,40». */
+export const formatRatio = (n: number) => n.toFixed(2).replace('.', ',');
 
 export const COMPETITION_SHORT: Record<CompetitionKind, string> = {
   league: 'чемп.',
@@ -61,8 +89,8 @@ export const SLOT_LABEL: Record<string, string> = {
   CM3: 'ЦП',
   RM: 'ПП',
   LM: 'ЛП',
-  ST1: 'ФРВ',
-  ST2: 'ФРВ',
+  ST1: 'Ф',
+  ST2: 'Ф',
 };
 
 export const opponentName = (m: Pick<MatchRow, 'team' | 'opponent_raw'>) =>

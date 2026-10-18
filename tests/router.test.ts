@@ -7,6 +7,8 @@ describe('маршруты', () => {
     expect(parseRoute('#/season/2011-12')).toEqual({ page: 'season', label: '2011/12' });
     expect(parseRoute('#/match/12')).toEqual({ page: 'match', id: 12 });
     expect(parseRoute('#/player/x')).toEqual({ page: 'not-found' });
+    expect(parseRoute('#/players')).toEqual({ page: 'players' });
+    expect(parseRoute('#/players/1')).toEqual({ page: 'not-found' });
   });
 
   it('админка', () => {
