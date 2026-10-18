@@ -18,6 +18,16 @@ const SUPABASE_BASE = `
     as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant usage on schema auth to anon, authenticated;
   grant usage on schema public to anon, authenticated;
+
+  -- Хранилище: таблицы, на которые опираются бакет и политики фото игроков
+  create schema storage;
+  create table storage.buckets (id text primary key, name text not null, public boolean default false,
+    file_size_limit bigint, allowed_mime_types text[]);
+  create table storage.objects (id uuid primary key default gen_random_uuid(),
+    bucket_id text references storage.buckets (id), name text, owner uuid);
+  alter table storage.objects enable row level security;
+  grant usage on schema storage to anon, authenticated;
+  grant select, insert, update, delete on storage.objects to anon, authenticated;
 `;
 
 // «Automatically expose new tables» включено: ролям API все права на новые объекты, защищает только RLS
@@ -36,10 +46,15 @@ export const SUPABASE_STRICT = `${SUPABASE_BASE}
 export const ADMIN = '00000000-0000-0000-0000-00000000000a';
 export const STRANGER = '00000000-0000-0000-0000-00000000000b';
 
-export async function migratedDb(stub = SUPABASE_EXPOSED) {
+/**
+ * База со всеми миграциями. `seedBefore` вставляет данные перед миграцией, имя файла которой начинается
+ * с `migration`, — чтобы проверить, как миграция переносит уже существующие данные.
+ */
+export async function migratedDb(stub = SUPABASE_EXPOSED, seedBefore?: { migration: string; sql: string }) {
   const conn = new PGlite();
   await conn.exec(stub);
   for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()) {
+    if (seedBefore && file.startsWith(seedBefore.migration)) await conn.exec(seedBefore.sql);
     await conn.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
   }
   await conn.exec(`

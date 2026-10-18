@@ -180,6 +180,55 @@ describe('статистика игрока за сезон (player_season_stats
   });
 });
 
+describe('карточки: позиция, ссылки, фото', () => {
+  it('основная позиция переносится из заявок: самая частая, при равенстве — из последнего сезона', async () => {
+    const moved = await migratedDb(SUPABASE_EXPOSED, {
+      migration: '20261018150000',
+      sql: `
+        insert into season (id, label, start_year, end_year) values (1, '2010', 2010, 2010), (2, '2011/12', 2011, 2012), (3, '2012/13', 2012, 2013);
+        insert into player (id, display_name, last_name) values (1, 'Пеев', 'Пеев'), (2, 'Сираков', 'Сираков'), (3, 'Безпозиции', 'Безпозиции');
+        insert into squad_member (season_id, player_id, position) values
+          (1, 1, 'MF'), (2, 1, 'MF'), (3, 1, 'FW'),
+          (1, 2, 'MF'), (2, 2, 'DF'),
+          (1, 3, null);
+      `,
+    });
+    const { rows } = await moved.query(`select id, position from player order by id`);
+    expect(rows).toEqual([
+      { id: 1, position: 'MF' },
+      { id: 2, position: 'DF' },
+      { id: 3, position: null },
+    ]);
+  });
+
+  it('ссылки читают все, меняет только админ, адрес — https и сайт из списка', async () => {
+    await asUser(ADMIN, `insert into player_link (player_id, site, url) values (1, 'transfermarkt', 'https://www.transfermarkt.com/x')`);
+    await asUser(ADMIN, `insert into season_link (season_id, site, url) values (1, 'championat', 'https://www.championat.com/x')`);
+    const { rows } = await asUser(null, `select site from player_link union all select site from season_link order by 1`);
+    expect(rows).toEqual([{ site: 'championat' }, { site: 'transfermarkt' }]);
+    await expect(
+      asUser(STRANGER, `insert into player_link (player_id, site, url) values (2, 'wikipedia', 'https://ru.wikipedia.org/x')`),
+    ).rejects.toThrow(/row-level security/);
+    await expect(
+      asUser(ADMIN, `insert into player_link (player_id, site, url) values (2, 'wikipedia', 'http://ru.wikipedia.org/x')`),
+    ).rejects.toThrow(/check constraint/);
+    await expect(
+      asUser(ADMIN, `insert into player_link (player_id, site, url) values (2, 'sports', 'https://www.sports.ru/x')`),
+    ).rejects.toThrow(/check constraint/);
+  });
+
+  it('фото: публичный бакет только для картинок, загружает только админ', async () => {
+    const { rows } = await db.query(`select public, file_size_limit, allowed_mime_types from storage.buckets where id = 'player-photos'`);
+    expect(rows).toEqual([{ public: true, file_size_limit: 2097152, allowed_mime_types: ['image/jpeg', 'image/png', 'image/webp'] }]);
+    await asUser(ADMIN, `insert into storage.objects (bucket_id, name) values ('player-photos', '1.jpg')`);
+    await expect(
+      asUser(STRANGER, `insert into storage.objects (bucket_id, name) values ('player-photos', '2.jpg')`),
+    ).rejects.toThrow(/row-level security/);
+    const { rows: listed } = await asUser(STRANGER, `select name from storage.objects`);
+    expect(listed).toEqual([]);
+  });
+});
+
 describe('ограничения матча', () => {
   const insertMatch = (seq: number, values: string) =>
     db.query(`

@@ -116,6 +116,17 @@ export const CONSTRAINT_MESSAGES: Record<string, string> = {
   transfer_player_id_fkey: 'Такого игрока нет в базе.',
   transfer_season_id_fkey: 'Такого сезона нет.',
   transfer_other_team_id_fkey: 'Такого клуба нет в справочнике.',
+
+  // карточки: позиция и ссылки
+  player_position_check: 'Позиция — вратарь, защитник, полузащитник или нападающий.',
+  player_link_pkey: 'Ссылка на этот сайт у игрока уже есть.',
+  player_link_site_check: 'Ссылки бывают на Transfermarkt, Википедию и Чемпионат.',
+  player_link_url_check: 'Адрес ссылки должен начинаться с https://',
+  player_link_player_id_fkey: 'Такого игрока нет в базе.',
+  season_link_pkey: 'Ссылка на этот сайт у сезона уже есть.',
+  season_link_site_check: 'Ссылки бывают на Transfermarkt, Википедию и Чемпионат.',
+  season_link_url_check: 'Адрес ссылки должен начинаться с https://',
+  season_link_season_id_fkey: 'Такого сезона нет.',
 };
 
 /** Что за записи ссылаются на удаляемую — для «удалить нельзя». */
