@@ -86,8 +86,16 @@ const ident = (s: string) => {
  */
 export function pgliteWriter(conn: PGlite, userId: string | null = ADMIN): Writer {
   const where = (match: Filter, first: number) => {
-    const keys = Object.keys(match).map(ident);
-    return { sql: keys.map((k, i) => `${k}::text = $${first + i}`).join(' and '), params: keys.map((k) => String(match[k])) };
+    const parts: string[] = ['true'];
+    const params: string[] = [];
+    for (const k of Object.keys(match).map(ident)) {
+      if (match[k] === null) parts.push(`${k} is null`);
+      else {
+        params.push(String(match[k]));
+        parts.push(`${k}::text = $${first + params.length - 1}`);
+      }
+    }
+    return { sql: parts.join(' and '), params };
   };
   const call = async (sql: string, params: unknown[]) => {
     try {

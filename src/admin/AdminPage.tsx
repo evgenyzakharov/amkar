@@ -3,6 +3,7 @@ import type { AdminRoute } from '../router';
 import { AdminHome } from './AdminHome';
 import { AdminSeason } from './AdminSeason';
 import { LoginForm } from './LoginForm';
+import { CoachesPage, TeamsPage } from './DirectoryPages';
 import { MatchEditor, NewMatchEditor } from './MatchEditor';
 
 /** #/admin/…: без входа — форма входа, без прав админа — объяснение, иначе раздел админки. */
@@ -37,5 +38,9 @@ export function AdminPage({ route }: { route: AdminRoute }) {
       return <MatchEditor id={route.id} />;
     case 'new-match':
       return <NewMatchEditor label={route.label} />;
+    case 'teams':
+      return <TeamsPage />;
+    case 'coaches':
+      return <CoachesPage />;
   }
 }

@@ -1429,3 +1429,20 @@ input.w-short {
 .transfers-edit input.as-text {
   border-style: dashed;
 }
+
+/* Справочники в админке */
+.directory input {
+  width: 12em;
+}
+
+.directory input[type='date'] {
+  width: auto;
+}
+
+.raw-opponents input {
+  width: 14em;
+}
+
+.raw-opponents input.as-new {
+  border-style: dashed;
+}

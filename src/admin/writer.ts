@@ -4,7 +4,8 @@ import { supabase } from '../db/supabase';
 import { DbError } from './dbErrors';
 
 export type Row = Record<string, unknown>;
-export type Filter = Record<string, string | number | boolean>;
+/** Равенство по столбцам; null — «поле пустое» (is null). */
+export type Filter = Record<string, string | number | boolean | null>;
 
 export interface Writer {
   /** Вставка, возвращает вставленные строки (с id) в том же порядке. */
@@ -35,6 +36,12 @@ function db() {
   return supabase;
 }
 
+/** Фильтр по столбцам: значения — через eq, null — через is null. */
+function withFilter<Q extends { eq(column: string, value: unknown): Q; is(column: string, value: null): Q }>(q: Q, match: Filter): Q {
+  for (const [column, value] of Object.entries(match)) q = value === null ? q.is(column, null) : q.eq(column, value);
+  return q;
+}
+
 export const supabaseWriter: Writer = {
   async insert<T>(table: string, rows: Row[]) {
     if (rows.length === 0) return [];
@@ -42,7 +49,7 @@ export const supabaseWriter: Writer = {
   },
   async update(table, values, match) {
     // Без прав RLS не даёт ошибки, а просто ничего не меняет — поэтому просим строки назад и считаем
-    const changed = await run<unknown[]>(db().from(table).update(values).match(match).select());
+    const changed = await run<unknown[]>(withFilter(db().from(table).update(values), match).select());
     if (changed.length === 0) {
       throw new DbError({
         code: 'app',
@@ -55,7 +62,7 @@ export const supabaseWriter: Writer = {
     await run(db().from(table).upsert(rows, { onConflict }));
   },
   async remove(table, match, inList) {
-    let q = db().from(table).delete().match(match);
+    let q = withFilter(db().from(table).delete(), match);
     if (inList) {
       if (inList[1].length === 0) return;
       q = q.in(inList[0], inList[1]);

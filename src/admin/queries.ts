@@ -16,6 +16,7 @@ import {
 } from './match';
 import type { SquadBase, SquadPlayerInfo, SquadRecord } from './squad';
 import { TRANSFER_COLUMNS, type TransferBase, type TransferRecord } from './transfers';
+import { rawOpponents, type DirRecord, type RawOpponent } from './directory';
 
 /** Матч в списке админки: сколько уже записано по нему. */
 export interface AdminMatchRow extends MatchRow {
@@ -338,5 +339,36 @@ export async function loadTransfersEditor(label: string): Promise<TransfersEdito
     },
     players,
     squadIds: new Set(squad.map((s) => s.player_id)),
+  };
+}
+
+// ===========================================================================
+// Справочники
+// ===========================================================================
+
+export interface TeamsPageData {
+  records: (DirRecord & { match: { count: number }[]; transfer: { count: number }[] })[];
+  raw: RawOpponent[];
+}
+
+export async function loadTeamsPage(): Promise<TeamsPageData> {
+  const [records, unbound] = await Promise.all([
+    rows<TeamsPageData['records']>(db().from('team').select('id, name, city, notes, match(count), transfer(count)').order('name')),
+    allRows<{ opponent_raw: string | null; season: { label: string; start_year: number } }>((from, to) =>
+      db().from('match').select('opponent_raw, season(label, start_year)').is('opponent_id', null).order('id').range(from, to),
+    ),
+  ]);
+  return { records, raw: rawOpponents(unbound) };
+}
+
+export interface CoachesPageData {
+  records: (DirRecord & { match: { count: number }[] })[];
+}
+
+export async function loadCoachesPage(): Promise<CoachesPageData> {
+  return {
+    records: await rows<CoachesPageData['records']>(
+      db().from('coach').select('id, full_name, short_name, birth_date, notes, match(count)').order('short_name'),
+    ),
   };
 }

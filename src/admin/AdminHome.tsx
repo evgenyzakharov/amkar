@@ -1,7 +1,7 @@
 import { LoadStatus } from '../components/common';
 import { loadSeasons } from '../db/queries';
 import { useDocumentTitle, useLoad } from '../load';
-import { adminSeasonHref } from '../router';
+import { adminCoachesHref, adminSeasonHref, adminTeamsHref } from '../router';
 
 const loadAll = () => loadSeasons();
 
@@ -15,6 +15,14 @@ export function AdminHome() {
   return (
     <>
       <h2>Админка</h2>
+      <p className="button-row">
+        <a className="button" href={adminTeamsHref}>
+          Соперники
+        </a>
+        <a className="button" href={adminCoachesHref}>
+          Тренеры
+        </a>
+      </p>
       <section>
         <h3>Сезоны</h3>
         <ul className="season-list">

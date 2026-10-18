@@ -16,7 +16,9 @@ export type AdminRoute =
   | { page: 'home' }
   | { page: 'season'; label: string; tab: SeasonTab }
   | { page: 'match'; id: number }
-  | { page: 'new-match'; label: string };
+  | { page: 'new-match'; label: string }
+  | { page: 'teams' }
+  | { page: 'coaches' };
 
 /** Вкладки сезона в админке: список матчей, сетка «игроки × матчи», заявка, трансферы. */
 export type SeasonTab = 'matches' | 'grid' | 'squad' | 'transfers';
@@ -35,6 +37,8 @@ export const adminSeasonHref = (label: string, tab: SeasonTab = 'matches') =>
   `#/admin/season/${labelPart(label)}${tab === 'matches' ? '' : `/${tab}`}`;
 export const adminMatchHref = (id: number) => `#/admin/match/${id}`;
 export const adminNewMatchHref = (label: string) => `${adminSeasonHref(label)}/new`;
+export const adminTeamsHref = '#/admin/teams';
+export const adminCoachesHref = '#/admin/coaches';
 
 const isId = (s: string) => /^\d+$/.test(s);
 
@@ -42,6 +46,7 @@ function parseAdminRoute(parts: string[]): Route {
   const [page, param, extra] = parts;
   const admin = (r: AdminRoute): Route => ({ page: 'admin', admin: r });
   if (parts.length === 0) return admin({ page: 'home' });
+  if (parts.length === 1 && (page === 'teams' || page === 'coaches')) return admin({ page });
   if (page === 'season' && parts.length === 2) return admin({ page: 'season', label: labelFromPart(param), tab: 'matches' });
   if (page === 'season' && parts.length === 3 && extra === 'new') {
     return admin({ page: 'new-match', label: labelFromPart(param) });

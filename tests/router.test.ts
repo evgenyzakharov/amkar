@@ -25,6 +25,8 @@ describe('маршруты', () => {
     });
     expect(parseRoute(adminMatchHref(7))).toEqual({ page: 'admin', admin: { page: 'match', id: 7 } });
     expect(parseRoute(adminNewMatchHref('2008'))).toEqual({ page: 'admin', admin: { page: 'new-match', label: '2008' } });
+    expect(parseRoute('#/admin/teams')).toEqual({ page: 'admin', admin: { page: 'teams' } });
+    expect(parseRoute('#/admin/coaches')).toEqual({ page: 'admin', admin: { page: 'coaches' } });
     expect(parseRoute('#/admin/match/abc')).toEqual({ page: 'not-found' });
     expect(parseRoute('#/admin/season/2008/old')).toEqual({ page: 'not-found' });
   });
