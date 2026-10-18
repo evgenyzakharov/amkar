@@ -2,6 +2,7 @@
 // Минуты на поле считаются по минутам замен, как в таблице автора: заменённый на 64-й минуте сыграл 64,
 // вышедший на 64-й — 26 (до 90-й, с дополнительным временем — до 120-й).
 import type { CompetitionKind, Position, Result } from '../db/types';
+import { videoSite, type VideoKind } from '../db/videos';
 
 export type Venue = 'home' | 'away' | 'neutral';
 export type Role = 'start' | 'sub' | 'bench';
@@ -73,6 +74,23 @@ export interface GoalRecord {
 
 export type GoalValues = Omit<GoalRecord, 'id'> & { id?: number };
 
+/** Видео матча (match_video); site база вычисляет сама. */
+export interface VideoRecord {
+  id: number;
+  match_id: number;
+  kind: VideoKind;
+  url: string;
+  title: string | null;
+}
+
+export interface VideoDraft {
+  key: string;
+  id: number | null;
+  kind: VideoKind;
+  url: string;
+  title: string;
+}
+
 export interface Team {
   id: number;
   name: string;
@@ -111,6 +129,7 @@ export interface CardBase {
   goals: GoalRecord[];
   appearances: AppearanceRecord[];
   absences: AbsenceRecord[];
+  videos: VideoRecord[];
   teams: Team[];
   coaches: Coach[];
 }
@@ -174,6 +193,7 @@ export interface CardDraft {
   header: HeaderDraft;
   goals: GoalDraft[];
   lineup: Lineup;
+  videos: VideoDraft[];
 }
 
 export const EMPTY_ROW: LineupRow = {
@@ -587,7 +607,39 @@ export function validateGoals(goals: GoalDraft[], h: HeaderDraft) {
 // ===========================================================================
 
 export function cardDraft(base: CardBase, competitions: Competition[]): CardDraft {
-  return { header: headerDraft(base, competitions), goals: goalsDraft(base), lineup: lineupDraft(base) };
+  return { header: headerDraft(base, competitions), goals: goalsDraft(base), lineup: lineupDraft(base), videos: videosDraft(base) };
+}
+
+// ===========================================================================
+// Видео
+// ===========================================================================
+
+let videoKey = 0;
+export const newVideoKey = () => `new-video-${++videoKey}`;
+
+export function videosDraft(base: CardBase): VideoDraft[] {
+  return [...base.videos]
+    .sort((a, b) => a.id - b.id)
+    .map((v) => ({ key: `id-${v.id}`, id: v.id, kind: v.kind, url: v.url, title: v.title ?? '' }));
+}
+
+export function videoValues(v: VideoDraft, matchId: number) {
+  return { ...(v.id != null ? { id: v.id } : {}), match_id: matchId, kind: v.kind, url: v.url.trim(), title: v.title.trim() || null };
+}
+
+export function validateVideos(videos: VideoDraft[]) {
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  videos.forEach((v, i) => {
+    const label = `Видео №${i + 1}`;
+    const url = v.url.trim();
+    if (!url) errors.push(`${label}: вставьте ссылку.`);
+    else if (!url.startsWith('https://')) errors.push(`${label}: ссылка должна начинаться с https://`);
+    else if (!videoSite(url)) errors.push(`${label}: только YouTube или ВК.`);
+    else if (seen.has(url)) errors.push(`${label}: эта ссылка уже есть.`);
+    seen.add(url);
+  });
+  return { errors, warnings: [] as string[] };
 }
 
 export function validateCard(draft: CardDraft, base: CardBase, nameOf: (id: number) => string) {
@@ -595,6 +647,7 @@ export function validateCard(draft: CardDraft, base: CardBase, nameOf: (id: numb
     validateHeader(draft.header, base),
     validateGoals(draft.goals, draft.header),
     validateLineup(draft.lineup, nameOf),
+    validateVideos(draft.videos),
   ];
   return { errors: parts.flatMap((p) => p.errors), warnings: parts.flatMap((p) => p.warnings) };
 }

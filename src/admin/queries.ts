@@ -13,6 +13,7 @@ import {
   type MatchRecord,
   type SquadPlayer,
   type Team,
+  type VideoRecord,
 } from './match';
 import type { SquadBase, SquadPlayerInfo, SquadRecord } from './squad';
 import { TRANSFER_COLUMNS, type TransferBase, type TransferRecord } from './transfers';
@@ -114,7 +115,7 @@ function squadPlayers(squad: SquadRow[], others: Named<{ player_id: number }>[])
 
 async function loadCard(season: Season, match: MatchRecord | null, opponentThen: string | null = null): Promise<MatchCardData> {
   const matchId = match?.id ?? -1;
-  const [competitions, teams, coaches, squad, seasonMatches, goals, appearances, absences] = await Promise.all([
+  const [competitions, teams, coaches, squad, seasonMatches, goals, appearances, absences, videos] = await Promise.all([
     rows<Competition[]>(db().from('competition').select('id, name, kind').order('id')),
     rows<Team[]>(db().from('team').select('id, name').order('name')),
     rows<Coach[]>(db().from('coach').select('id, short_name, full_name').order('short_name')),
@@ -133,6 +134,7 @@ async function loadCard(season: Season, match: MatchRecord | null, opponentThen:
         .eq('match_id', matchId),
     ),
     rows<Named<AbsenceRecord>[]>(db().from('absence').select('match_id, player_id, reason, player(display_name)').eq('match_id', matchId)),
+    rows<VideoRecord[]>(db().from('match_video').select('id, match_id, kind, url, title').eq('match_id', matchId).order('id')),
   ]);
   const i = seasonMatches.findIndex((m) => m.id === matchId);
   const strip = <T extends { player: unknown }>({ player, ...rest }: T) => {
@@ -147,6 +149,7 @@ async function loadCard(season: Season, match: MatchRecord | null, opponentThen:
       goals,
       appearances: appearances.map(strip),
       absences: absences.map(strip),
+      videos,
       teams,
       coaches,
     },

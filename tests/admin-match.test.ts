@@ -34,6 +34,7 @@ const base = (patch: Partial<CardBase> = {}): CardBase => ({
   goals: [],
   appearances: [],
   absences: [],
+  videos: [],
   teams: [{ id: 5, name: 'Томь' }],
   coaches: [],
   ...patch,
@@ -130,10 +131,10 @@ describe('правка состава', () => {
   it('заменил того, кого нет в составе, — ошибка; не 11 в старте — предупреждение', () => {
     let l = updateRow(start, 2, { status: 'sub', minute_on: '60', replaced: '1' });
     l = updateRow(l, 1, { status: '' });
-    const { errors, warnings } = validateCard({ header: header(), goals: [], lineup: l }, base(), names);
+    const { errors, warnings } = validateCard({ header: header(), goals: [], lineup: l, videos: [] }, base(), names);
     expect(errors).toEqual(['Игрок 2 заменил игрока (Игрок 1), которого нет в составе на матч.']);
     expect(warnings).toEqual([]);
-    const ok = validateCard({ header: header(), goals: [], lineup: start }, base(), names);
+    const ok = validateCard({ header: header(), goals: [], lineup: start, videos: [] }, base(), names);
     expect(ok.warnings).toEqual(['В старте 1 игроков, а не 11.']);
   });
 });
@@ -188,7 +189,7 @@ describe('голы', () => {
   it('добавленное время только после 45/90/105/120, число голов сверяется со счётом', () => {
     const goal = { key: 'k', id: null, side: 'amkar' as const, kind: 'open_play' as const, scorer_id: '', scorer_name: '', assist_id: '' };
     const { errors, warnings } = validateCard(
-      { header: header({ goals_for: '2', goals_against: '0', result: 'W' }), goals: [{ ...goal, minute: '70+2' }], lineup: {} },
+      { header: header({ goals_for: '2', goals_against: '0', result: 'W' }), goals: [{ ...goal, minute: '70+2' }], lineup: {}, videos: [] },
       base(),
       names,
     );

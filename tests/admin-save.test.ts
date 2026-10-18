@@ -4,6 +4,7 @@ import { dbErrorMessage } from '../src/admin/dbErrors';
 import {
   cardDraft,
   newGoalKey,
+  validateCard,
   updateRow,
   type AbsenceRecord,
   type AppearanceRecord,
@@ -13,6 +14,8 @@ import {
   type GoalDraft,
   type GoalRecord,
   type MatchRecord,
+  type VideoRecord,
+  newVideoKey,
 } from '../src/admin/match';
 import { isDirty, saveMatchCard } from '../src/admin/save';
 import type { Writer } from '../src/admin/writer';
@@ -53,6 +56,9 @@ async function loadBase(matchId: number | null): Promise<CardBase> {
       ? await q<AppearanceRecord>('select to_json(a) j from appearance a where match_id = $1 order by player_id', [matchId])
       : [],
     absences: matchId ? await q<AbsenceRecord>('select to_json(a) j from absence a where match_id = $1 order by player_id', [matchId]) : [],
+    videos: matchId
+      ? await q<VideoRecord>("select json_build_object('id', id, 'match_id', match_id, 'kind', kind, 'url', url, 'title', title) j from match_video where match_id = $1 order by id", [matchId])
+      : [],
     teams: await q<{ id: number; name: string }>('select json_build_object(\'id\', id, \'name\', name) j from team order by name'),
     coaches: await q<{ id: number; short_name: string; full_name: string }>(
       "select json_build_object('id', id, 'short_name', short_name, 'full_name', full_name) j from coach",
@@ -95,6 +101,7 @@ function newMatchDraft(base: CardBase): CardDraft {
       goal({ minute: '110', kind: 'penalty', scorer_id: '3' }),
     ],
     lineup,
+    videos: [],
   };
 }
 
@@ -192,6 +199,31 @@ describe('сохранение карточки матча', () => {
     expect(saved.teams.map((t) => t.name)).toEqual(['Томь', 'Томь Томск']);
     expect(saved.goals).toHaveLength(4);
     expect(saved.appearances.map((a) => a.player_id)).toEqual([1, 2, 3, 5]);
+  });
+
+  it('видео: добавить, поправить, удалить; не YouTube и не ВК — ошибка', async () => {
+    const base = await loadBase(matchId);
+    const draft = cardDraft(base, competitions);
+    const video = (url: string, kind: 'full' | 'highlights' = 'highlights') => ({ key: newVideoKey(), id: null, kind, url, title: '' });
+    const out = await saveMatchCard(pgliteWriter(db), base, {
+      ...draft,
+      videos: [video('https://youtu.be/full1', 'full'), { ...video('https://vk.com/video-1_2'), title: 'ТВ' }],
+    });
+    expect(out.error).toBeNull();
+    let saved = await loadBase(matchId);
+    expect(saved.videos.map((v) => [v.kind, v.url, v.title])).toEqual([
+      ['full', 'https://youtu.be/full1', null],
+      ['highlights', 'https://vk.com/video-1_2', 'ТВ'],
+    ]);
+    expect(isDirty(saved, cardDraft(saved, competitions))).toBe(false);
+    // обзор стал полным матчем, первое видео убрали
+    const next = cardDraft(saved, competitions);
+    const out2 = await saveMatchCard(pgliteWriter(db), saved, { ...next, videos: next.videos.slice(1).map((v) => ({ ...v, kind: 'full' as const })) });
+    expect(out2.error).toBeNull();
+    saved = await loadBase(matchId);
+    expect(saved.videos.map((v) => [v.kind, v.url])).toEqual([['full', 'https://vk.com/video-1_2']]);
+    const { errors } = validateCard({ ...next, videos: [video('https://rutube.ru/video/1/'), video('http://youtu.be/x')] }, saved, (id) => String(id));
+    expect(errors).toEqual(['Видео №1: только YouTube или ВК.', 'Видео №2: ссылка должна начинаться с https://']);
   });
 
   it('ошибка базы — понятным текстом: занятый номер матча', async () => {

@@ -15,6 +15,8 @@ import {
   type MatchRecord,
   type MatchValues,
   type Team,
+  type VideoRecord,
+  videoValues,
 } from './match';
 import type { Row, Writer } from './writer';
 
@@ -24,6 +26,7 @@ const MATCH_FIELDS = [
   'formation', 'notes',
 ] as const;
 const GOAL_FIELDS = ['id', 'match_id', 'side', 'minute', 'added_time', 'kind', 'scorer_id', 'scorer_name', 'assist_id'] as const;
+const VIDEO_FIELDS = ['id', 'match_id', 'kind', 'url', 'title'] as const;
 const APPEARANCE_FIELDS = [
   'match_id', 'player_id', 'role', 'minutes', 'minute_on', 'minute_off', 'replaced_player_id', 'injured', 'sent_off',
 ] as const;
@@ -145,6 +148,31 @@ export async function saveMatchCard(w: Writer, base0: CardBase, draft0: CardDraf
       base = { ...base, absences: base.absences.filter((a) => absent.has(a.player_id)) };
     }
 
+    // --- видео: удалить убранные, изменить правленые, вставить новые ---
+    const videos = draft.videos.map((v) => videoValues(v, matchId));
+    const keptVideos = new Set(videos.flatMap((v) => (v.id != null ? [v.id] : [])));
+    const removedVideos = base.videos.filter((v) => !keptVideos.has(v.id)).map((v) => v.id);
+    if (removedVideos.length > 0) {
+      await w.remove('match_video', { match_id: matchId }, ['id', removedVideos]);
+      base = { ...base, videos: base.videos.filter((v) => keptVideos.has(v.id)) };
+    }
+    const videoById = new Map(base.videos.map((v) => [v.id, v]));
+    const changedVideos = videos.filter(
+      (v): v is VideoRecord => v.id != null && !same(videoById.get(v.id), v, VIDEO_FIELDS),
+    );
+    if (changedVideos.length > 0) {
+      await w.upsert('match_video', changedVideos as unknown as Row[], 'id');
+      const changed = new Map(changedVideos.map((v) => [v.id, v]));
+      base = { ...base, videos: base.videos.map((v) => changed.get(v.id) ?? v) };
+    }
+    const newVideos = videos.filter((v) => v.id == null);
+    if (newVideos.length > 0) {
+      const inserted = await w.insert<VideoRecord>('match_video', newVideos as unknown as Row[]);
+      let i = 0;
+      draft = { ...draft, videos: draft.videos.map((v) => (v.id == null ? { ...v, id: inserted[i++].id } : v)) };
+      base = { ...base, videos: [...base.videos, ...inserted.map((v) => pick<VideoRecord>(v, VIDEO_FIELDS))] };
+    }
+
     return { base, draft, error: null };
   } catch (error) {
     return { base, draft, error };
@@ -167,6 +195,11 @@ export function isDirty(base: CardBase, draft: CardDraft): boolean {
   const appearanceBy = new Map(base.appearances.map((a) => [a.player_id, a]));
   if (appearances.some((a) => !same(appearanceBy.get(a.player_id), a, APPEARANCE_FIELDS))) return true;
   const absenceBy = new Map<number, AbsenceRecord>(base.absences.map((a) => [a.player_id, a]));
-  return absences.some((a) => absenceBy.get(a.player_id)?.reason !== a.reason);
+  if (absences.some((a) => absenceBy.get(a.player_id)?.reason !== a.reason)) return true;
+
+  const videos = draft.videos.map((v) => videoValues(v, base.match!.id));
+  if (videos.length !== base.videos.length) return true;
+  const videoById = new Map(base.videos.map((v) => [v.id, v]));
+  return videos.some((v) => v.id == null || !same(videoById.get(v.id), v, VIDEO_FIELDS));
 }
 

@@ -7,6 +7,7 @@ import { GoalsEditor } from './GoalsEditor';
 import { LineupEditor } from './LineupEditor';
 import { cardDraft, matchEnd, validateCard, type CardDraft } from './match';
 import { MatchHeaderForm } from './MatchHeaderForm';
+import { VideosEditor } from './VideosEditor';
 import { loadMatchCard, loadNewMatchCard, type MatchCardData } from './queries';
 import { isDirty, saveMatchCard } from './save';
 import { useUnsavedGuard } from './useUnsavedGuard';
@@ -140,6 +141,11 @@ function MatchCard({ initial }: { initial: MatchCardData }) {
           others={others}
           onChange={(update) => setDraft((d) => ({ ...d, goals: update(d.goals) }))}
         />
+      </section>
+
+      <section>
+        <h3>Видео</h3>
+        <VideosEditor videos={draft.videos} onChange={(update) => setDraft((d) => ({ ...d, videos: update(d.videos) }))} />
       </section>
 
       <section>

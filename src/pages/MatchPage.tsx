@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { EditLink, LoadStatus, PageNav, ResultBadge, Tag } from '../components/common';
 import { loadMatch } from '../db/queries';
 import type { Absence, AbsenceReason, Appearance, Goal, SquadEntry } from '../db/types';
+import { VIDEO_KIND_LABEL, VIDEO_SITE_LABEL, loadMatchVideos, type MatchVideo } from '../db/videos';
 import {
   ABSENCE_LABEL,
   AWARDED_LABEL,
@@ -17,6 +18,8 @@ import { adminMatchHref, matchHref, playerHref, seasonHref } from '../router';
 
 export function MatchPage({ id }: { id: number }) {
   const state = useLoad(id, loadMatch);
+  // Видео — отдельным запросом: не загрузились — страница без них
+  const videos = useLoad(id, loadMatchVideos);
   const match = state.status === 'ready' ? state.data.match : null;
   useDocumentTitle(match ? `${opponentName(match)}, ${match.season.label}` : `Матч №${id}`);
   if (state.status !== 'ready') return <LoadStatus state={state} />;
@@ -60,6 +63,8 @@ export function MatchPage({ id }: { id: number }) {
       )}
       {m.notes && <p>{m.notes}</p>}
 
+      {videos.status === 'ready' && videos.data.length > 0 && <Videos videos={videos.data} />}
+
       {goals.length > 0 && <Goals goals={goals} opponent={opponentName(m)} />}
 
       {lineup.length > 0 ? (
@@ -69,6 +74,25 @@ export function MatchPage({ id }: { id: number }) {
       )}
       <Absences absences={absences} />
     </>
+  );
+}
+
+/** Видео матча — ссылками в новой вкладке, без встроенных плееров и их трекеров. */
+function Videos({ videos }: { videos: MatchVideo[] }) {
+  return (
+    <section>
+      <h3>Видео</h3>
+      <ul className="inline-list">
+        {videos.map((v) => (
+          <li key={v.id}>
+            <a className="button" href={v.url} target="_blank" rel="noopener noreferrer" title={v.title ?? undefined}>
+              {VIDEO_KIND_LABEL[v.kind]} · {VIDEO_SITE_LABEL[v.site]}
+            </a>
+            {v.title && <span className="muted"> {v.title}</span>}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
