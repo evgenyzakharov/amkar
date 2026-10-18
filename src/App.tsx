@@ -34,7 +34,7 @@ function Page({ route }: { route: Route }) {
         </Suspense>
       );
     case 'leaders':
-      return <LeadersPage scope={route.scope} />;
+      return <LeadersPage scope={route.scope} tab={route.tab} />;
     case 'admin':
       return (
         <Suspense fallback={<p className="muted">Загрузка…</p>}>

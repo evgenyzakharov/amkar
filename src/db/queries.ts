@@ -11,6 +11,7 @@ import type {
   GridAppearance,
   Goal,
   MatchDetails,
+  Milestone,
   Player,
   PlayerListItem,
   PlayerSeasonStats,
@@ -350,3 +351,26 @@ export const loadStreaks = () =>
       .order('first_match_id')
       .range(from, to),
   );
+
+export interface MilestonesData {
+  milestones: Milestone[];
+  /** Порядок сезонов — чтобы ставить рубежи по времени. */
+  seasons: Season[];
+}
+
+/** Рубежи игроков: 100, 200, 300… матчей и 50, 100… голов. */
+export async function loadMilestones(): Promise<MilestonesData> {
+  const [milestones, seasons] = await Promise.all([
+    allRows<Milestone>((from, to) =>
+      db()
+        .from('player_milestones')
+        .select('player_id, display_name, stat, milestone, precision, season_id, season_label, match_id, seq, match_date, opponent')
+        .order('stat')
+        .order('milestone')
+        .order('player_id')
+        .range(from, to),
+    ),
+    loadSeasons(),
+  ]);
+  return { milestones, seasons };
+}

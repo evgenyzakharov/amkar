@@ -238,3 +238,19 @@ export interface TeamStreak {
   last_seq: number;
   last_date: string | null;
 }
+
+/** Строка view player_milestones: рубеж игрока — сотый матч, пятидесятый гол… */
+export interface Milestone {
+  player_id: number;
+  display_name: string;
+  stat: 'games' | 'goals';
+  milestone: number;
+  /** match — известен матч; season — голы сезона есть только итогом, рубеж с точностью до сезона. */
+  precision: 'match' | 'season';
+  season_id: number;
+  season_label: string;
+  match_id: number | null;
+  seq: number | null;
+  match_date: string | null;
+  opponent: string | null;
+}

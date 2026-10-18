@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Card, ScopeSwitch } from '../components/cards';
 import { LoadStatus } from '../components/common';
+import { MilestoneClubs } from '../components/MilestoneClubs';
 import { loadLeaders } from '../db/queries';
 import type { CareerStats } from '../db/types';
 import { useDocumentTitle, useLoad } from '../load';
-import { leadersHref, playerHref, type LeadersScope } from '../router';
+import { leadersHref, playerHref, type LeadersScope, type LeadersTab } from '../router';
 
 // Ключ один: все итоги грузятся разом, фильтр и сортировка — на странице
 const ALL = 'all';
@@ -37,7 +38,7 @@ function rank(players: CareerStats[], value: (p: CareerStats) => number | null):
   });
 }
 
-export function LeadersPage({ scope }: { scope: LeadersScope }) {
+export function LeadersPage({ scope, tab }: { scope: LeadersScope; tab: LeadersTab }) {
   useDocumentTitle('Лидеры');
   const state = useLoad(ALL, load);
   const league = scope === 'league';
@@ -46,11 +47,22 @@ export function LeadersPage({ scope }: { scope: LeadersScope }) {
     <div className="card-page">
       <div className="page-head">
         <h1 className="page-title">Лидеры</h1>
-        <ScopeSwitch scope={scope} href={leadersHref} />
+        {/* в клубах считаются все официальные матчи — фильтра нет */}
+        {tab === 'tables' && <ScopeSwitch scope={scope} href={leadersHref} />}
       </div>
+      <nav className="page-tabs" aria-label="Разделы лидеров">
+        <a href={leadersHref(scope)} className={tab === 'tables' ? 'active' : undefined}>
+          Игры и голы
+        </a>
+        <a href={leadersHref('all', 'clubs')} className={tab === 'clubs' ? 'active' : undefined}>
+          Клубы 100, 200, 300
+        </a>
+      </nav>
 
       {state.status !== 'ready' ? (
         <LoadStatus state={state} />
+      ) : tab === 'clubs' ? (
+        <MilestoneClubs careers={state.data} />
       ) : (
         <>
           <div className="card-row">

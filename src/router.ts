@@ -6,7 +6,7 @@ export type Route =
   | { page: 'seasons' }
   | { page: 'season'; label: string }
   | { page: 'players' }
-  | { page: 'leaders'; scope: LeadersScope }
+  | { page: 'leaders'; scope: LeadersScope; tab: LeadersTab }
   | { page: 'history'; scope: LeadersScope }
   | { page: 'match'; id: number }
   | { page: 'player'; id: number }
@@ -38,7 +38,10 @@ export const playersHref = '#/players';
 
 /** Лидеры: все турниры или только чемпионат — в адресе, чтобы ссылкой можно было поделиться. */
 export type LeadersScope = 'all' | 'league';
-export const leadersHref = (scope: LeadersScope = 'all') => `#/leaders${scope === 'league' ? '?scope=league' : ''}`;
+/** Вкладки «Лидеров»: таблицы по играм и голам — или клубы 100, 200, 300 матчей и рубежи голов. */
+export type LeadersTab = 'tables' | 'clubs';
+export const leadersHref = (scope: LeadersScope = 'all', tab: LeadersTab = 'tables') =>
+  tab === 'clubs' ? '#/leaders?tab=clubs' : `#/leaders${scope === 'league' ? '?scope=league' : ''}`;
 const scopeOf = (query: string): LeadersScope => (new URLSearchParams(query).get('scope') === 'league' ? 'league' : 'all');
 
 /** История: фильтр серий по турнирам — в адресе, как у лидеров. */
@@ -87,7 +90,7 @@ export function parseRoute(hash: string): Route {
   if (parts.length === 1 && parts[0] === 'players') return { page: 'players' };
   if (parts.length === 1 && parts[0] === 'history') return { page: 'history', scope: scopeOf(query) };
   if (parts.length === 1 && parts[0] === 'leaders') {
-    return { page: 'leaders', scope: scopeOf(query) };
+    return { page: 'leaders', scope: scopeOf(query), tab: new URLSearchParams(query).get('tab') === 'clubs' ? 'clubs' : 'tables' };
   }
   if (parts.length !== 2) return { page: 'not-found' };
 

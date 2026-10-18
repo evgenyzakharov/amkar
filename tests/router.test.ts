@@ -9,9 +9,10 @@ describe('маршруты', () => {
     expect(parseRoute('#/player/x')).toEqual({ page: 'not-found' });
     expect(parseRoute('#/players')).toEqual({ page: 'players' });
     expect(parseRoute('#/players/1')).toEqual({ page: 'not-found' });
-    expect(parseRoute(leadersHref())).toEqual({ page: 'leaders', scope: 'all' });
-    expect(parseRoute(leadersHref('league'))).toEqual({ page: 'leaders', scope: 'league' });
-    expect(parseRoute('#/leaders?scope=junk')).toEqual({ page: 'leaders', scope: 'all' });
+    expect(parseRoute(leadersHref())).toEqual({ page: 'leaders', scope: 'all', tab: 'tables' });
+    expect(parseRoute(leadersHref('all', 'clubs'))).toEqual({ page: 'leaders', scope: 'all', tab: 'clubs' });
+    expect(parseRoute(leadersHref('league'))).toEqual({ page: 'leaders', scope: 'league', tab: 'tables' });
+    expect(parseRoute('#/leaders?scope=junk')).toEqual({ page: 'leaders', scope: 'all', tab: 'tables' });
     expect(parseRoute(historyHref())).toEqual({ page: 'history', scope: 'all' });
     expect(parseRoute(historyHref('league'))).toEqual({ page: 'history', scope: 'league' });
   });
