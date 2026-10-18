@@ -178,3 +178,20 @@ export interface CareerStats {
   goals: number | null;
   goals_league: number | null;
 }
+
+/** Выход игрока в матче — клетка тепловой карты сезона. */
+export interface GridAppearance {
+  match_id: number;
+  player_id: number;
+  role: 'start' | 'sub' | 'bench' | null;
+  minutes: number | null;
+  injured: boolean;
+  sent_off: boolean;
+}
+
+/** Пропуск матча — клетка тепловой карты сезона. */
+export interface GridAbsence {
+  match_id: number;
+  player_id: number;
+  reason: AbsenceReason;
+}

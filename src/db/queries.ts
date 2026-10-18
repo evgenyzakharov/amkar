@@ -7,6 +7,8 @@ import type {
   BestXiSlot,
   CareerStats,
   ExternalLink,
+  GridAbsence,
+  GridAppearance,
   Goal,
   MatchDetails,
   Player,
@@ -259,3 +261,33 @@ export const loadLeaders = () =>
       .order('player_id')
       .range(from, to),
   );
+
+export interface SeasonGridData {
+  appearances: GridAppearance[];
+  absences: GridAbsence[];
+}
+
+/** Выходы и пропуски всех матчей сезона — для тепловой карты. Выходов в сезоне бывает больше 1000: грузим страницами. */
+export async function loadSeasonGrid(seasonId: number): Promise<SeasonGridData> {
+  const [appearances, absences] = await Promise.all([
+    allRows<GridAppearance>((from, to) =>
+      db()
+        .from('appearance')
+        .select('match_id, player_id, role, minutes, injured, sent_off, match!inner(season_id)')
+        .eq('match.season_id', seasonId)
+        .order('match_id')
+        .order('player_id')
+        .range(from, to),
+    ),
+    allRows<GridAbsence>((from, to) =>
+      db()
+        .from('absence')
+        .select('match_id, player_id, reason, match!inner(season_id)')
+        .eq('match.season_id', seasonId)
+        .order('match_id')
+        .order('player_id')
+        .range(from, to),
+    ),
+  ]);
+  return { appearances, absences };
+}

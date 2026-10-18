@@ -1041,6 +1041,223 @@ h3 {
   margin-top: 12px;
 }
 
+/* Тепловая карта сезона: игроки × матчи, цвет — минуты. Ступени проверены: одна гамма, светлота монотонна,
+   светлый край контрастнее 2:1. В тёмной теме шкала перевёрнута: весь матч — самая светлая клетка */
+.heatmap,
+.hm-legend {
+  --hm-0: #efebe6;
+  --hm-1: #b5a99e;
+  --hm-2: #8c8075;
+  --hm-3: #5e544b;
+  --hm-4: #241f1b;
+  --hm-ink-light: #16130f;
+  --hm-ink-dark: #ffffff;
+  --hm-hatch: #cfc6bd;
+}
+
+@media (prefers-color-scheme: dark) {
+  .heatmap,
+  .hm-legend {
+    --hm-0: #24221f;
+    --hm-1: #5a534d;
+    --hm-2: #7f7770;
+    --hm-3: #aaa198;
+    --hm-4: #e6dfd7;
+    --hm-ink-light: #ffffff;
+    --hm-ink-dark: #16130f;
+    --hm-hatch: #4a4540;
+  }
+}
+
+.hm-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hm-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hm-swatch {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.hm-picked {
+  min-height: 1.5em;
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.hm-wrap {
+  overflow-x: auto;
+}
+
+.heatmap {
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.heatmap th,
+.heatmap td {
+  padding: 0;
+}
+
+.heatmap td {
+  position: relative;
+  min-width: 28px;
+  height: 22px;
+  border-radius: 3px;
+  text-align: center;
+  cursor: pointer;
+}
+
+/* Имена закреплены: карта прокручивается вбок под ними */
+.heatmap .hm-name {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding-right: 8px;
+  background: var(--surface);
+  box-shadow: 2px 0 0 var(--surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.heatmap .hm-name a {
+  text-decoration: none;
+}
+
+.heatmap thead th {
+  vertical-align: bottom;
+}
+
+.hm-col a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.hm-res {
+  min-width: 20px;
+  height: 18px;
+  border-radius: 3px;
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.hm-res.ringed {
+  outline: 1.5px solid var(--text);
+  outline-offset: 1px;
+}
+
+.hm-res.tone-unknown {
+  background: var(--border);
+  color: var(--muted);
+}
+
+.hm-0 {
+  background: var(--hm-0);
+  color: var(--muted);
+}
+
+.hm-1 {
+  background: var(--hm-1);
+  color: var(--hm-ink-light);
+}
+
+.hm-2 {
+  background: var(--hm-2);
+  color: var(--hm-ink-dark);
+}
+
+.hm-3 {
+  background: var(--hm-3);
+  color: var(--hm-ink-dark);
+}
+
+.hm-4 {
+  background: var(--hm-4);
+  color: var(--hm-ink-dark);
+}
+
+@media (prefers-color-scheme: dark) {
+  .hm-2 {
+    color: var(--hm-ink-light);
+  }
+
+  .hm-3,
+  .hm-4 {
+    color: var(--hm-ink-dark);
+  }
+}
+
+.hm-unknown {
+  background: var(--hm-0);
+  color: var(--muted);
+}
+
+/* Пропуск — штриховка и буква, не только цвет */
+.hm-abs {
+  background: repeating-linear-gradient(45deg, var(--hm-hatch) 0 2px, transparent 2px 5px);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* События в матче — уголки: справа удаление, слева травма */
+.hm-red::after,
+.hm-inj::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  border-style: solid;
+}
+
+.hm-red::after {
+  right: 0;
+  border-width: 0 8px 8px 0;
+  border-color: transparent var(--loss) transparent transparent;
+  border-top-right-radius: 3px;
+}
+
+.hm-inj::before {
+  left: 0;
+  border-width: 8px 8px 0 0;
+  border-color: var(--draw) transparent transparent transparent;
+  border-top-left-radius: 3px;
+}
+
+.heatmap td.hm-picked-cell {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* ===== Админка ===== */
 
 .admin-links {

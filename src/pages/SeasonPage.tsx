@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { Card, ExternalLinks, Tiles, type Tile } from '../components/cards';
 import { EditLink, LoadStatus, Tag } from '../components/common';
+import { SeasonHeatmap } from '../components/SeasonHeatmap';
 import { loadSeason, type SeasonPageData } from '../db/queries';
 import type { BestXiSlot, CompetitionKind, PlayerSeasonStats, SeasonMatch } from '../db/types';
 import {
@@ -144,6 +145,12 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
             {xiCard}
           </div>
         )
+      )}
+
+      {players.length > 0 && matches.length > 0 && (
+        <Card title="Минуты по матчам">
+          <SeasonHeatmap seasonId={season.id} matches={matches} squad={players} />
+        </Card>
       )}
 
       {'error' in squad ? (
