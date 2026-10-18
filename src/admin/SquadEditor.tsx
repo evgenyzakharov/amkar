@@ -3,7 +3,7 @@ import { LoadStatus } from '../components/common';
 import type { Position } from '../db/types';
 import { POSITION_LABEL, formatDate } from '../format';
 import { useLoad } from '../load';
-import { playerHref } from '../router';
+import { adminPlayerHref, playerHref } from '../router';
 import { dbErrorMessage } from './dbErrors';
 import { loadSquadEditor, type SquadEditorData } from './queries';
 import {
@@ -194,7 +194,12 @@ function Squad({ initial }: { initial: SquadEditorData }) {
                         />
                       </span>
                     ) : (
-                      <a href={playerHref(r.player_id)}>{name}</a>
+                      <>
+                        <a href={playerHref(r.player_id)}>{name}</a>{' '}
+                        <a className="edit-link" href={adminPlayerHref(r.player_id)} title="карточка игрока: ФИО, дата рождения, ссылки">
+                          ✎
+                        </a>
+                      </>
                     )}
                   </td>
                   <td>

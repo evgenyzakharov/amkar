@@ -1,7 +1,7 @@
 // Чтение для админки. Запись — в save.ts через Writer.
 import { NotFoundError } from '../load';
 import { db, loadSeasons, MATCH_COLUMNS, rows } from '../db/queries';
-import type { MatchRow, Position, Season } from '../db/types';
+import type { LinkSite, MatchRow, Position, Season } from '../db/types';
 import {
   MATCH_RECORD_COLUMNS,
   type AbsenceRecord,
@@ -17,6 +17,7 @@ import {
 import type { SquadBase, SquadPlayerInfo, SquadRecord } from './squad';
 import { TRANSFER_COLUMNS, type TransferBase, type TransferRecord } from './transfers';
 import { rawOpponents, type DirRecord, type RawOpponent, type TeamNameRecord } from './directory';
+import { PLAYER_COLUMNS, type BestXiRecord, type PlayerRecord } from './people';
 
 /** Матч в списке админки: сколько уже записано по нему. */
 export interface AdminMatchRow extends MatchRow {
@@ -263,7 +264,7 @@ interface PlayerRow {
 }
 
 /** Все игроки базы с их сезонами в «Амкаре» — чтобы выбирать и отличать однофамильцев. */
-async function loadAllPlayers(): Promise<SquadPlayerInfo[]> {
+export async function loadAllPlayers(): Promise<SquadPlayerInfo[]> {
   const players = await allRows<PlayerRow>((from, to) =>
     db()
       .from('player')
@@ -428,4 +429,53 @@ export async function loadTeamNames(teamId: number): Promise<TeamNamesData> {
     ),
   ]);
   return { names, matches };
+}
+
+// ===========================================================================
+// Сборная сезона и карточка игрока
+// ===========================================================================
+
+export interface BestXiData {
+  season: Season;
+  rows: BestXiRecord[];
+  /** Заявка сезона и те, кто стоит в сборной, но в заявке их нет, — по имени. */
+  players: { id: number; display_name: string; inSquad: boolean }[];
+}
+
+export async function loadBestXi(label: string): Promise<BestXiData> {
+  const season = (await loadSeasons()).find((s) => s.label === label);
+  if (!season) throw new NotFoundError(`Сезона «${label}» в базе нет.`);
+  const [xi, squad] = await Promise.all([
+    rows<(BestXiRecord & { player: { display_name: string } })[]>(
+      db().from('season_best_xi').select('season_id, slot, player_id, player(display_name)').eq('season_id', season.id),
+    ),
+    rows<{ player_id: number; player: { display_name: string } }[]>(
+      db().from('squad_member').select('player_id, player(display_name)').eq('season_id', season.id),
+    ),
+  ]);
+  const players = new Map(squad.map((s) => [s.player_id, { id: s.player_id, display_name: s.player.display_name, inSquad: true }]));
+  for (const x of xi) {
+    if (!players.has(x.player_id)) players.set(x.player_id, { id: x.player_id, display_name: x.player.display_name, inSquad: false });
+  }
+  return {
+    season,
+    rows: xi.map(({ season_id, slot, player_id }) => ({ season_id, slot, player_id })),
+    players: [...players.values()].sort((a, b) => a.display_name.localeCompare(b.display_name, 'ru')),
+  };
+}
+
+export interface PlayerCardData {
+  player: PlayerRecord;
+  links: { site: LinkSite; url: string }[];
+  seasons: { label: string; start_year: number }[];
+}
+
+export async function loadPlayerCard(id: number): Promise<PlayerCardData> {
+  const player = await rows<PlayerRecord | null>(db().from('player').select(PLAYER_COLUMNS).eq('id', id).maybeSingle());
+  if (!player) throw new NotFoundError(`Игрока №${id} в базе нет.`);
+  const [links, squad] = await Promise.all([
+    rows<{ site: LinkSite; url: string }[]>(db().from('player_link').select('site, url').eq('player_id', id)),
+    rows<{ season: { label: string; start_year: number } }[]>(db().from('squad_member').select('season(label, start_year)').eq('player_id', id)),
+  ]);
+  return { player, links, seasons: squad.map((s) => s.season).sort((a, b) => a.start_year - b.start_year) };
 }

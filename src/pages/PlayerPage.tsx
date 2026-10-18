@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Card, ExternalLinks, Tiles, type Tile } from '../components/cards';
-import { LoadStatus, Tag } from '../components/common';
+import { EditLink, LoadStatus, Tag } from '../components/common';
 import { loadPlayer } from '../db/queries';
 import type { Player, PlayerSeasonStats, Transfer } from '../db/types';
 import {
@@ -15,7 +15,7 @@ import {
   sumKnown,
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { playersHref, seasonHref } from '../router';
+import { adminPlayerHref, playersHref, seasonHref } from '../router';
 
 export function PlayerPage({ id }: { id: number }) {
   const state = useLoad(id, loadPlayer);
@@ -28,7 +28,7 @@ export function PlayerPage({ id }: { id: number }) {
   return (
     <div className="card-page">
       <nav className="crumbs" aria-label="Путь">
-        <a href={playersHref}>Игроки</a> / {player.display_name}
+        <a href={playersHref}>Игроки</a> / {player.display_name} <EditLink href={adminPlayerHref(player.id)} />
       </nav>
 
       <PlayerHero player={player} photoUrl={photoUrl} seasons={seasons}>

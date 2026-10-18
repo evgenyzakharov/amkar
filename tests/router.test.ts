@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminMatchHref, adminNewMatchHref, adminSeasonHref, parseRoute } from '../src/router';
+import { adminMatchHref, adminNewMatchHref, adminPlayerHref, adminSeasonHref, parseRoute } from '../src/router';
 
 describe('маршруты', () => {
   it('публичные страницы', () => {
@@ -27,6 +27,9 @@ describe('маршруты', () => {
     expect(parseRoute(adminNewMatchHref('2008'))).toEqual({ page: 'admin', admin: { page: 'new-match', label: '2008' } });
     expect(parseRoute('#/admin/teams')).toEqual({ page: 'admin', admin: { page: 'teams' } });
     expect(parseRoute('#/admin/coaches')).toEqual({ page: 'admin', admin: { page: 'coaches' } });
+    expect(parseRoute('#/admin/players')).toEqual({ page: 'admin', admin: { page: 'players' } });
+    expect(parseRoute(adminPlayerHref(27))).toEqual({ page: 'admin', admin: { page: 'player', id: 27 } });
+    expect(parseRoute(adminSeasonHref('2008', 'best'))).toEqual({ page: 'admin', admin: { page: 'season', label: '2008', tab: 'best' } });
     expect(parseRoute('#/admin/match/abc')).toEqual({ page: 'not-found' });
     expect(parseRoute('#/admin/season/2008/old')).toEqual({ page: 'not-found' });
   });

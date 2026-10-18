@@ -1481,3 +1481,13 @@ input.w-year {
 .team-names .hint {
   margin-right: 10px;
 }
+
+/* Сборная сезона в админке: те же линии, что на странице сезона, в каждом месте — выбор игрока */
+.best-xi-edit .pitch-player select {
+  max-width: 10em;
+  font-size: 0.85rem;
+}
+
+.players-admin {
+  columns: 2 22em;
+}
