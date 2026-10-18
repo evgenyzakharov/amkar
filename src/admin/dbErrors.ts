@@ -73,6 +73,15 @@ export const CONSTRAINT_MESSAGES: Record<string, string> = {
   goal_scorer_id_fkey: 'Автора гола нет в базе.',
   goal_assist_id_fkey: 'Ассистента нет в базе.',
 
+  // видео матча
+  match_video_pkey: 'Такое видео уже записано.',
+  match_video_match_id_fkey: 'Матча нет в базе — возможно, его удалили.',
+  match_video_kind_check: 'Видео — полный матч или обзор.',
+  match_video_url_check: 'Ссылка на видео должна начинаться с https://',
+  match_video_youtube_or_vk: 'Видео — только ссылкой на YouTube или ВК.',
+  match_video_title_check: 'Подпись к видео не может состоять из одних пробелов.',
+  match_video_match_id_url_key: 'Эта ссылка у матча уже есть.',
+
   // справочники
   team_pkey: 'Такой соперник уже есть.',
   team_name_key: 'Соперник с таким названием уже есть в справочнике.',

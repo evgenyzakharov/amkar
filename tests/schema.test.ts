@@ -622,3 +622,38 @@ describe('фото игрока по ссылке (player.photo_url)', () => {
     expect((await asUserIn(ph, null, 'select photo_url from player where id = 1')).rows).toEqual([{ photo_url: 'https://img.example.com/1.jpg' }]);
   });
 });
+
+describe('видео матча (match_video)', () => {
+  let mv: PGlite;
+  beforeAll(async () => {
+    mv = await migratedDb(SUPABASE_STRICT);
+    await mv.exec(`
+      insert into season (id, label, start_year, end_year) values (1, '2026/27', 2026, 2027);
+      insert into match (id, season_id, competition_id, seq, opponent_raw) values (1, 1, 1, 1, 'Иртыш');
+    `);
+  }, 60_000);
+
+  const add = (url: string, kind = 'highlights') =>
+    asUserIn(mv, ADMIN, `insert into match_video (match_id, kind, url) values (1, '${kind}', '${url}') returning site`);
+
+  it('сайт — по адресу: YouTube и ВК, другие не принимаем', async () => {
+    expect((await add('https://www.youtube.com/watch?v=abc', 'full')).rows).toEqual([{ site: 'youtube' }]);
+    expect((await add('https://youtu.be/abc')).rows).toEqual([{ site: 'youtube' }]);
+    expect((await add('https://vk.com/video-123_456')).rows).toEqual([{ site: 'vk' }]);
+    expect((await add('https://vkvideo.ru/video-123_789')).rows).toEqual([{ site: 'vk' }]);
+    await expect(add('https://rutube.ru/video/1/')).rejects.toThrow(/match_video_youtube_or_vk/);
+    await expect(add('https://notyoutube.com/x')).rejects.toThrow(/match_video_youtube_or_vk/);
+    await expect(add('http://youtu.be/abc')).rejects.toThrow(/match_video_url_check/);
+    await expect(add('https://youtu.be/abc')).rejects.toThrow(/match_video_match_id_url_key/);
+  });
+
+  it('читают все, пишет админ; удалили матч — удалились и видео', async () => {
+    await expect(
+      asUserIn(mv, STRANGER, `insert into match_video (match_id, kind, url) values (1, 'full', 'https://youtu.be/x')`),
+    ).rejects.toThrow(/row-level security/);
+    const { rows } = await asUserIn(mv, null, 'select count(*)::int n from match_video');
+    expect(rows).toEqual([{ n: 4 }]);
+    await mv.exec('delete from match where id = 1');
+    expect((await mv.query('select count(*)::int n from match_video')).rows).toEqual([{ n: 0 }]);
+  });
+});
