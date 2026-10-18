@@ -76,6 +76,12 @@ export const CONSTRAINT_MESSAGES: Record<string, string> = {
   // справочники
   team_pkey: 'Такой соперник уже есть.',
   team_name_key: 'Соперник с таким названием уже есть в справочнике.',
+  team_name_pkey: 'Такое название клуба уже записано.',
+  team_name_team_id_fkey: 'Клуба нет в справочнике — возможно, его удалили.',
+  team_name_name_check: 'Название клуба не может быть пустым.',
+  team_name_from_year_check: 'Год — четыре цифры, например 1996.',
+  team_name_to_year_check: 'Год — четыре цифры, например 2002.',
+  team_name_check: 'Год начала названия не может быть позже года конца.',
   coach_pkey: 'Такой тренер уже есть.',
   competition_pkey: 'Такой турнир уже есть.',
   competition_name_key: 'Турнир с таким названием уже есть.',

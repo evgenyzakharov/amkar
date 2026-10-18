@@ -313,3 +313,51 @@ describe('ограничения голов', () => {
     ).rejects.toThrow(/check constraint/);
   });
 });
+
+describe('названия клуба по годам', () => {
+  let names: PGlite;
+  beforeAll(async () => {
+    names = await migratedDb(SUPABASE_STRICT);
+    await names.exec(`
+      insert into season (id, label, start_year, end_year) values
+        (1, '1996', 1996, 1996), (2, '2002', 2002, 2002), (3, '2011/12', 2011, 2012), (4, '2003', 2003, 2003);
+      insert into team (id, name) values (1, 'Урал'), (2, 'Рубин Казань');
+      insert into team_name (team_id, name, from_year, to_year) values (1, 'Уралмаш', null, 2002), (1, 'Урал-Сверд', 2003, 2003);
+      insert into match (id, season_id, competition_id, seq, opponent_id, opponent_raw) values
+        (1, 1, 1, 1, 1, 'Уралмаш'), (2, 2, 1, 1, 1, null), (3, 4, 1, 1, 1, 'Урал'), (4, 3, 1, 1, 1, 'Урал'),
+        (5, 3, 1, 2, 2, 'Рубин'), (6, 3, 1, 3, null, 'Шинник');
+      insert into player (id, display_name, last_name) values (1, 'Пеев', 'Пеев');
+      insert into transfer (player_id, season_id, direction, other_team_id, other_team_raw) values
+        (1, 1, 'in', 1, null), (1, 3, 'out', null, 'Спартак');
+    `);
+  }, 60_000);
+
+  it('соперник — как назывался в сезон матча, иначе текущее название, иначе текст из Excel', async () => {
+    const { rows } = await asUserIn(names, null, 'select m.id, opponent_name(m) as name from match m order by id');
+    expect(rows).toEqual([
+      { id: 1, name: 'Уралмаш' },
+      { id: 2, name: 'Уралмаш' },
+      { id: 3, name: 'Урал-Сверд' },
+      { id: 4, name: 'Урал' },
+      { id: 5, name: 'Рубин Казань' },
+      { id: 6, name: 'Шинник' },
+    ]);
+  });
+
+  it('клуб трансфера — так же, по сезону трансфера', async () => {
+    const { rows } = await asUserIn(names, null, 'select other_team_name(t) as name from transfer t order by id');
+    expect(rows).toEqual([{ name: 'Уралмаш' }, { name: 'Спартак' }]);
+  });
+
+  it('читают все, меняет только админ; годы — по порядку', async () => {
+    await expect(asUserIn(names, STRANGER, `insert into team_name (team_id, name) values (2, 'Рубин')`)).rejects.toThrow(/row-level security/);
+    await asUserIn(names, ADMIN, `insert into team_name (team_id, name, from_year, to_year) values (2, 'Рубин', 1958, 1990)`);
+    await expect(
+      asUserIn(names, ADMIN, `insert into team_name (team_id, name, from_year, to_year) values (2, 'Искра', 1991, 1960)`),
+    ).rejects.toThrow(/check constraint/);
+    // удалили клуб — удалились и его названия
+    await names.exec('delete from match where opponent_id = 2; delete from team where id = 2');
+    const { rows } = await names.query(`select count(*)::int n from team_name where team_id = 2`);
+    expect(rows).toEqual([{ n: 0 }]);
+  });
+});
