@@ -501,6 +501,110 @@ describe('итоги за карьеру (player_career_stats)', () => {
   });
 });
 
+describe('дашборды: season_summary, team_streaks, player_milestones', () => {
+  let dash: PGlite;
+  beforeAll(async () => {
+    dash = await migratedDb(SUPABASE_EXPOSED);
+    await dash.exec(`
+      insert into season (id, label, start_year, end_year, goals_from_matches) values
+        (1, '2016/17', 2016, 2017, false), (2, '2017/18', 2017, 2018, false),
+        (3, '2021/22', 2021, 2022, false), (4, '2026/27', 2026, 2027, true);
+      insert into player (id, display_name, last_name, academy) values (1, 'Воспитанник', 'Воспитанник', true), (2, 'Приезжий', 'Приезжий', false);
+      insert into squad_member (season_id, player_id) values (1, 1), (1, 2), (4, 1);
+      -- 2016/17: чемпионат В В ? В Н В, кубок В, товарищеский В
+      insert into match (id, season_id, competition_id, seq, opponent_raw, result, awarded) values
+        (1, 1, 1, 1, 'А', 'W', false), (2, 1, 1, 2, 'Б', 'W', false), (3, 1, 1, 3, 'В', null, false),
+        (4, 1, 1, 4, 'Г', 'W', false), (5, 1, 1, 5, 'Д', 'D', false), (6, 1, 1, 6, 'Е', 'W', false),
+        (7, 1, (select id from competition where kind = 'cup'), 7, 'Ж', 'W', false),
+        (8, 1, (select id from competition where kind = 'friendly'), 8, 'З', 'W', false),
+        -- 2017/18: техническая победа и ещё две
+        (9, 2, 1, 1, 'И', 'W', true), (10, 2, 1, 2, 'К', 'W', false), (11, 2, 1, 3, 'Л', 'W', false),
+        -- 2021/22: новый клуб — победа сразу после перерыва серию не продолжает
+        (12, 3, 1, 1, 'М', 'W', false), (13, 3, 1, 2, 'Н', 'L', false);
+      insert into match (id, season_id, competition_id, seq, opponent_raw, result)
+        select 100 + g, 4, 1, g, 'Соперник ' || g, 'D' from generate_series(1, 110) g;
+      insert into appearance (match_id, player_id, role, minutes) values
+        (1, 1, 'start', 90), (7, 1, 'start', 90), (8, 1, 'start', 90), (1, 2, 'start', 90);
+      insert into appearance (match_id, player_id, role, minutes) select 100 + g, 1, 'start', 90 from generate_series(1, 110) g;
+      insert into player_season_totals (season_id, player_id, competition_id, goals) values
+        (1, 1, 1, 40), (1, 1, (select id from competition where kind = 'cup'), 5), (1, 2, 1, 60);
+      insert into goal (match_id, side, minute, kind, scorer_id) select 100 + g, 'amkar', 10, 'open_play', 1 from generate_series(1, 6) g;
+    `);
+  }, 60_000);
+
+  it('season_summary: очки в чемпионате с техническими победами, без товарищеских, минуты воспитанников', async () => {
+    const { rows } = await asUserIn(
+      dash,
+      null,
+      `select label, league_played, league_wins, league_draws, league_losses, league_unknown, league_points,
+              played, wins, minutes, academy_minutes from season_summary order by season_id`,
+    );
+    expect(rows.slice(0, 2)).toEqual([
+      { label: '2016/17', league_played: 5, league_wins: 4, league_draws: 1, league_losses: 0, league_unknown: 1, league_points: 13, played: 6, wins: 5, minutes: 270, academy_minutes: 180 },
+      { label: '2017/18', league_played: 3, league_wins: 3, league_draws: 0, league_losses: 0, league_unknown: 0, league_points: 9, played: 3, wins: 3, minutes: 0, academy_minutes: 0 },
+    ]);
+  });
+
+  const streaks = async (where: string) =>
+    (
+      await asUserIn(
+        dash,
+        null,
+        `select length, first_season_label || ' №' || first_seq as from_, last_season_label || ' №' || last_seq as to_
+         from team_streaks where ${where} order by length desc, first_match_id`,
+      )
+    ).rows;
+
+  it('team_streaks: серия идёт через сезоны, рвётся на неизвестном результате и на перерыве 2018–2021', async () => {
+    expect(await streaks(`span = 'history' and scope = 'league' and kind = 'win'`)).toEqual([
+      { length: 4, from_: '2016/17 №6', to_: '2017/18 №3' },
+      { length: 2, from_: '2016/17 №1', to_: '2016/17 №2' },
+      { length: 1, from_: '2016/17 №4', to_: '2016/17 №4' },
+      { length: 1, from_: '2021/22 №1', to_: '2021/22 №1' },
+    ]);
+    // во всех турнирах кубковая победа продлевает серию, товарищеский матч не в счёт
+    expect((await streaks(`span = 'history' and scope = 'all' and kind = 'win'`))[0]).toEqual({ length: 5, from_: '2016/17 №6', to_: '2017/18 №3' });
+    expect((await streaks(`span = 'history' and scope = 'league' and kind = 'winless'`))[0]).toEqual({ length: 111, from_: '2021/22 №2', to_: '2026/27 №110' });
+  });
+
+  it('team_streaks: лучшая серия каждого сезона — в пределах сезона', async () => {
+    expect(await streaks(`span = 'season' and scope = 'league' and kind = 'win'`)).toEqual([
+      { length: 3, from_: '2017/18 №1', to_: '2017/18 №3' },
+      { length: 2, from_: '2016/17 №1', to_: '2016/17 №2' },
+      { length: 1, from_: '2021/22 №1', to_: '2021/22 №1' },
+    ]);
+  });
+
+  it('player_milestones: сотый матч — с учётом прошлых сезонов и без товарищеских; голы — матч или только сезон', async () => {
+    const { rows } = await asUserIn(
+      dash,
+      null,
+      `select player_id, stat, milestone, precision, season_label, seq, opponent from player_milestones order by player_id, stat, milestone`,
+    );
+    expect(rows).toEqual([
+      // два официальных матча в 2016/17, сотый — 98-й в 2026/27
+      { player_id: 1, stat: 'games', milestone: 100, precision: 'match', season_label: '2026/27', seq: 98, opponent: 'Соперник 98' },
+      // 45 голов итогом 2016/17, пятидесятый — пятый гол по матчам 2026/27
+      { player_id: 1, stat: 'goals', milestone: 50, precision: 'match', season_label: '2026/27', seq: 5, opponent: 'Соперник 5' },
+      { player_id: 2, stat: 'goals', milestone: 50, precision: 'season', season_label: '2016/17', seq: null, opponent: null },
+    ]);
+  });
+
+  it('ролям API — только чтение', async () => {
+    const { rows } = await dash.query(`
+      select v.name, string_agg(p.privilege, ',' order by p.privilege) granted
+      from unnest(array['season_summary', 'team_streaks', 'player_milestones']) v(name)
+      cross join unnest(array['select', 'insert', 'update', 'delete', 'truncate']) p(privilege)
+      where has_table_privilege('anon', v.name, p.privilege)
+      group by v.name order by v.name`);
+    expect(rows).toEqual([
+      { name: 'player_milestones', granted: 'select' },
+      { name: 'season_summary', granted: 'select' },
+      { name: 'team_streaks', granted: 'select' },
+    ]);
+  });
+});
+
 describe('фото игрока по ссылке (player.photo_url)', () => {
   let ph: PGlite;
   beforeAll(async () => {
