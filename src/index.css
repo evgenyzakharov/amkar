@@ -1382,3 +1382,33 @@ input.w-short {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+
+/* Заявка сезона в админке */
+.squad-edit .nowrap {
+  white-space: nowrap;
+}
+
+.squad-edit .row-new td {
+  background: var(--highlight);
+}
+
+.new-player {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.new-player input {
+  width: 9em;
+}
+
+.squad-add input {
+  width: 18em;
+  max-width: 100%;
+}
+
+.search-results {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-size: 0.9rem;
+}

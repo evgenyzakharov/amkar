@@ -14,6 +14,7 @@ import {
   type SquadPlayer,
   type Team,
 } from './match';
+import type { SquadBase, SquadPlayerInfo, SquadRecord } from './squad';
 
 /** Матч в списке админки: сколько уже записано по нему. */
 export interface AdminMatchRow extends MatchRow {
@@ -228,5 +229,77 @@ export async function loadSeasonGrid(label: string): Promise<SeasonGridData> {
     players: squadPlayers(squad, [...appearances, ...absences]),
     appearances: appearances.map(strip),
     absences: absences.map(strip),
+  };
+}
+
+// ===========================================================================
+// Заявка сезона
+// ===========================================================================
+
+export interface SquadEditorData {
+  season: Season;
+  base: SquadBase;
+  /** Все игроки базы — для добавления в заявку. */
+  allPlayers: SquadPlayerInfo[];
+}
+
+interface PlayerRow {
+  id: number;
+  display_name: string;
+  last_name: string;
+  first_name: string | null;
+  birth_date: string | null;
+  academy: boolean;
+  squad_member: { season: { label: string; start_year: number } }[];
+}
+
+export async function loadSquadEditor(label: string): Promise<SquadEditorData> {
+  const season = (await loadSeasons()).find((s) => s.label === label);
+  if (!season) throw new NotFoundError(`Сезона «${label}» в базе нет.`);
+  const [rowsOfSeason, players, matches] = await Promise.all([
+    rows<SquadRecord[]>(
+      db()
+        .from('squad_member')
+        .select('season_id, player_id, shirt_number, position, squad_group, on_loan, sort_order')
+        .eq('season_id', season.id),
+    ),
+    allRows<PlayerRow>((from, to) =>
+      db()
+        .from('player')
+        .select('id, display_name, last_name, first_name, birth_date, academy, squad_member(season(label, start_year))')
+        .order('id')
+        .range(from, to),
+    ),
+    rows<{ id: number }[]>(db().from('match').select('id').eq('season_id', season.id)),
+  ]);
+  const ids = matches.map((m) => m.id);
+  const inMatches = new Set<number>();
+  if (ids.length) {
+    const [apps, abs] = await Promise.all([
+      allRows<{ player_id: number }>((from, to) =>
+        db().from('appearance').select('player_id').in('match_id', ids).order('match_id').order('player_id').range(from, to),
+      ),
+      allRows<{ player_id: number }>((from, to) =>
+        db().from('absence').select('player_id').in('match_id', ids).order('match_id').order('player_id').range(from, to),
+      ),
+    ]);
+    for (const r of [...apps, ...abs]) inMatches.add(r.player_id);
+  }
+  const allPlayers: SquadPlayerInfo[] = players.map((p) => ({
+    id: p.id,
+    display_name: p.display_name,
+    last_name: p.last_name,
+    first_name: p.first_name,
+    birth_date: p.birth_date,
+    academy: p.academy,
+    seasons: p.squad_member
+      .map((s) => s.season)
+      .sort((a, b) => a.start_year - b.start_year)
+      .map((s) => s.label),
+  }));
+  return {
+    season,
+    base: { seasonId: season.id, rows: rowsOfSeason, players: new Map(allPlayers.map((p) => [p.id, p])), inMatches },
+    allPlayers,
   };
 }
