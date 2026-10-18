@@ -414,3 +414,21 @@ describe('голы за сезон по матчам (season.goals_from_matches)
     ]);
   });
 });
+
+describe('фото игрока по ссылке (player.photo_url)', () => {
+  let ph: PGlite;
+  beforeAll(async () => {
+    ph = await migratedDb(SUPABASE_STRICT);
+    await ph.exec(`insert into player (id, display_name, last_name) values (1, 'Галлямов', 'Галлямов')`);
+  }, 60_000);
+
+  it('только https://, меняет админ, читают все', async () => {
+    await asUserIn(ph, ADMIN, `update player set photo_url = 'https://img.example.com/1.jpg' where id = 1`);
+    await expect(asUserIn(ph, ADMIN, `update player set photo_url = 'http://img.example.com/1.jpg' where id = 1`)).rejects.toThrow(
+      /player_photo_url_check/,
+    );
+    const { rows } = await asUserIn(ph, STRANGER, `update player set photo_url = null where id = 1 returning id`);
+    expect(rows).toEqual([]);
+    expect((await asUserIn(ph, null, 'select photo_url from player where id = 1')).rows).toEqual([{ photo_url: 'https://img.example.com/1.jpg' }]);
+  });
+});

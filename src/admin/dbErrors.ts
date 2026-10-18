@@ -125,6 +125,7 @@ export const CONSTRAINT_MESSAGES: Record<string, string> = {
 
   // карточки: позиция и ссылки
   player_position_check: 'Позиция — вратарь, защитник, полузащитник или нападающий.',
+  player_photo_url_check: 'Ссылка на фото должна начинаться с https://',
   player_link_pkey: 'Ссылка на этот сайт у игрока уже есть.',
   player_link_site_check: 'Ссылки бывают на Transfermarkt, Википедию и Чемпионат.',
   player_link_url_check: 'Адрес ссылки должен начинаться с https://',
