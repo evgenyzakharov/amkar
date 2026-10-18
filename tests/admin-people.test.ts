@@ -77,6 +77,9 @@ describe('карточка игрока', () => {
     expect(validatePlayer({ ...next, links: { ...next.links, championat: 'championat.com/x' } }, label)).toEqual([
       'championat: адрес должен начинаться с https://',
     ]);
+    expect(validatePlayer({ ...next, photo_url: 'http://img.example.com/1.jpg' }, label)).toEqual([
+      'Ссылка на фото: адрес должен начинаться с https://',
+    ]);
     expect(isPlayerDirty(next, p, links)).toBe(true);
     await savePlayer(pgliteWriter(db), p, links, next);
     const after = await load();

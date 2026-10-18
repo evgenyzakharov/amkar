@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Card, ExternalLinks, Tiles, type Tile } from '../components/cards';
 import { EditLink, LoadStatus, Tag } from '../components/common';
 import { loadPlayer } from '../db/queries';
@@ -77,6 +77,37 @@ function givenName(p: Player): string | null {
   return prefix || null;
 }
 
+const PhotoSilhouette = () => (
+  <svg width="120" height="140" viewBox="0 0 120 140" fill="none" stroke="#6f6f6f" strokeWidth="3" role="img" aria-label="Фото нет">
+    <circle cx="60" cy="46" r="26" />
+    <path d="M14 136c4-30 24-46 46-46s42 16 46 46" />
+  </svg>
+);
+
+/**
+ * Фото игрока: загруженное в хранилище, иначе по ссылке с внешнего сайта, иначе силуэт.
+ * Внешнюю картинку грузим без referer (часть сайтов не отдаёт её чужим) и лениво; не открылась — силуэт.
+ */
+function PlayerPhoto({ uploaded, external, credit, alt }: { uploaded: string | null; external: string | null; credit: string | null; alt: string }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const src = uploaded ?? external;
+  const shown = src && failed !== src;
+  return (
+    <figure className="player-photo">
+      {shown ? (
+        uploaded ? (
+          <img src={uploaded} alt={alt} />
+        ) : (
+          <img src={src} alt={alt} referrerPolicy="no-referrer" loading="lazy" onError={() => setFailed(src)} />
+        )
+      ) : (
+        <PhotoSilhouette />
+      )}
+      {shown && credit && <figcaption>{credit}</figcaption>}
+    </figure>
+  );
+}
+
 function PlayerHero({
   player,
   photoUrl,
@@ -107,17 +138,7 @@ function PlayerHero({
 
   return (
     <section className="card player-hero" aria-label="Игрок">
-      <figure className="player-photo">
-        {photoUrl ? (
-          <img src={photoUrl} alt={`Фото: ${fullName}`} />
-        ) : (
-          <svg width="120" height="140" viewBox="0 0 120 140" fill="none" stroke="#6f6f6f" strokeWidth="3" role="img" aria-label="Фото нет">
-            <circle cx="60" cy="46" r="26" />
-            <path d="M14 136c4-30 24-46 46-46s42 16 46 46" />
-          </svg>
-        )}
-        {photoUrl && player.photo_credit && <figcaption>{player.photo_credit}</figcaption>}
-      </figure>
+      <PlayerPhoto uploaded={photoUrl} external={player.photo_url ?? null} credit={player.photo_credit} alt={`Фото: ${fullName}`} />
 
       <div className="player-info">
         <div className="player-name-row">

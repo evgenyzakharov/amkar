@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { LoadStatus, PageNav } from '../components/common';
 import type { Position } from '../db/types';
 import { LINK_SITES, POSITION_LABEL, POSITION_TITLE, formatDate } from '../format';
@@ -67,6 +67,7 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
   const [photoBusy, setPhotoBusy] = useState(false);
   const { player, links, seasons } = data;
   const photoUrl = player.photo_path ? supabasePhotoStore.publicUrl(player.photo_path) : null;
+  const linkUrl = draft.photo_url.trim();
 
   // Фото пишется сразу, отдельно от формы: несохранённые правки формы при этом не теряются
   async function uploadPhoto(file: File) {
@@ -136,7 +137,13 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
         </p>
       )}
       <div className="player-photo-edit">
-        {photoUrl ? <img src={photoUrl} alt={`Фото: ${player.display_name}`} /> : <div className="photo-empty">фото нет</div>}
+        {photoUrl ? (
+          <img src={photoUrl} alt={`Фото: ${player.display_name}`} />
+        ) : linkUrl.startsWith('https://') ? (
+          <ExternalPreview key={linkUrl} src={linkUrl} alt={`Фото по ссылке: ${player.display_name}`} />
+        ) : (
+          <div className="photo-empty">фото нет</div>
+        )}
         <div>
           <label className="button">
             {photoBusy ? 'Загрузка…' : photoUrl ? 'Заменить фото' : 'Загрузить фото'}
@@ -158,7 +165,10 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
               убрать
             </button>
           )}
-          <p className="field-note">JPEG, PNG или WebP до 2 МБ. Фото сохраняется сразу; подпись — кнопкой «Сохранить».</p>
+          <p className="field-note">
+            JPEG, PNG или WebP до 2 МБ. Файл сохраняется сразу; ссылка и подпись — кнопкой «Сохранить».
+            {photoUrl && linkUrl && ' Загруженное фото важнее ссылки: ссылка покажется, если фото убрать.'}
+          </p>
         </div>
       </div>
       <div className="form-grid">
@@ -196,6 +206,16 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
         </label>
         <label className="inline">
           <input type="checkbox" checked={draft.academy} onChange={(e) => set('academy', e.target.checked)} /> воспитанник клуба
+        </label>
+        <label className="span-2">
+          Ссылка на фото
+          <input
+            type="url"
+            placeholder="https://… — картинка на другом сайте"
+            value={draft.photo_url}
+            onChange={(e) => set('photo_url', e.target.value)}
+          />
+          <span className="field-note">без загрузки файла: сайт покажет картинку прямо с источника</span>
         </label>
         <label className="span-2">
           Подпись к фото
@@ -244,4 +264,11 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
       <p className="note">Номер, позиция в сезоне и аренда — в заявке сезона. «Воспитанник» — у игрока целиком, во всех сезонах.</p>
     </>
   );
+}
+
+/** Превью картинки по ссылке: без referer, как на сайте; не открылась — так и пишем. */
+function ExternalPreview({ src, alt }: { src: string; alt: string }): ReactNode {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <div className="photo-empty">по ссылке картинка не открывается</div>;
+  return <img src={src} alt={alt} referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
 }

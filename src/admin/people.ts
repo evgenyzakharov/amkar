@@ -76,11 +76,13 @@ export interface PlayerRecord {
   notes: string | null;
   /** Путь к фото в бакете player-photos; меняется загрузкой фото, не формой. */
   photo_path: string | null;
+  /** Фото по ссылке на внешний сайт — если файла в хранилище нет. */
+  photo_url: string | null;
   photo_credit: string | null;
 }
 
 export const PLAYER_COLUMNS =
-  'id, display_name, last_name, first_name, middle_name, birth_date, academy, position, notes, photo_path, photo_credit';
+  'id, display_name, last_name, first_name, middle_name, birth_date, academy, position, notes, photo_path, photo_url, photo_credit';
 
 export interface PlayerDraft {
   display_name: string;
@@ -91,6 +93,7 @@ export interface PlayerDraft {
   academy: boolean;
   position: '' | Position;
   notes: string;
+  photo_url: string;
   photo_credit: string;
   links: Record<LinkSite, string>;
 }
@@ -105,6 +108,7 @@ export function playerDraft(p: PlayerRecord, links: { site: LinkSite; url: strin
     academy: p.academy,
     position: p.position ?? '',
     notes: p.notes ?? '',
+    photo_url: p.photo_url ?? '',
     photo_credit: p.photo_credit ?? '',
     links: linksDraft(links),
   };
@@ -121,9 +125,18 @@ function playerValues(d: PlayerDraft) {
     academy: d.academy,
     position: d.position || null,
     notes: text(d.notes),
+    photo_url: text(d.photo_url),
     photo_credit: text(d.photo_credit),
   };
 }
+
+const isHttpsUrl = (url: string) => {
+  try {
+    return url.startsWith('https://') && !!new URL(url);
+  } catch {
+    return false;
+  }
+};
 
 /** Ссылки на сайты: только https://, как проверка в базе. */
 export function validateLinks(links: Record<LinkSite, string>, siteLabel: (s: LinkSite) => string) {
@@ -147,6 +160,7 @@ export function validatePlayer(d: PlayerDraft, siteLabel: (s: LinkSite) => strin
   if (!d.display_name.trim()) errors.push('«Как показывать» не может быть пустым.');
   if (!d.last_name.trim()) errors.push('Фамилия не может быть пустой.');
   if (d.birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(d.birth_date)) errors.push('Дата рождения — в формате ГГГГ-ММ-ДД.');
+  if (d.photo_url.trim() && !isHttpsUrl(d.photo_url.trim())) errors.push('Ссылка на фото: адрес должен начинаться с https://');
   return [...errors, ...validateLinks(d.links, siteLabel)];
 }
 

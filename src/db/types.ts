@@ -128,6 +128,8 @@ export interface Player {
   position: Position | null;
   /** Путь к фото в бакете player-photos. */
   photo_path: string | null;
+  /** Фото по ссылке на внешний сайт (до миграции 20261018200000 столбца нет). */
+  photo_url?: string | null;
   photo_credit: string | null;
 }
 
@@ -162,4 +164,17 @@ export interface Transfer {
   team: { name: string } | null;
   /** Клуб так, как он назывался в сезон трансфера (вычисляемый столбец other_team_name). */
   other_team_name?: string | null;
+}
+
+/** Строка view player_career_stats: игрок за все сезоны в заявке «Амкара». */
+export interface CareerStats {
+  player_id: number;
+  display_name: string;
+  last_name: string;
+  first_year: number;
+  last_year: number;
+  games: number;
+  games_league: number;
+  goals: number | null;
+  goals_league: number | null;
 }
