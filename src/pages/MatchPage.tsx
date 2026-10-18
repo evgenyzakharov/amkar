@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { LoadStatus, PageNav, ResultBadge, Tag } from '../components/common';
+import { EditLink, LoadStatus, PageNav, ResultBadge, Tag } from '../components/common';
 import { loadMatch } from '../db/queries';
 import type { Absence, AbsenceReason, Appearance, SquadEntry } from '../db/types';
 import {
@@ -13,7 +13,7 @@ import {
   opponentName,
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { matchHref, playerHref, seasonHref } from '../router';
+import { adminMatchHref, matchHref, playerHref, seasonHref } from '../router';
 
 export function MatchPage({ id }: { id: number }) {
   const state = useLoad(id, loadMatch);
@@ -44,7 +44,9 @@ export function MatchPage({ id }: { id: number }) {
         prev={prevId && <a href={matchHref(prevId)}>‹ предыдущий</a>}
         next={nextId && <a href={matchHref(nextId)}>следующий ›</a>}
       />
-      <h2>Амкар — {opponentName(m)}</h2>
+      <h2>
+        Амкар — {opponentName(m)} <EditLink href={adminMatchHref(m.id)} />
+      </h2>
       <p className="match-score">
         <ResultBadge result={m.result} />
         {score && <span className="score">{score}</span>}

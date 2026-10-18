@@ -1,4 +1,4 @@
-import { LoadStatus, PageNav, ResultBadge, Tag } from '../components/common';
+import { EditLink, LoadStatus, PageNav, ResultBadge, Tag } from '../components/common';
 import { loadSeason } from '../db/queries';
 import type { BestXiSlot, MatchRow, PlayerSeasonStats, Result } from '../db/types';
 import {
@@ -13,7 +13,7 @@ import {
   opponentName,
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { matchHref, playerHref, seasonHref } from '../router';
+import { adminSeasonHref, matchHref, playerHref, seasonHref } from '../router';
 
 export function SeasonPage({ label }: { label: string }) {
   useDocumentTitle(`Сезон ${label}`);
@@ -33,7 +33,9 @@ export function SeasonPage({ label }: { label: string }) {
         prev={prev && <a href={seasonHref(prev.label)}>‹ {prev.label}</a>}
         next={next && <a href={seasonHref(next.label)}>{next.label} ›</a>}
       />
-      <h2>Сезон {season.label}</h2>
+      <h2>
+        Сезон {season.label} <EditLink href={adminSeasonHref(season.label)} />
+      </h2>
       {standing.length > 0 && <p className="muted">{standing.join(' · ')}</p>}
       <Summary matches={matches} />
 

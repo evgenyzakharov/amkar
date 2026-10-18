@@ -1,5 +1,6 @@
 // Мелкие общие компоненты страниц
 import type { ReactNode } from 'react';
+import { useIsAdmin } from '../auth';
 import type { Result } from '../db/types';
 import { RESULT_LABEL, RESULT_TITLE } from '../format';
 import type { Loaded } from '../load';
@@ -50,5 +51,16 @@ export function PageNav({ up, prev, next }: { up: ReactNode; prev?: ReactNode; n
         {next}
       </span>
     </nav>
+  );
+}
+
+/** Ссылка на правку в админке — только для вошедшего админа. */
+export function EditLink({ href }: { href: string }) {
+  const isAdmin = useIsAdmin();
+  if (!isAdmin) return null;
+  return (
+    <a className="edit-link" href={href}>
+      ✎ изменить
+    </a>
   );
 }

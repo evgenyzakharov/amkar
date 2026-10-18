@@ -14,20 +14,20 @@ import type {
   Transfer,
 } from './types';
 
-function db() {
+export function db() {
   if (!supabase) throw new Error('Supabase не настроен: заполните .env');
   return supabase;
 }
 
 /** Данные ответа PostgREST или исключение с текстом его ошибки. */
-async function rows<T>(query: PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T> {
+export async function rows<T>(query: PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T> {
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data as T;
 }
 
 const SEASON_COLUMNS = 'id, label, start_year, end_year, division, tier, final_place, teams_count';
-const MATCH_COLUMNS =
+export const MATCH_COLUMNS =
   'id, seq, round, match_date, venue, opponent_raw, result, goals_for, goals_against, extra_time, ' +
   'pens_for, pens_against, awarded, competition(name, kind), team(name)';
 const STATS_COLUMNS =

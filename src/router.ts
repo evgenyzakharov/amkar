@@ -7,12 +7,42 @@ export type Route =
   | { page: 'season'; label: string }
   | { page: 'match'; id: number }
   | { page: 'player'; id: number }
+  | { page: 'admin'; admin: AdminRoute }
   | { page: 'not-found' };
 
+/** Разделы админки: #/admin/… */
+export type AdminRoute =
+  | { page: 'home' }
+  | { page: 'season'; label: string }
+  | { page: 'match'; id: number }
+  | { page: 'new-match'; label: string };
+
 // «2011/12» в адресе — «2011-12»: косая черта разделяет части маршрута
-export const seasonHref = (label: string) => `#/season/${label.replace('/', '-')}`;
+const labelPart = (label: string) => label.replace('/', '-');
+const labelFromPart = (part: string) => part.replace('-', '/');
+
+export const seasonHref = (label: string) => `#/season/${labelPart(label)}`;
 export const matchHref = (id: number) => `#/match/${id}`;
 export const playerHref = (id: number) => `#/player/${id}`;
+
+export const adminHref = '#/admin';
+export const adminSeasonHref = (label: string) => `#/admin/season/${labelPart(label)}`;
+export const adminMatchHref = (id: number) => `#/admin/match/${id}`;
+export const adminNewMatchHref = (label: string) => `${adminSeasonHref(label)}/new`;
+
+const isId = (s: string) => /^\d+$/.test(s);
+
+function parseAdminRoute(parts: string[]): Route {
+  const [page, param, extra] = parts;
+  const admin = (r: AdminRoute): Route => ({ page: 'admin', admin: r });
+  if (parts.length === 0) return admin({ page: 'home' });
+  if (page === 'season' && parts.length === 2) return admin({ page: 'season', label: labelFromPart(param) });
+  if (page === 'season' && parts.length === 3 && extra === 'new') {
+    return admin({ page: 'new-match', label: labelFromPart(param) });
+  }
+  if (page === 'match' && parts.length === 2 && isId(param)) return admin({ page: 'match', id: Number(param) });
+  return { page: 'not-found' };
+}
 
 export function parseRoute(hash: string): Route {
   let parts: string[];
@@ -22,11 +52,12 @@ export function parseRoute(hash: string): Route {
     return { page: 'not-found' };
   }
   if (parts.length === 0) return { page: 'seasons' };
+  if (parts[0] === 'admin') return parseAdminRoute(parts.slice(1));
   if (parts.length !== 2) return { page: 'not-found' };
 
   const [page, param] = parts;
-  if (page === 'season') return { page: 'season', label: param.replace('-', '/') };
-  if (!/^\d+$/.test(param)) return { page: 'not-found' };
+  if (page === 'season') return { page: 'season', label: labelFromPart(param) };
+  if (!isId(param)) return { page: 'not-found' };
   if (page === 'match') return { page: 'match', id: Number(param) };
   if (page === 'player') return { page: 'player', id: Number(param) };
   return { page: 'not-found' };

@@ -1,10 +1,13 @@
 import { useEffect } from 'react';
+import { AdminPage } from './admin/AdminPage';
+import { signOut, useAuth } from './auth';
+import { AuthProvider } from './components/AuthProvider';
 import { NotFound } from './components/common';
 import { MatchPage } from './pages/MatchPage';
 import { PlayerPage } from './pages/PlayerPage';
 import { SeasonPage } from './pages/SeasonPage';
 import { SeasonsPage } from './pages/SeasonsPage';
-import { parseRoute, useHash, type Route } from './router';
+import { adminHref, parseRoute, useHash, type Route } from './router';
 
 function Page({ route }: { route: Route }) {
   switch (route.page) {
@@ -16,9 +19,28 @@ function Page({ route }: { route: Route }) {
       return <MatchPage id={route.id} />;
     case 'player':
       return <PlayerPage id={route.id} />;
+    case 'admin':
+      return <AdminPage route={route.admin} />;
     case 'not-found':
       return <NotFound message="Такой страницы нет." />;
   }
+}
+
+/** Ссылки админа в шапке. Посетителям без входа ничего не показываем: в админку заходят по адресу #/admin. */
+function AdminLinks() {
+  const auth = useAuth();
+  if (auth.status !== 'signed-in') return null;
+  return (
+    <nav className="admin-links">
+      <a href={adminHref}>Админка</a>
+      <span className="muted" title="вы вошли как">
+        {auth.email}
+      </span>
+      <button type="button" className="link-button" onClick={() => void signOut()}>
+        Выйти
+      </button>
+    </nav>
+  );
 }
 
 function App() {
@@ -30,18 +52,23 @@ function App() {
   }, [hash]);
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>
-          <a href="#/">Амкар</a>
-        </h1>
-        <p>История клуба в цифрах</p>
-      </header>
+    <AuthProvider>
+      <div className="app">
+        <header className="app-header">
+          <div>
+            <h1>
+              <a href="#/">Амкар</a>
+            </h1>
+            <p>История клуба в цифрах</p>
+          </div>
+          <AdminLinks />
+        </header>
 
-      <main>
-        <Page route={parseRoute(hash)} />
-      </main>
-    </div>
+        <main>
+          <Page route={parseRoute(hash)} />
+        </main>
+      </div>
+    </AuthProvider>
   );
 }
 

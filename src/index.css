@@ -49,6 +49,11 @@ body {
 }
 
 .app-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 8px 16px;
   border-bottom: 4px solid var(--amkar-red);
   padding: 24px 0 12px;
   margin-bottom: 24px;
@@ -302,4 +307,91 @@ h3 {
 .pitch-slot {
   font-size: 0.7rem;
   color: var(--muted);
+}
+
+/* ===== Админка ===== */
+
+.admin-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-size: 0.9rem;
+}
+
+.edit-link {
+  margin-left: 8px;
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+button,
+.button {
+  display: inline-block;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--highlight);
+  color: var(--text);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button.primary {
+  border-color: var(--amkar-red);
+  background: var(--amkar-red);
+  color: #fff;
+}
+
+button.danger {
+  border-color: var(--loss);
+  background: none;
+  color: var(--loss);
+}
+
+.link-button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--link);
+  text-decoration: underline;
+}
+
+input,
+select,
+textarea {
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+input[type='checkbox'] {
+  vertical-align: -2px;
+}
+
+input:invalid,
+.invalid {
+  border-color: var(--loss);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 320px;
+}
+
+.login-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
