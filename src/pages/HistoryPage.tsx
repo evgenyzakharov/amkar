@@ -2,10 +2,10 @@ import { Fragment } from 'react';
 import { Card, Tiles, type Tile } from '../components/cards';
 import { LoadStatus } from '../components/common';
 import { loadHistory } from '../db/queries';
-import type { SeasonSummary } from '../db/types';
-import { NEW_CLUB_FROM, SEASON_EPOCHS, formatRatio, plural } from '../format';
+import type { CareerStats, SeasonSummary } from '../db/types';
+import { NEW_CLUB_FROM, SEASON_EPOCHS, formatInt, formatRatio, plural } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { seasonHref } from '../router';
+import { playerHref, seasonHref } from '../router';
 
 // Ключ один: история не зависит от адреса
 const ALL = 'all';
@@ -33,16 +33,29 @@ export function HistoryPage() {
         <LoadStatus state={state} />
       ) : (
         <>
-          <Tiles tiles={historyTiles(state.data)} label="Итоги истории" />
+          <Tiles tiles={historyTiles(state.data.seasons)} label="Итоги истории" />
           <Card title="Уровень лиги" aside="1 — высший дивизион">
-            <TierChart seasons={state.data} />
+            <TierChart seasons={state.data.seasons} />
           </Card>
           <Card title="Сезон за сезоном" aside={<WdlLegend />}>
-            <SeasonRibbon seasons={state.data} />
+            <SeasonRibbon seasons={state.data.seasons} />
             <p className="note">
               Очки за матч и победы, ничьи, поражения — только чемпионат, по результатам матчей: техническая победа —
               тоже победа. Матчи без известного результата не считаются.
             </p>
+          </Card>
+          <Card title="Воспитанники: доля минут">
+            <AcademyChart seasons={state.data.seasons} />
+            <p className="note">
+              Доля минут игроков с отметкой «воспитанник» в официальных матчах сезона. Отметка — из таблицы автора и
+              проставлена примерно с 2010 года: у тех, кто ушёл раньше, её может не быть.
+            </p>
+          </Card>
+          <Card title="Лучшие воспитанники">
+            <div className="academy-list">
+              <AcademyLeaders players={state.data.academy} />
+              <p className="note">По матчам за «Амкар» во всех турнирах, без товарищеских.</p>
+            </div>
           </Card>
         </>
       )}
@@ -61,41 +74,139 @@ function historyTiles(seasons: SeasonSummary[]): Tile[] {
   return tiles;
 }
 
-/** Уровень лиги по сезонам: чем выше лига, тем выше столбик. Перерыв 2018–2021 — пустым промежутком. */
-function TierChart({ seasons }: { seasons: SeasonSummary[] }) {
-  const levels = [1, 2, 3, 4, 5];
+interface Column {
+  /** Высота столбика от 0 до 1; null — данных нет. */
+  value: number | null;
+  title: string;
+  /** Подпись над столбиком — только у тех, о ком стоит сказать числом. */
+  mark?: string;
+}
+
+/**
+ * Столбики по сезонам с линиями шкалы каждые 1/5 высоты. Перерыв 2018–2021 — пустым промежутком.
+ * Клик по столбику ведёт на карточку сезона.
+ */
+function SeasonColumns({
+  seasons,
+  axis,
+  column,
+}: {
+  seasons: SeasonSummary[];
+  axis: string[];
+  column: (s: SeasonSummary) => Column;
+}) {
   return (
     <div className="chart-scroll">
-      <div className="tier-chart">
-        <div className="tier-axis" aria-hidden="true">
-          {levels.map((t) => (
-            <span key={t} style={{ bottom: `${((6 - t) / 5) * 100}%` }}>
-              {t}
+      <div className="sc-chart">
+        <div className="sc-axis" aria-hidden="true">
+          {axis.map((label, k) => (
+            <span key={label} style={{ bottom: `${((k + 1) / axis.length) * 100}%` }}>
+              {label}
             </span>
           ))}
         </div>
-        <div className="tier-plot">
+        <div className="sc-plot">
           {seasons.map((s, i) => {
             const restart = i > 0 && s.start_year >= NEW_CLUB_FROM && seasons[i - 1].start_year < NEW_CLUB_FROM;
-            const title = [s.label, s.division, s.tier && `уровень ${s.tier}`, placeText(s)].filter(Boolean).join(' · ');
+            const c = column(s);
             return (
               <Fragment key={s.season_id}>
                 {restart && (
-                  <div className="tier-break" title="2018–2021: перерыв, с 2021 — новый клуб">
+                  <div className="sc-break" title="2018–2021: перерыв, с 2021 — новый клуб">
                     <span>перерыв</span>
                   </div>
                 )}
-                <a className="tier-col" href={seasonHref(s.label)} title={title} aria-label={title}>
-                  <span className="tier-slot">
-                    {s.tier && <span className="tier-bar" style={{ height: `${((6 - s.tier) / 5) * 100}%` }} />}
+                <a className="sc-col" href={seasonHref(s.label)} title={c.title} aria-label={c.title}>
+                  <span className="sc-slot">
+                    {c.value != null && (
+                      <span className="sc-bar" style={{ height: `${Math.min(1, c.value) * 100}%` }}>
+                        {c.mark && <span className="sc-mark">{c.mark}</span>}
+                      </span>
+                    )}
                   </span>
-                  <span className="tier-label">{shortLabel(seasons, i)}</span>
+                  <span className="sc-label">{shortLabel(seasons, i)}</span>
                 </a>
               </Fragment>
             );
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Уровень лиги по сезонам: чем выше лига, тем выше столбик; шкала — 5 (снизу) … 1 (сверху). */
+function TierChart({ seasons }: { seasons: SeasonSummary[] }) {
+  return (
+    <SeasonColumns
+      seasons={seasons}
+      axis={['5', '4', '3', '2', '1']}
+      column={(s) => ({
+        value: s.tier ? (6 - s.tier) / 5 : null,
+        title: [s.label, s.division, s.tier && `уровень ${s.tier}`, placeText(s)].filter(Boolean).join(' · '),
+      })}
+    />
+  );
+}
+
+/** Доля минут воспитанников: шкала кратна 5 %, подписаны пик и последний сезон. */
+function AcademyChart({ seasons }: { seasons: SeasonSummary[] }) {
+  const share = (s: SeasonSummary) => (s.minutes > 0 ? s.academy_minutes / s.minutes : null);
+  const shares = seasons.map(share).filter((v): v is number => v != null);
+  const peak = Math.max(0, ...shares);
+  const step = Math.max(5, Math.ceil((peak * 100) / 5 / 5) * 5);
+  const scale = (step * 5) / 100;
+  const peakSeason = seasons.find((s) => share(s) === peak);
+  const last = [...seasons].reverse().find((s) => share(s) != null);
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
+  return (
+    <SeasonColumns
+      seasons={seasons}
+      axis={[1, 2, 3, 4, 5].map((k) => `${k * step}%`)}
+      column={(s) => {
+        const v = share(s);
+        if (v == null) return { value: null, title: `${s.label}: минут нет` };
+        return {
+          value: v / scale,
+          title: `${s.label}: ${pct(v)} минут — ${formatInt(s.academy_minutes)} из ${formatInt(s.minutes)}`,
+          mark: s === peakSeason || s === last ? pct(v) : undefined,
+        };
+      }}
+    />
+  );
+}
+
+/** Воспитанники с наибольшим числом матчей; одинаковые значения делят место. */
+function AcademyLeaders({ players }: { players: CareerStats[] }) {
+  if (players.length === 0) return <p className="muted">Воспитанники не отмечены.</p>;
+  return (
+    <div className="table-wrap">
+      <table className="data-table leaders-table">
+        <thead>
+          <tr>
+            <th scope="col" className="num">
+              Место
+            </th>
+            <th scope="col">Игрок</th>
+            <th scope="col" className="num">
+              Игры
+            </th>
+            <th scope="col">В клубе</th>
+          </tr>
+        </thead>
+        <tbody>
+          {players.map((p) => (
+            <tr key={p.player_id}>
+              <td className="num rank">{players.findIndex((x) => x.games === p.games) + 1}</td>
+              <td>
+                <a href={playerHref(p.player_id)}>{p.display_name}</a>
+              </td>
+              <td className="num value">{p.games}</td>
+              <td className="muted">{p.first_year === p.last_year ? p.first_year : `${p.first_year}–${p.last_year}`}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

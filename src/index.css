@@ -1258,37 +1258,37 @@ h3 {
   outline-offset: 1px;
 }
 
-/* История: уровень лиги по сезонам — столбики, шкала 1 (высший дивизион) сверху */
-.tier-chart {
+/* История: столбики по сезонам — уровень лиги, доля минут воспитанников */
+.sc-chart {
   display: flex;
   gap: 8px;
   min-width: 760px;
-  /* подпись «1» выступает над графиком, а прокрутка вбок обрезала бы её */
-  padding-top: 8px;
+  /* верхняя подпись шкалы и подписи над столбиками выступают над графиком, а прокрутка вбок обрезала бы их */
+  padding-top: 18px;
 }
 
-.tier-axis {
+.sc-axis {
   position: relative;
-  flex: 0 0 14px;
+  flex: 0 0 32px;
   height: 150px;
   font-size: 12px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
-.tier-axis span {
+.sc-axis span {
   position: absolute;
   right: 0;
   transform: translateY(50%);
 }
 
-.tier-plot {
+.sc-plot {
   display: flex;
   flex: 1;
   gap: 4px;
 }
 
-.tier-col {
+.sc-col {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
@@ -1298,7 +1298,7 @@ h3 {
 }
 
 /* Линии уровней: каждые 30 px от основания, верхняя — уровень 1 */
-.tier-slot {
+.sc-slot {
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1307,7 +1307,8 @@ h3 {
   background: repeating-linear-gradient(to top, var(--border) 0 1px, transparent 1px 30px);
 }
 
-.tier-bar {
+.sc-bar {
+  position: relative;
   display: block;
   width: 100%;
   max-width: 24px;
@@ -1315,12 +1316,25 @@ h3 {
   background: var(--accent);
 }
 
-.tier-col:hover .tier-bar,
-.tier-col:focus-visible .tier-bar {
+/* Число над столбиком — только у пика и последнего сезона */
+.sc-mark {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  padding-bottom: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.sc-col:hover .sc-bar,
+.sc-col:focus-visible .sc-bar {
   filter: brightness(1.2);
 }
 
-.tier-label {
+.sc-label {
   padding-top: 4px;
   font-size: 11px;
   text-align: center;
@@ -1328,7 +1342,7 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
-.tier-break {
+.sc-break {
   display: flex;
   flex: 0 0 36px;
   align-items: flex-end;
@@ -1336,12 +1350,17 @@ h3 {
   height: 150px;
 }
 
-.tier-break span {
+.sc-break span {
   margin-bottom: 8px;
   font-size: 11px;
   color: var(--muted);
   writing-mode: vertical-rl;
   transform: rotate(180deg);
+}
+
+/* Список лучших воспитанников — не растягивать на всю карточку */
+.academy-list {
+  max-width: 640px;
 }
 
 /* История: сезоны строками. Ничья — нейтральный серый между полюсами: красный и зелёный рядом

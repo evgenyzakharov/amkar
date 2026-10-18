@@ -293,15 +293,42 @@ export async function loadSeasonGrid(seasonId: number): Promise<SeasonGridData> 
   return { appearances, absences };
 }
 
-/** Все сезоны одной строкой — для истории клуба. */
-export const loadHistory = () =>
-  rows<SeasonSummary[]>(
-    db()
-      .from('season_summary')
-      .select(
-        'season_id, label, start_year, end_year, division, tier, final_place, teams_count, league_played, league_wins, ' +
-          'league_draws, league_losses, league_unknown, league_points, minutes, academy_minutes',
-      )
-      .order('start_year')
-      .order('end_year'),
-  );
+export interface HistoryPageData {
+  /** Все сезоны одной строкой. */
+  seasons: SeasonSummary[];
+  /** Воспитанники с наибольшим числом матчей. */
+  academy: CareerStats[];
+}
+
+export async function loadHistory(): Promise<HistoryPageData> {
+  const [seasons, graduates] = await Promise.all([
+    rows<SeasonSummary[]>(
+      db()
+        .from('season_summary')
+        .select(
+          'season_id, label, start_year, end_year, division, tier, final_place, teams_count, league_played, league_wins, ' +
+            'league_draws, league_losses, league_unknown, league_points, minutes, academy_minutes',
+        )
+        .order('start_year')
+        .order('end_year'),
+    ),
+    rows<{ id: number }[]>(db().from('player').select('id').eq('academy', true)),
+  ]);
+  const academy =
+    graduates.length === 0
+      ? []
+      : await rows<CareerStats[]>(
+          db()
+            .from('player_career_stats')
+            .select('player_id, display_name, last_name, first_year, last_year, games, games_league, goals, goals_league')
+            .in(
+              'player_id',
+              graduates.map((g) => g.id),
+            )
+            .gt('games', 0)
+            .order('games', { ascending: false })
+            .order('last_name')
+            .limit(10),
+        );
+  return { seasons, academy };
+}
