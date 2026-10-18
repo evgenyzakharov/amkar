@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminMatchHref, adminNewMatchHref, adminPlayerHref, adminSeasonHref, leadersHref, parseRoute } from '../src/router';
+import { adminMatchHref, adminNewMatchHref, adminPlayerHref, adminSeasonHref, historyHref, leadersHref, parseRoute } from '../src/router';
 
 describe('маршруты', () => {
   it('публичные страницы', () => {
@@ -12,7 +12,8 @@ describe('маршруты', () => {
     expect(parseRoute(leadersHref())).toEqual({ page: 'leaders', scope: 'all' });
     expect(parseRoute(leadersHref('league'))).toEqual({ page: 'leaders', scope: 'league' });
     expect(parseRoute('#/leaders?scope=junk')).toEqual({ page: 'leaders', scope: 'all' });
-    expect(parseRoute('#/history')).toEqual({ page: 'history' });
+    expect(parseRoute(historyHref())).toEqual({ page: 'history', scope: 'all' });
+    expect(parseRoute(historyHref('league'))).toEqual({ page: 'history', scope: 'league' });
   });
 
   it('админка', () => {

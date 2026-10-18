@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card } from '../components/cards';
+import { Card, ScopeSwitch } from '../components/cards';
 import { LoadStatus } from '../components/common';
 import { loadLeaders } from '../db/queries';
 import type { CareerStats } from '../db/types';
@@ -12,11 +12,6 @@ const load = () => loadLeaders();
 
 /** Сколько мест показывать до «показать всех». */
 const TOP = 50;
-
-const SCOPES: { scope: LeadersScope; label: string }[] = [
-  { scope: 'all', label: 'Все турниры' },
-  { scope: 'league', label: 'Только чемпионат' },
-];
 
 interface Ranked {
   rank: number;
@@ -51,18 +46,7 @@ export function LeadersPage({ scope }: { scope: LeadersScope }) {
     <div className="card-page">
       <div className="page-head">
         <h1 className="page-title">Лидеры</h1>
-        <nav className="segmented" aria-label="Турниры">
-          {SCOPES.map((s) => (
-            <a
-              key={s.scope}
-              href={leadersHref(s.scope)}
-              className={s.scope === scope ? 'active' : undefined}
-              aria-current={s.scope === scope ? 'true' : undefined}
-            >
-              {s.label}
-            </a>
-          ))}
-        </nav>
+        <ScopeSwitch scope={scope} href={leadersHref} />
       </div>
 
       {state.status !== 'ready' ? (

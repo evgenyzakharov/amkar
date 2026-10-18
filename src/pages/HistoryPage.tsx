@@ -1,11 +1,12 @@
 import { Fragment } from 'react';
 import { Card, Tiles, type Tile } from '../components/cards';
 import { LoadStatus } from '../components/common';
+import { Streaks } from '../components/Streaks';
 import { loadHistory } from '../db/queries';
 import type { CareerStats, SeasonSummary } from '../db/types';
 import { NEW_CLUB_FROM, SEASON_EPOCHS, formatInt, formatRatio, plural } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { playerHref, seasonHref } from '../router';
+import { playerHref, seasonHref, type LeadersScope } from '../router';
 
 // Ключ один: история не зависит от адреса
 const ALL = 'all';
@@ -22,7 +23,7 @@ const placeText = (s: SeasonSummary) =>
 const shortLabel = (seasons: SeasonSummary[], i: number) =>
   i > 0 && seasons[i - 1].start_year === seasons[i].start_year ? '' : String(seasons[i].start_year).slice(2);
 
-export function HistoryPage() {
+export function HistoryPage({ scope }: { scope: LeadersScope }) {
   useDocumentTitle('История');
   const state = useLoad(ALL, load);
 
@@ -57,6 +58,7 @@ export function HistoryPage() {
               <p className="note">По матчам за «Амкар» во всех турнирах, без товарищеских.</p>
             </div>
           </Card>
+          <Streaks seasons={state.data.seasons} scope={scope} />
         </>
       )}
     </div>

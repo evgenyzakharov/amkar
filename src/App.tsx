@@ -4,7 +4,6 @@ import { AuthProvider } from './components/AuthProvider';
 import { NotFound } from './components/common';
 import { MatchPage } from './pages/MatchPage';
 import { PlayerPage } from './pages/PlayerPage';
-import { HistoryPage } from './pages/HistoryPage';
 import { LeadersPage } from './pages/LeadersPage';
 import { PlayersPage } from './pages/PlayersPage';
 import { SeasonPage } from './pages/SeasonPage';
@@ -13,6 +12,8 @@ import { adminHref, historyHref, leadersHref, parseRoute, playersHref, useHash, 
 
 // Админка — отдельным файлом: посетителям сайта её код не нужен
 const AdminPage = lazy(() => import('./admin/AdminPage').then((m) => ({ default: m.AdminPage })));
+// История с графиками — тоже отдельным файлом: главной странице она не нужна
+const HistoryPage = lazy(() => import('./pages/HistoryPage').then((m) => ({ default: m.HistoryPage })));
 
 function Page({ route }: { route: Route }) {
   switch (route.page) {
@@ -27,7 +28,11 @@ function Page({ route }: { route: Route }) {
     case 'players':
       return <PlayersPage />;
     case 'history':
-      return <HistoryPage />;
+      return (
+        <Suspense fallback={<p className="muted">Загрузка…</p>}>
+          <HistoryPage scope={route.scope} />
+        </Suspense>
+      );
     case 'leaders':
       return <LeadersPage scope={route.scope} />;
     case 'admin':
@@ -73,9 +78,11 @@ function App() {
   const section = sectionOf(route);
 
   // Переход по ссылке — новая страница: начинаем её сверху
+  // Переключатели в адресе (?scope=…) страницу не меняют — прокрутку не трогаем
+  const path = hash.split('?')[0];
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [hash]);
+  }, [path]);
 
   return (
     <AuthProvider>
@@ -88,7 +95,7 @@ function App() {
             <a href="#/" className={section === 'seasons' ? 'active' : undefined}>
               Сезоны
             </a>
-            <a href={historyHref} className={section === 'history' ? 'active' : undefined}>
+            <a href={historyHref()} className={section === 'history' ? 'active' : undefined}>
               История
             </a>
             <a href={playersHref} className={section === 'players' ? 'active' : undefined}>

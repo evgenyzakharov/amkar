@@ -2,6 +2,7 @@
 import type { ReactNode } from 'react';
 import type { ExternalLink } from '../db/types';
 import { LINK_SITES } from '../format';
+import type { LeadersScope } from '../router';
 
 /** Белая карточка с заголовком раздела. */
 export function Card({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
@@ -33,6 +34,29 @@ export function Tiles({ tiles, label }: { tiles: Tile[]; label: string }) {
         </div>
       ))}
     </section>
+  );
+}
+
+const SCOPES: { scope: LeadersScope; label: string }[] = [
+  { scope: 'all', label: 'Все турниры' },
+  { scope: 'league', label: 'Только чемпионат' },
+];
+
+/** Переключатель «Все турниры / Только чемпионат»: состояние — в адресе, ссылкой можно поделиться. */
+export function ScopeSwitch({ scope, href }: { scope: LeadersScope; href: (scope: LeadersScope) => string }) {
+  return (
+    <nav className="segmented" aria-label="Турниры">
+      {SCOPES.map((s) => (
+        <a
+          key={s.scope}
+          href={href(s.scope)}
+          className={s.scope === scope ? 'active' : undefined}
+          aria-current={s.scope === scope ? 'true' : undefined}
+        >
+          {s.label}
+        </a>
+      ))}
+    </nav>
   );
 }
 

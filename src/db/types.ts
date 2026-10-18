@@ -215,3 +215,26 @@ export interface SeasonSummary {
   minutes: number;
   academy_minutes: number;
 }
+
+export type StreakKind = 'win' | 'unbeaten' | 'loss' | 'winless';
+
+/** Строка view team_streaks: серия результатов за историю (span = history) или лучшая в сезоне (season). */
+export interface TeamStreak {
+  span: 'history' | 'season';
+  scope: 'all' | 'league';
+  kind: StreakKind;
+  season_id: number | null;
+  length: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  rank: number | null;
+  first_match_id: number;
+  first_season_label: string;
+  first_seq: number;
+  first_date: string | null;
+  last_match_id: number;
+  last_season_label: string;
+  last_seq: number;
+  last_date: string | null;
+}

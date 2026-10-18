@@ -7,7 +7,7 @@ export type Route =
   | { page: 'season'; label: string }
   | { page: 'players' }
   | { page: 'leaders'; scope: LeadersScope }
-  | { page: 'history' }
+  | { page: 'history'; scope: LeadersScope }
   | { page: 'match'; id: number }
   | { page: 'player'; id: number }
   | { page: 'admin'; admin: AdminRoute }
@@ -39,7 +39,10 @@ export const playersHref = '#/players';
 /** Лидеры: все турниры или только чемпионат — в адресе, чтобы ссылкой можно было поделиться. */
 export type LeadersScope = 'all' | 'league';
 export const leadersHref = (scope: LeadersScope = 'all') => `#/leaders${scope === 'league' ? '?scope=league' : ''}`;
-export const historyHref = '#/history';
+const scopeOf = (query: string): LeadersScope => (new URLSearchParams(query).get('scope') === 'league' ? 'league' : 'all');
+
+/** История: фильтр серий по турнирам — в адресе, как у лидеров. */
+export const historyHref = (scope: LeadersScope = 'all') => `#/history${scope === 'league' ? '?scope=league' : ''}`;
 
 export const adminHref = '#/admin';
 export const adminSeasonHref = (label: string, tab: SeasonTab = 'matches') =>
@@ -82,9 +85,9 @@ export function parseRoute(hash: string): Route {
   if (parts.length === 0) return { page: 'seasons' };
   if (parts[0] === 'admin') return parseAdminRoute(parts.slice(1));
   if (parts.length === 1 && parts[0] === 'players') return { page: 'players' };
-  if (parts.length === 1 && parts[0] === 'history') return { page: 'history' };
+  if (parts.length === 1 && parts[0] === 'history') return { page: 'history', scope: scopeOf(query) };
   if (parts.length === 1 && parts[0] === 'leaders') {
-    return { page: 'leaders', scope: new URLSearchParams(query).get('scope') === 'league' ? 'league' : 'all' };
+    return { page: 'leaders', scope: scopeOf(query) };
   }
   if (parts.length !== 2) return { page: 'not-found' };
 

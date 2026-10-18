@@ -18,6 +18,7 @@ import type {
   SeasonMatch,
   SeasonSummary,
   SquadEntry,
+  TeamStreak,
   Transfer,
 } from './types';
 
@@ -332,3 +333,20 @@ export async function loadHistory(): Promise<HistoryPageData> {
         );
   return { seasons, academy };
 }
+
+/** Серии: пять самых длинных за историю и лучшие в каждом сезоне, для всех турниров и только чемпионата. */
+export const loadStreaks = () =>
+  allRows<TeamStreak>((from, to) =>
+    db()
+      .from('team_streaks')
+      .select(
+        'span, scope, kind, season_id, length, wins, draws, losses, rank, first_match_id, first_season_label, first_seq, ' +
+          'first_date, last_match_id, last_season_label, last_seq, last_date',
+      )
+      .order('span')
+      .order('scope')
+      .order('kind')
+      .order('length', { ascending: false })
+      .order('first_match_id')
+      .range(from, to),
+  );
