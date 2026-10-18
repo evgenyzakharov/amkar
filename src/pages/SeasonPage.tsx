@@ -50,6 +50,36 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  // Блок лидеров — только если есть кого показать: передачи в старых сезонах не учитывались (null)
+  const hasGoals = players.some((p) => (p.goals ?? 0) > 0);
+  const hasAssists = players.some((p) => (p.assists ?? 0) > 0);
+  const squadButton = (
+    <button type="button" className="link-button" onClick={showSquad}>
+      {squadLabel}
+    </button>
+  );
+  const leaderCards = [
+    hasGoals && (
+      <Card key="goals" title="Лучшие бомбардиры">
+        <TopList players={players} stat="goals" />
+        <p className="note">Голы во всех турнирах. {squadButton}</p>
+      </Card>
+    ),
+    hasAssists && (
+      <Card key="assists" title="Лучшие ассистенты">
+        <TopList players={players} stat="assists" />
+        <p className="note">
+          Передачи во всех турнирах.{!hasGoals && <> {squadButton}</>}
+        </p>
+      </Card>
+    ),
+  ].filter((card) => !!card);
+  const xiCard = bestXi.length > 0 && (
+    <Card title="Сборная сезона">
+      <BestXi slots={bestXi} />
+    </Card>
+  );
+
   return (
     <div className="card-page">
       <nav className="crumbs crumbs-split" aria-label="Путь и соседние сезоны">
@@ -101,25 +131,19 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
         <p className="muted">Матчей нет.</p>
       )}
 
-      {(players.some((p) => (p.goals ?? 0) > 0) || bestXi.length > 0) && (
-        <div className="card-row">
-          {players.some((p) => (p.goals ?? 0) > 0) && (
-            <Card title="Лучшие бомбардиры">
-              <Scorers players={players} />
-              <p className="note">
-                Голы во всех турнирах.{' '}
-                <button type="button" className="link-button" onClick={showSquad}>
-                  {squadLabel}
-                </button>
-              </p>
-            </Card>
-          )}
-          {bestXi.length > 0 && (
-            <Card title="Сборная сезона">
-              <BestXi slots={bestXi} />
-            </Card>
-          )}
-        </div>
+      {leaderCards.length === 2 ? (
+        // Бомбардиры и ассистенты — парой, сборная сезона — под ними во всю ширину
+        <>
+          <div className="card-row card-row-even">{leaderCards}</div>
+          {xiCard}
+        </>
+      ) : (
+        (leaderCards.length > 0 || xiCard) && (
+          <div className="card-row">
+            {leaderCards}
+            {xiCard}
+          </div>
+        )
       )}
 
       {'error' in squad ? (
@@ -232,27 +256,29 @@ function ResultStrip({ matches }: { matches: SeasonMatch[] }) {
   );
 }
 
-function Scorers({ players }: { players: PlayerSeasonStats[] }) {
-  const scorers = players
-    .filter((p) => (p.goals ?? 0) > 0)
-    .sort((a, b) => (b.goals ?? 0) - (a.goals ?? 0) || a.games - b.games || a.display_name.localeCompare(b.display_name, 'ru'))
+/** Лучшие по голам или передачам: пять строк, только больше нуля — null значит «не учитывались», а не ноль. */
+function TopList({ players, stat }: { players: PlayerSeasonStats[]; stat: 'goals' | 'assists' }) {
+  const value = (p: PlayerSeasonStats) => p[stat] ?? 0;
+  const leaders = players
+    .filter((p) => value(p) > 0)
+    .sort((a, b) => value(b) - value(a) || a.games - b.games || a.display_name.localeCompare(b.display_name, 'ru'))
     .slice(0, 5);
-  const top = scorers[0]?.goals ?? 1;
+  const top = leaders.length > 0 ? value(leaders[0]) : 1;
   return (
     <ol className="scorers">
-      {scorers.map((s) => {
-        // Равные голы — одно место
-        const rank = scorers.findIndex((x) => x.goals === s.goals) + 1;
+      {leaders.map((s) => {
+        // Равные значения — одно место
+        const rank = leaders.findIndex((x) => value(x) === value(s)) + 1;
         return (
           <li key={s.player_id}>
             <span className="scorer-rank">{rank}</span>
             <div className="scorer-main">
               <a href={playerHref(s.player_id)}>{s.display_name}</a>
               <div className="scorer-track">
-                <div className="scorer-bar" style={{ width: `${Math.round(((s.goals ?? 0) / top) * 100)}%` }} />
+                <div className="scorer-bar" style={{ width: `${Math.round((value(s) / top) * 100)}%` }} />
               </div>
             </div>
-            <span className="scorer-goals">{s.goals}</span>
+            <span className="scorer-goals">{value(s)}</span>
           </li>
         );
       })}
