@@ -1,9 +1,20 @@
 import { useState } from 'react';
 import { LoadStatus } from '../components/common';
-import { BEST_XI_LINES, SLOT_LABEL } from '../format';
+import { FORMATIONS, formationOf, SLOT_LABEL, SLOT_TITLE } from '../format';
 import { useLoad } from '../load';
 import { dbErrorMessage } from './dbErrors';
-import { bestXiDraft, isBestXiDirty, saveBestXi, validateBestXi, type BestXiDraft, type Slot } from './people';
+import {
+  bestXiDraft,
+  isBestXiDirty,
+  placePlayer,
+  saveBestXi,
+  slotsOutside,
+  switchFormation,
+  validateBestXi,
+  type BestXiDraft,
+  type FormationSwitch,
+  type Slot,
+} from './people';
 import { loadBestXi, type BestXiData } from './queries';
 import { useUnsavedGuard } from './useUnsavedGuard';
 import { supabaseWriter } from './writer';
@@ -17,22 +28,36 @@ export function BestXiEditor({ label }: { label: string }) {
 function BestXi({ initial }: { initial: BestXiData }) {
   const [data, setData] = useState(initial);
   const [draft, setDraft] = useState<BestXiDraft>(() => bestXiDraft(initial.rows));
+  const [formation, setFormation] = useState(initial.formation);
+  const [moved, setMoved] = useState<FormationSwitch['moved']>([]);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const { season, rows, players } = data;
 
   const nameOf = (id: number) => players.find((p) => p.id === id)?.display_name ?? `игрок №${id}`;
-  const errors = validateBestXi(draft, nameOf);
-  const dirty = isBestXiDirty(draft, rows);
+  const lines = formationOf(formation).lines as Slot[][];
+  const outside = slotsOutside(draft, formation);
+  const errors = validateBestXi(draft, formation, nameOf);
+  const dirty = isBestXiDirty(draft, formation, rows, data.formation);
   useUnsavedGuard(dirty);
-  const chosen = new Set(Object.values(draft).filter(Boolean));
+  const chosen = new Set(lines.flat().map((s) => draft[s]).filter(Boolean));
+
+  function changeFormation(next: string) {
+    const result = switchFormation(draft, next);
+    setDraft(result.draft);
+    setFormation(next);
+    // ЦЗ3 → ЦЗ2 на поле не видно — о таких не пишем
+    setMoved(result.moved.filter((m) => SLOT_LABEL[m.from] !== SLOT_LABEL[m.to]));
+  }
 
   async function save() {
     setSaving(true);
     setStatus(null);
     try {
-      const after = await saveBestXi(supabaseWriter, season.id, rows, draft);
-      setData({ ...data, rows: after });
+      const after = await saveBestXi(supabaseWriter, season.id, rows, data.formation, draft, formation);
+      setData({ ...data, rows: after, formation });
+      setDraft(bestXiDraft(after));
+      setMoved([]);
       setStatus({ kind: 'ok', text: 'Сохранено.' });
     } catch (e) {
       // что успело записаться — увидим после перечитывания
@@ -47,22 +72,40 @@ function BestXi({ initial }: { initial: BestXiData }) {
     setSaving(false);
   }
 
+  function reset() {
+    setDraft(bestXiDraft(rows));
+    setFormation(data.formation);
+    setMoved([]);
+  }
+
   return (
     <>
+      <p className="formation-pick">
+        <label htmlFor="best-xi-formation">Схема</label>
+        <select id="best-xi-formation" value={formation} onChange={(e) => changeFormation(e.target.value)}>
+          {FORMATIONS.map((f) => (
+            <option key={f.key} value={f.key}>
+              {f.name}
+            </option>
+          ))}
+        </select>
+      </p>
       <div className="pitch best-xi-edit">
-        {BEST_XI_LINES.map((line) => (
+        {lines.map((line) => (
           <div className="pitch-line" key={line.join()}>
             {line.map((slot) => (
               <label key={slot} className="pitch-player">
-                <span className="pitch-slot">{SLOT_LABEL[slot]}</span>
+                <span className="pitch-slot" title={SLOT_TITLE[SLOT_LABEL[slot]]}>
+                  {SLOT_LABEL[slot]}
+                </span>
                 <select
                   aria-label={`сборная: ${SLOT_LABEL[slot]} (${slot})`}
-                  value={draft[slot as Slot]}
-                  onChange={(e) => setDraft((d) => ({ ...d, [slot]: e.target.value }))}
+                  value={draft[slot]}
+                  onChange={(e) => setDraft((d) => placePlayer(d, formation, slot, e.target.value))}
                 >
                   <option value="">—</option>
                   {players.map((p) => (
-                    <option key={p.id} value={p.id} disabled={chosen.has(String(p.id)) && draft[slot as Slot] !== String(p.id)}>
+                    <option key={p.id} value={p.id} disabled={chosen.has(String(p.id)) && draft[slot] !== String(p.id)}>
                       {p.display_name}
                       {p.inSquad ? '' : ' (нет в заявке)'}
                     </option>
@@ -73,6 +116,22 @@ function BestXi({ initial }: { initial: BestXiData }) {
           </div>
         ))}
       </div>
+      {(moved.length > 0 || outside.length > 0) && (
+        <div className="formation-change" role="status">
+          {moved.length > 0 && (
+            <p>
+              Перешли на похожие места:{' '}
+              {moved.map((m) => `${nameOf(Number(m.playerId))}: ${SLOT_LABEL[m.from]} → ${SLOT_LABEL[m.to]}`).join(', ')}.
+            </p>
+          )}
+          {outside.length > 0 && (
+            <p className="warnings">
+              Нет места в схеме, снимутся при сохранении:{' '}
+              {outside.map((s) => `${nameOf(Number(draft[s]))} (${SLOT_LABEL[s]})`).join(', ')}.
+            </p>
+          )}
+        </div>
+      )}
       <div className="save-bar">
         {errors.length > 0 && (
           <ul className="error">
@@ -90,15 +149,16 @@ function BestXi({ initial }: { initial: BestXiData }) {
           <button type="button" className="primary" disabled={saving || !dirty || errors.length > 0} onClick={() => void save()}>
             {saving ? 'Сохранение…' : 'Сохранить'}
           </button>
-          <button type="button" disabled={saving || !dirty} onClick={() => setDraft(bestXiDraft(rows))}>
+          <button type="button" disabled={saving || !dirty} onClick={reset}>
             Отменить изменения
           </button>
           {!dirty && <span className="muted">Изменений нет.</span>}
         </p>
       </div>
       <p className="note">
-        Схема как на странице сезона: три центральных защитника и полузащитника, два нападающих — заполняйте только нужные
-        места. Игрок выбирается из заявки сезона; уже поставленный в сборную в других местах недоступен.
+        Места на поле — по выбранной схеме; заполняйте только нужные. При смене схемы игроки переходят на похожие места
+        (ЛЗ → ЛФЗ, ОП → ЦП), кому места не нашлось — снимаются при сохранении. «Без схемы» — 13 мест, как в Excel. Игрок
+        выбирается из заявки сезона; уже поставленный в сборную на другое место недоступен.
       </p>
     </>
   );

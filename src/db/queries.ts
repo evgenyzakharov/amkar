@@ -62,6 +62,14 @@ async function optional<T>(promise: Promise<T[]>): Promise<T[]> {
   return 'data' in result ? result.data : [];
 }
 
+/** Схема сборной сезона, '' — без схемы. Отдельным запросом: без миграции 20261019120000 сборная — как в Excel. */
+export async function loadFormation(seasonId: number): Promise<string> {
+  const [row] = await optional(
+    rows<{ best_xi_formation: string | null }[]>(db().from('season').select('best_xi_formation').eq('id', seasonId)),
+  );
+  return row?.best_xi_formation ?? '';
+}
+
 export const loadSeasons = () =>
   rows<Season[]>(db().from('season').select(SEASON_COLUMNS).order('start_year').order('end_year'));
 
@@ -73,6 +81,8 @@ export interface SeasonPageData {
   /** Из view: пока миграция не выполнена, остальная страница всё равно показывается. */
   squad: Part<PlayerSeasonStats[]>;
   bestXi: BestXiSlot[];
+  /** Схема сборной, '' — без схемы. */
+  formation: string;
   links: ExternalLink[];
 }
 
@@ -82,7 +92,7 @@ export async function loadSeason(label: string): Promise<SeasonPageData> {
   if (i < 0) throw new NotFoundError(`Сезона «${label}» в базе нет.`);
   const season = seasons[i];
 
-  const [matches, squad, bestXi, links] = await Promise.all([
+  const [matches, squad, bestXi, formation, links] = await Promise.all([
     rows<SeasonMatch[]>(
       db().from('match').select(`${MATCH_COLUMNS}, coach(id, full_name)`).eq('season_id', season.id).order('seq'),
     ),
@@ -97,9 +107,10 @@ export async function loadSeason(label: string): Promise<SeasonPageData> {
       ),
     ),
     rows<BestXiSlot[]>(db().from('season_best_xi').select('slot, player(id, display_name)').eq('season_id', season.id)),
+    loadFormation(season.id),
     optional(rows<ExternalLink[]>(db().from('season_link').select('site, url').eq('season_id', season.id))),
   ]);
-  return { season, prev: seasons[i - 1] ?? null, next: seasons[i + 1] ?? null, matches, squad, bestXi, links };
+  return { season, prev: seasons[i - 1] ?? null, next: seasons[i + 1] ?? null, matches, squad, bestXi, formation, links };
 }
 
 export interface MatchPageData {

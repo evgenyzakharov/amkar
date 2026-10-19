@@ -431,6 +431,14 @@ h3 {
   color: var(--muted);
 }
 
+/* Схема сборной в углу карточки сезона */
+.card-aside .formation-label {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
 .card .note {
   margin: 12px 0 0;
   font-size: 13px;
@@ -1898,6 +1906,41 @@ input.w-short {
 
 .save-bar p {
   margin: 4px 0;
+}
+
+/* Сборная сезона в админке: выбор схемы и что случилось при её смене */
+.formation-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 14px;
+}
+
+.formation-pick label {
+  font-weight: 600;
+}
+
+.formation-pick select {
+  padding: 6px 8px;
+  border-color: var(--accent);
+  font-size: 1rem;
+}
+
+.formation-change {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--draw);
+  background: var(--highlight);
+  font-size: 0.9rem;
+}
+
+.formation-change p {
+  margin: 2px 0;
+}
+
+.formation-change .warnings {
+  color: var(--draw);
 }
 
 .ok {

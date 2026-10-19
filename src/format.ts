@@ -70,28 +70,98 @@ export const TRANSFER_KIND_LABEL: Record<NonNullable<Transfer['kind']>, string> 
   loan_end: 'конец аренды',
 };
 
-/** Слоты сборной сезона по линиям, от нападения к вратарю и слева направо. */
-export const BEST_XI_LINES = [
-  ['ST1', 'ST2'],
-  ['LM', 'CM1', 'CM2', 'CM3', 'RM'],
-  ['LB', 'CB1', 'CB2', 'CB3', 'RB'],
-  ['GK'],
-];
+/** Места сборной сезона: код в базе → подпись на поле. */
 export const SLOT_LABEL: Record<string, string> = {
   GK: 'ВР',
-  RB: 'ПЗ',
+  LB: 'ЛЗ',
   CB1: 'ЦЗ',
   CB2: 'ЦЗ',
   CB3: 'ЦЗ',
-  LB: 'ЛЗ',
+  RB: 'ПЗ',
+  LWB: 'ЛФЗ',
+  RWB: 'ПФЗ',
+  DM1: 'ОП',
+  DM2: 'ОП',
+  LM: 'ЛП',
   CM1: 'ЦП',
   CM2: 'ЦП',
   CM3: 'ЦП',
   RM: 'ПП',
-  LM: 'ЛП',
+  AM: 'ЦАП',
+  LW: 'ЛВ',
+  RW: 'ПВ',
   ST1: 'Ф',
   ST2: 'Ф',
 };
+/** Подпись места → позиция словами, для подсказки. */
+export const SLOT_TITLE: Record<string, string> = {
+  ВР: 'вратарь',
+  ЛЗ: 'левый защитник',
+  ЦЗ: 'центральный защитник',
+  ПЗ: 'правый защитник',
+  ЛФЗ: 'левый фланговый защитник',
+  ПФЗ: 'правый фланговый защитник',
+  ОП: 'опорный полузащитник',
+  ЛП: 'левый полузащитник',
+  ЦП: 'центральный полузащитник',
+  ПП: 'правый полузащитник',
+  ЦАП: 'центральный атакующий полузащитник',
+  ЛВ: 'левый вингер',
+  ПВ: 'правый вингер',
+  Ф: 'нападающий',
+};
+
+/** Схема сборной: линии от нападения к вратарю, в линии — слева направо. */
+export interface Formation {
+  /** Как в season.best_xi_formation; '' — без схемы. */
+  key: string;
+  name: string;
+  lines: string[][];
+}
+
+const BACK4 = ['LB', 'CB1', 'CB2', 'RB'];
+const BACK3 = ['CB1', 'CB2', 'CB3'];
+const BACK5 = ['LWB', 'CB1', 'CB2', 'CB3', 'RWB'];
+const scheme = (key: string, lines: string[][], name = key): Formation => ({ key, name, lines });
+
+/** Схемы на выбор. Новая схема — строка здесь, база принимает любую «цифры через дефис». */
+export const FORMATIONS: Formation[] = [
+  scheme('', [['ST1', 'ST2'], ['LM', 'CM1', 'CM2', 'CM3', 'RM'], ['LB', 'CB1', 'CB2', 'CB3', 'RB'], ['GK']], 'Без схемы (13 мест, как в Excel)'),
+  scheme('4-4-2', [['ST1', 'ST2'], ['LM', 'CM1', 'CM2', 'RM'], BACK4, ['GK']]),
+  scheme('4-1-2-1-2', [['ST1', 'ST2'], ['AM'], ['CM1', 'CM2'], ['DM1'], BACK4, ['GK']], '4-1-2-1-2 (ромб)'),
+  scheme('4-3-1-2', [['ST1', 'ST2'], ['AM'], ['CM1', 'CM2', 'CM3'], BACK4, ['GK']]),
+  scheme('4-3-3', [['LW', 'ST1', 'RW'], ['CM1', 'CM2', 'CM3'], BACK4, ['GK']]),
+  scheme('4-2-3-1', [['ST1'], ['LM', 'AM', 'RM'], ['DM1', 'DM2'], BACK4, ['GK']]),
+  scheme('4-1-4-1', [['ST1'], ['LM', 'CM1', 'CM2', 'RM'], ['DM1'], BACK4, ['GK']]),
+  scheme('4-4-1-1', [['ST1'], ['AM'], ['LM', 'CM1', 'CM2', 'RM'], BACK4, ['GK']]),
+  scheme('4-5-1', [['ST1'], ['LM', 'CM1', 'CM2', 'CM3', 'RM'], BACK4, ['GK']]),
+  scheme('3-5-2', [['ST1', 'ST2'], ['LM', 'CM1', 'CM2', 'CM3', 'RM'], BACK3, ['GK']]),
+  scheme('3-4-3', [['LW', 'ST1', 'RW'], ['LM', 'CM1', 'CM2', 'RM'], BACK3, ['GK']]),
+  scheme('5-3-2', [['ST1', 'ST2'], ['CM1', 'CM2', 'CM3'], BACK5, ['GK']]),
+  scheme('5-4-1', [['ST1'], ['LM', 'CM1', 'CM2', 'RM'], BACK5, ['GK']]),
+];
+
+/** Все места по линиям — для сборной, у которой в базе есть места не из её схемы. */
+export const ALL_SLOT_LINES = [
+  ['LW', 'ST1', 'ST2', 'RW'],
+  ['AM'],
+  ['LM', 'CM1', 'CM2', 'CM3', 'RM'],
+  ['DM1', 'DM2'],
+  ['LWB', 'LB', 'CB1', 'CB2', 'CB3', 'RB', 'RWB'],
+  ['GK'],
+];
+
+/** Схема по значению из базы; пустая или незнакомая — без схемы. */
+export const formationOf = (key: string | null | undefined) => FORMATIONS.find((f) => f.key === (key ?? '')) ?? FORMATIONS[0];
+
+/** Линии для показа сборной: по схеме, а если в базе есть места не из неё — все места. Пустые места и линии убраны. */
+export function bestXiLines(key: string | null | undefined, filled: string[]): string[][] {
+  const { lines } = formationOf(key);
+  const fits = filled.every((slot) => lines.some((line) => line.includes(slot)));
+  return (fits ? lines : ALL_SLOT_LINES)
+    .map((line) => line.filter((slot) => filled.includes(slot)))
+    .filter((line) => line.length > 0);
+}
 
 /** Соперник так, как он назывался в сезон матча; без названия по годам — по справочнику или тексту из Excel. */
 export const opponentName = (m: Pick<MatchRow, 'team' | 'opponent_raw' | 'opponent_name'>) =>

@@ -1,12 +1,19 @@
-// Сборная сезона по слотам и карточка игрока (ФИО, дата рождения, позиция, воспитанник, ссылки).
+// Сборная сезона по местам схемы и карточка игрока (ФИО, дата рождения, позиция, воспитанник, ссылки).
 import type { LinkSite, Position } from '../db/types';
+import { formationOf } from '../format';
 import type { Writer } from './writer';
 
 // ===========================================================================
 // Сборная сезона
 // ===========================================================================
 
-export const BEST_XI_SLOTS = ['GK', 'RB', 'CB1', 'CB2', 'CB3', 'LB', 'RM', 'CM1', 'CM2', 'CM3', 'LM', 'ST1', 'ST2'] as const;
+/** Все места, которые принимает база (season_best_xi_slot_check), — от вратаря к нападению. */
+export const BEST_XI_SLOTS = [
+  'GK',
+  'LWB', 'LB', 'CB1', 'CB2', 'CB3', 'RB', 'RWB',
+  'DM1', 'DM2', 'LM', 'CM1', 'CM2', 'CM3', 'RM', 'AM',
+  'LW', 'ST1', 'ST2', 'RW',
+] as const;
 export type Slot = (typeof BEST_XI_SLOTS)[number];
 
 export interface BestXiRecord {
@@ -15,7 +22,7 @@ export interface BestXiRecord {
   player_id: number;
 }
 
-/** Слот → player_id строкой, '' — пусто. */
+/** Место → player_id строкой, '' — пусто. Места не из схемы тоже здесь: при сохранении они снимаются. */
 export type BestXiDraft = Record<Slot, string>;
 
 export function bestXiDraft(rows: BestXiRecord[]): BestXiDraft {
@@ -24,28 +31,107 @@ export function bestXiDraft(rows: BestXiRecord[]): BestXiDraft {
   return draft;
 }
 
-export function validateBestXi(draft: BestXiDraft, nameOf: (id: number) => string) {
+/** Места схемы; '' — без схемы, 13 мест как в Excel. */
+export const formationSlots = (formation: string) => formationOf(formation).lines.flat() as Slot[];
+
+/** Заполненные места не из схемы: эти игроки снимутся при сохранении. */
+export const slotsOutside = (draft: BestXiDraft, formation: string) =>
+  BEST_XI_SLOTS.filter((s) => draft[s] && !formationSlots(formation).includes(s));
+
+export function validateBestXi(draft: BestXiDraft, formation: string, nameOf: (id: number) => string) {
   const errors: string[] = [];
   const count = new Map<string, number>();
-  for (const s of BEST_XI_SLOTS) if (draft[s]) count.set(draft[s], (count.get(draft[s]) ?? 0) + 1);
+  for (const s of formationSlots(formation)) if (draft[s]) count.set(draft[s], (count.get(draft[s]) ?? 0) + 1);
   for (const [id, n] of count) if (n > 1) errors.push(`${nameOf(Number(id))} стоит в сборной ${n} раза.`);
   return errors;
 }
 
-export function isBestXiDirty(draft: BestXiDraft, rows: BestXiRecord[]) {
+/** Сохранится ли что-то: схема или игроки на местах схемы (места вне схемы при сохранении опустеют). */
+export function isBestXiDirty(draft: BestXiDraft, formation: string, rows: BestXiRecord[], savedFormation: string) {
   const saved = bestXiDraft(rows);
-  return BEST_XI_SLOTS.some((s) => saved[s] !== draft[s]);
+  const slots = formationSlots(formation);
+  return formation !== savedFormation || BEST_XI_SLOTS.some((s) => saved[s] !== (slots.includes(s) ? draft[s] : ''));
 }
 
-/** Заполненные слоты — одним upsert, опустевшие — удалить. Возвращает строки базы после записи. */
-export async function saveBestXi(w: Writer, seasonId: number, rows: BestXiRecord[], draft: BestXiDraft) {
+/** Поставить игрока на место; если он стоял на месте вне схемы — оттуда убрать, чтобы при смене схемы не раздвоился. */
+export function placePlayer(draft: BestXiDraft, formation: string, slot: Slot, playerId: string): BestXiDraft {
+  const next = { ...draft, [slot]: playerId };
+  if (playerId) for (const s of slotsOutside(draft, formation)) if (next[s] === playerId) next[s] = '';
+  return next;
+}
+
+const SLOT_LINE: Record<Slot, number> = {
+  GK: 0,
+  LWB: 1, LB: 1, CB1: 1, CB2: 1, CB3: 1, RB: 1, RWB: 1,
+  DM1: 2, DM2: 2, LM: 2, CM1: 2, CM2: 2, CM3: 2, RM: 2, AM: 2,
+  LW: 3, ST1: 3, ST2: 3, RW: 3,
+};
+const flank = (s: Slot) => (s.startsWith('L') ? 'L' : s.startsWith('R') ? 'R' : 'C');
+const order = (s: Slot) => BEST_XI_SLOTS.indexOf(s);
+
+/**
+ * Насколько плохо пересадить игрока с места from на to; null — нельзя.
+ * Своя линия и свой фланг — 0, соседняя линия по своему флангу (ЛП → ЛВ) — 1, из центра на фланг и обратно — 2.
+ */
+function moveCost(from: Slot, to: Slot): number | null {
+  const lines = Math.abs(SLOT_LINE[from] - SLOT_LINE[to]);
+  if ((SLOT_LINE[from] === 0) !== (SLOT_LINE[to] === 0)) return null;
+  if (flank(from) === flank(to)) return lines === 0 || (lines === 1 && flank(from) !== 'C') ? lines : null;
+  return lines === 0 && (flank(from) === 'C' || flank(to) === 'C') ? 2 : null;
+}
+
+export interface FormationSwitch {
+  draft: BestXiDraft;
+  /** Кто перешёл на похожее место. */
+  moved: { playerId: string; from: Slot; to: Slot }[];
+}
+
+/**
+ * Сменить схему: игроки на общих местах остаются, остальные пересаживаются на свободные похожие места — сначала
+ * самые близкие. Кому места не нашлось, остаётся на прежнем месте вне схемы (снимется при сохранении,
+ * вернётся, если схему переключить обратно).
+ */
+export function switchFormation(draft: BestXiDraft, to: string): FormationSwitch {
+  const target = formationSlots(to);
+  const next = { ...draft };
+  const homeless = BEST_XI_SLOTS.filter((s) => draft[s] && !target.includes(s));
+  const options = homeless
+    .flatMap((from) => target.filter((t) => !draft[t]).map((t) => ({ from, to: t, cost: moveCost(from, t) })))
+    .filter((o): o is { from: Slot; to: Slot; cost: number } => o.cost !== null)
+    // при равной цене — от вратаря к нападению, как в BEST_XI_SLOTS: опорник раньше ЦАП займёт место ЦП
+    .sort((a, b) => a.cost - b.cost || order(a.from) - order(b.from) || order(a.to) - order(b.to));
+  const moved: FormationSwitch['moved'] = [];
+  for (const o of options) {
+    if (!next[o.from] || next[o.to]) continue;
+    moved.push({ playerId: next[o.from], from: o.from, to: o.to });
+    next[o.to] = next[o.from];
+    next[o.from] = '';
+  }
+  return { draft: next, moved };
+}
+
+/**
+ * Записать сборную: схему сезона, места схемы одним upsert, опустевшие места и места вне схемы — удалить.
+ * Возвращает строки базы после записи.
+ */
+export async function saveBestXi(
+  w: Writer,
+  seasonId: number,
+  rows: BestXiRecord[],
+  savedFormation: string,
+  draft: BestXiDraft,
+  formation: string,
+) {
+  if (formation !== savedFormation) await w.update('season', { best_xi_formation: formation || null }, { id: seasonId });
   const saved = bestXiDraft(rows);
-  const changed = BEST_XI_SLOTS.filter((s) => draft[s] && draft[s] !== saved[s]).map((slot) => ({
+  const slots = formationSlots(formation);
+  const wanted = (s: Slot) => (slots.includes(s) ? draft[s] : '');
+  const changed = BEST_XI_SLOTS.filter((s) => wanted(s) && wanted(s) !== saved[s]).map((slot) => ({
     season_id: seasonId,
     slot,
     player_id: Number(draft[slot]),
   }));
-  const emptied = BEST_XI_SLOTS.filter((s) => !draft[s] && saved[s]);
+  const emptied = BEST_XI_SLOTS.filter((s) => !wanted(s) && saved[s]);
   let result = rows;
   if (changed.length > 0) {
     await w.upsert('season_best_xi', changed, 'season_id,slot');

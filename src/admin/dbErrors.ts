@@ -120,6 +120,7 @@ export const CONSTRAINT_MESSAGES: Record<string, string> = {
   player_season_totals_season_id_player_id_fkey: 'Игрока нет в заявке этого сезона.',
   season_best_xi_pkey: 'Это место в сборной сезона уже занято.',
   season_best_xi_slot_check: 'Неизвестная позиция в сборной сезона.',
+  season_best_xi_formation_check: 'Схема сборной — цифры через дефис, например 4-4-2 или 4-1-2-1-2.',
   season_best_xi_season_id_fkey: 'Такого сезона нет.',
   season_best_xi_player_id_fkey: 'Такого игрока нет в базе.',
 

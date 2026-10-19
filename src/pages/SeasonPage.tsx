@@ -6,12 +6,13 @@ import { loadSeason, type SeasonPageData } from '../db/queries';
 import type { BestXiSlot, CompetitionKind, PlayerSeasonStats, SeasonMatch } from '../db/types';
 import {
   AWARDED_LABEL,
-  BEST_XI_LINES,
+  bestXiLines,
   POSITION_LABEL,
   POSITION_TITLE,
   RESULT_LABEL,
   RESULT_TITLE,
   SLOT_LABEL,
+  SLOT_TITLE,
   num,
   opponentName,
   plural,
@@ -27,7 +28,7 @@ export function SeasonPage({ label }: { label: string }) {
 }
 
 function SeasonCard({ data }: { data: SeasonPageData }) {
-  const { season, prev, next, matches, squad, bestXi, links } = data;
+  const { season, prev, next, matches, squad, bestXi, formation, links } = data;
   const squadRef = useRef<HTMLDetailsElement>(null);
 
   const official = matches.filter((m) => m.competition.kind !== 'friendly');
@@ -76,8 +77,8 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
     ),
   ].filter((card) => !!card);
   const xiCard = bestXi.length > 0 && (
-    <Card title="Сборная сезона">
-      <BestXi slots={bestXi} />
+    <Card title="Сборная сезона" aside={formation && <span className="formation-label">{formation}</span>}>
+      <BestXi slots={bestXi} formation={formation} />
     </Card>
   );
 
@@ -363,14 +364,14 @@ function SquadTable({ squad }: { squad: PlayerSeasonStats[] }) {
   );
 }
 
-function BestXi({ slots }: { slots: BestXiSlot[] }) {
+function BestXi({ slots, formation }: { slots: BestXiSlot[]; formation: string }) {
   const bySlot = new Map(slots.map((s) => [s.slot, s.player]));
-  const lines = BEST_XI_LINES.map((line) =>
+  const lines = bestXiLines(formation, [...bySlot.keys()]).map((line) =>
     line.flatMap((slot) => {
       const player = bySlot.get(slot);
       return player ? [{ slot, player }] : [];
     }),
-  ).filter((line) => line.length > 0);
+  );
 
   return (
     <div className="pitch">
@@ -378,7 +379,9 @@ function BestXi({ slots }: { slots: BestXiSlot[] }) {
         <div className="pitch-line" key={line.map((p) => p.slot).join()}>
           {line.map(({ slot, player }) => (
             <a className="pitch-player" key={slot} href={playerHref(player.id)}>
-              <span className="pitch-slot">{SLOT_LABEL[slot]}</span>
+              <span className="pitch-slot" title={SLOT_TITLE[SLOT_LABEL[slot]]}>
+                {SLOT_LABEL[slot]}
+              </span>
               {player.display_name}
             </a>
           ))}
