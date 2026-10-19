@@ -264,7 +264,6 @@ interface PlayerRow {
   last_name: string;
   first_name: string | null;
   birth_date: string | null;
-  academy: boolean;
   squad_member: { season: { label: string; start_year: number } }[];
 }
 
@@ -273,7 +272,7 @@ export async function loadAllPlayers(): Promise<SquadPlayerInfo[]> {
   const players = await allRows<PlayerRow>((from, to) =>
     db()
       .from('player')
-      .select('id, display_name, last_name, first_name, birth_date, academy, squad_member(season(label, start_year))')
+      .select('id, display_name, last_name, first_name, birth_date, squad_member(season(label, start_year))')
       .order('id')
       .range(from, to),
   );
@@ -283,7 +282,6 @@ export async function loadAllPlayers(): Promise<SquadPlayerInfo[]> {
     last_name: p.last_name,
     first_name: p.first_name,
     birth_date: p.birth_date,
-    academy: p.academy,
     seasons: p.squad_member
       .map((s) => s.season)
       .sort((a, b) => a.start_year - b.start_year)

@@ -1,5 +1,5 @@
 // Заявка сезона: номер, позиция, основа или молодёжь, аренда, порядок строк; добавить и убрать игрока.
-// «Воспитанник» — флаг игрока целиком (player.academy), а не заявки: меняется сразу во всех сезонах.
+// «Воспитанник» — флаг игрока (player.academy), он в карточке игрока, а не в заявке.
 import type { Position } from '../db/types';
 import type { Writer } from './writer';
 
@@ -19,7 +19,6 @@ export interface SquadPlayerInfo {
   last_name: string;
   first_name: string | null;
   birth_date: string | null;
-  academy: boolean;
   /** Сезоны игрока в «Амкаре» — чтобы отличать однофамильцев. */
   seasons: string[];
 }
@@ -39,7 +38,6 @@ export interface SquadRowDraft {
   position: '' | Position;
   squad_group: 'main' | 'youth';
   on_loan: boolean;
-  academy: boolean;
   /** Только у нового игрока. */
   newPlayer?: { last_name: string; first_name: string; display_name: string };
 }
@@ -57,7 +55,6 @@ export function squadDraft(base: SquadBase): SquadRowDraft[] {
       position: r.position ?? '',
       squad_group: r.squad_group,
       on_loan: r.on_loan,
-      academy: base.players.get(r.player_id)?.academy ?? false,
     }));
 }
 
@@ -121,12 +118,7 @@ export function validateSquad(draft: SquadRowDraft[], base: SquadBase) {
 export function isSquadDirty(draft: SquadRowDraft[], base: SquadBase): boolean {
   if (draft.length !== base.rows.length) return true;
   const byId = new Map(base.rows.map((r) => [r.player_id, r]));
-  return draft.some(
-    (r, i) =>
-      !!r.newPlayer ||
-      !sameRecord(byId.get(r.player_id), record(r, i, base.seasonId)) ||
-      (base.players.get(r.player_id)?.academy ?? false) !== r.academy,
-  );
+  return draft.some((r, i) => !!r.newPlayer || !sameRecord(byId.get(r.player_id), record(r, i, base.seasonId)));
 }
 
 export interface SquadSaveOutcome {
@@ -135,7 +127,7 @@ export interface SquadSaveOutcome {
   error: unknown;
 }
 
-/** Новые игроки → заявка (upsert изменённого) → удаление лишних → флаг «воспитанник». */
+/** Новые игроки → заявка (upsert изменённого) → удаление лишних. */
 export async function saveSquad(w: Writer, base0: SquadBase, draft0: SquadRowDraft[]): Promise<SquadSaveOutcome> {
   let base: SquadBase = { ...base0, players: new Map(base0.players), rows: [...base0.rows] };
   let draft = draft0;
@@ -145,7 +137,7 @@ export async function saveSquad(w: Writer, base0: SquadBase, draft0: SquadRowDra
       const last = p.last_name.trim();
       const first = p.first_name.trim() || null;
       const [created] = await w.insert<{ id: number }>('player', [
-        { display_name: p.display_name.trim() || last, last_name: last, first_name: first, academy: r.academy },
+        { display_name: p.display_name.trim() || last, last_name: last, first_name: first },
       ]);
       base.players.set(created.id, {
         id: created.id,
@@ -153,7 +145,6 @@ export async function saveSquad(w: Writer, base0: SquadBase, draft0: SquadRowDra
         last_name: last,
         first_name: first,
         birth_date: null,
-        academy: r.academy,
         seasons: [],
       });
       // дальше строка — обычный игрок: повтор после сбоя не заведёт его второй раз
@@ -177,13 +168,6 @@ export async function saveSquad(w: Writer, base0: SquadBase, draft0: SquadRowDra
       base = { ...base, rows: base.rows.filter((r) => kept.has(r.player_id)) };
     }
 
-    for (const r of draft) {
-      const p = base.players.get(r.player_id);
-      if (p && p.academy !== r.academy) {
-        await w.update('player', { academy: r.academy }, { id: r.player_id });
-        base.players.set(r.player_id, { ...p, academy: r.academy });
-      }
-    }
     return { base, draft, error: null };
   } catch (error) {
     return { base, draft, error };

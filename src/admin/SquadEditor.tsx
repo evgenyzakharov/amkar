@@ -64,7 +64,7 @@ function Squad({ initial }: { initial: SquadEditorData }) {
     });
   const remove = (id: number) => setDraft((d) => d.filter((r) => r.player_id !== id));
   const addExisting = (p: SquadPlayerInfo) => {
-    setDraft((d) => [...d, { player_id: p.id, shirt_number: '', position: '', squad_group: 'main', on_loan: false, academy: p.academy }]);
+    setDraft((d) => [...d, { player_id: p.id, shirt_number: '', position: '', squad_group: 'main', on_loan: false }]);
     setSearch('');
   };
   const addNew = () => {
@@ -72,7 +72,7 @@ function Squad({ initial }: { initial: SquadEditorData }) {
     const last = search.trim();
     setDraft((d) => [
       ...d,
-      { player_id: id, shirt_number: '', position: '', squad_group: 'main', on_loan: false, academy: false, newPlayer: { last_name: last, first_name: '', display_name: '' } },
+      { player_id: id, shirt_number: '', position: '', squad_group: 'main', on_loan: false, newPlayer: { last_name: last, first_name: '', display_name: '' } },
     ]);
     setSearch('');
   };
@@ -123,7 +123,6 @@ function Squad({ initial }: { initial: SquadEditorData }) {
               <th>Игрок</th>
               <th>Группа</th>
               <th title="в клубе на правах аренды">Аренда</th>
-              <th title="воспитанник клуба — отмечается у игрока целиком, во всех сезонах">Восп.</th>
               <th></th>
             </tr>
           </thead>
@@ -196,7 +195,7 @@ function Squad({ initial }: { initial: SquadEditorData }) {
                     ) : (
                       <>
                         <a href={playerHref(r.player_id)}>{name}</a>{' '}
-                        <a className="edit-link" href={adminPlayerHref(r.player_id)} title="карточка игрока: ФИО, дата рождения, ссылки">
+                        <a className="edit-link" href={adminPlayerHref(r.player_id)} title="карточка игрока: ФИО, дата рождения, воспитанник, ссылки">
                           ✎
                         </a>
                       </>
@@ -218,14 +217,6 @@ function Squad({ initial }: { initial: SquadEditorData }) {
                       aria-label={`${name}: аренда`}
                       checked={r.on_loan}
                       onChange={(e) => update(r.player_id, { on_loan: e.target.checked })}
-                    />
-                  </td>
-                  <td className="center">
-                    <input
-                      type="checkbox"
-                      aria-label={`${name}: воспитанник`}
-                      checked={r.academy}
-                      onChange={(e) => update(r.player_id, { academy: e.target.checked })}
                     />
                   </td>
                   <td>
@@ -308,8 +299,8 @@ function Squad({ initial }: { initial: SquadEditorData }) {
         </p>
       </div>
       <p className="note">
-        Порядок строк — как в заявке на сайте. «Воспитанник» отмечается у игрока целиком, во всех сезонах. Игрока с матчами
-        этого сезона из заявки не убрать — сначала уберите его из составов.
+        Порядок строк — как в заявке на сайте. «Воспитанник» — в карточке игрока (ссылка у фамилии), сразу для всех сезонов.
+        Игрока с матчами этого сезона из заявки не убрать — сначала уберите его из составов.
       </p>
     </>
   );
