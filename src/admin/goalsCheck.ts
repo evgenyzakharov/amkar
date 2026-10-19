@@ -8,6 +8,8 @@ export interface CheckMatch {
   goals_for: number | null;
   goals_against: number | null;
   friendly: boolean;
+  /** Результат присуждён без игры: голов нет, счёт не обязателен — по такому матчу сверять нечего. */
+  awarded?: boolean;
 }
 
 export interface CheckGoal {
@@ -92,6 +94,7 @@ export function checkGoals(
   const gaps: MatchGap[] = [];
   const noScore: GoalsCheck['noScore'] = [];
   for (const m of official) {
+    if (m.awarded) continue;
     if (m.goals_for == null || m.goals_against == null) {
       noScore.push({ id: m.id, seq: m.seq, opponent: m.opponent });
       continue;

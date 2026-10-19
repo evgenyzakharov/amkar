@@ -35,4 +35,14 @@ describe('сверка голов сезона', () => {
     expect(gaps).toEqual([{ id: 3, seq: 4, opponent: 'Тюмень', scoredFor: 1, enteredFor: 0, scoredAgainst: 0, enteredAgainst: 0 }]);
     expect(noScore).toEqual([{ id: 4, seq: 5, opponent: 'Динамо-2' }]);
   });
+
+  it('техническая победа не мешает сверке: ни без счёта, ни 3:0 без голов', () => {
+    const awarded: CheckMatch[] = [
+      { id: 5, seq: 6, opponent: 'Сокол Казань', goals_for: null, goals_against: null, friendly: false, awarded: true },
+      { id: 6, seq: 7, opponent: 'Сокол Казань', goals_for: 3, goals_against: 0, friendly: false, awarded: true },
+    ];
+    const { gaps, noScore } = checkGoals([...matches, ...awarded], goals, totals, (id) => names[id]);
+    expect(gaps.map((g) => g.id)).toEqual([3]);
+    expect(noScore.map((m) => m.id)).toEqual([4]);
+  });
 });

@@ -536,6 +536,7 @@ export async function loadGoalsCheck(seasonId: number): Promise<GoalsCheckData> 
       goals_for: m.goals_for,
       goals_against: m.goals_against,
       friendly: m.competition.kind === 'friendly',
+      awarded: m.awarded,
     })),
     goals: matchRows.flatMap((m) => m.goal),
     totals: totals.map((t) => ({ player_id: t.player_id, goals: t.goals, assists: t.assists, friendly: t.competition.kind === 'friendly' })),
