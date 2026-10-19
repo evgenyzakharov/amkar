@@ -44,7 +44,8 @@
 
 Правила автора (18.10.2026), по ним сделан 2026/27:
 
-- Источник состава, замен («кто кого заменил»), голов и передач — отчёты Transfermarkt (`transfermarkt.com/spielbericht/index/spielbericht/<id>`, клуб — `verein/4128`). WebFetch туда не пускает, страница качается `curl` с браузерным User-Agent. Минута события на странице — в спрайте часов: `background-position: -X px -Y px`, минута = Y/36·10 + X/36 + 1, добавленное время — текстом «+N».
+- Источник состава, замен («кто кого заменил»), голов и передач — отчёты Transfermarkt (`transfermarkt.com/spielbericht/index/spielbericht/<id>`, клуб — `verein/4128`). С 19.10.2026 сайт отвечает скриптам (curl, WebFetch) проверкой AWS WAF — её не обходим; Transfermarkt читаем через Chrome автора (Claude in Chrome, автор согласен). Минута события на странице — в спрайте часов: `background-position: -X px -Y px`, минута = Y/36·10 + X/36 + 1, добавленное время — текстом «+N».
+- Официальные протоколы (с 2023/24) — открытое API fnl.pro, `https://fnl-app.fnl.pro/api/v1/`: `team/matchesResult?leagueId=200&teamId=275&seasonId=…` (матчи), `match/teams` (старт MAIN / запас RESERVE), `match/info` (события: 1 — гол, 2 — гол с пенальти, 5/6 — удаление, 10 — замена: `player1` ушёл, `player2` вышел), `team/players` и `player/info` (ФИО с отчеством, дата рождения). Передач в протоколах нет — их берём с Transfermarkt. Сезоны: `info/seasonsByTeam?leagueId=200&teamId=275`.
 - Минуты на поле — из таблицы автора (он брал их из официальных протоколов), а не с Transfermarkt: там они расходятся на 1–3 минуты. Минуты замен выводятся из них.
 - В обычное время максимум 90: вышедший в 90+ — на 90-й, 1 минута, ушедший — 90. Замена в перерыве (на Transfermarkt 46′) — 45.
 - Передача засчитывается и за заработанный пенальти (на Transfermarkt «Penalty: Fouled player»); пенальти за игру рукой — без передачи, если автор не скажет иначе.
