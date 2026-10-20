@@ -17,7 +17,7 @@ import {
 } from './match';
 import type { SquadBase, SquadPlayerInfo, SquadRecord } from './squad';
 import { TRANSFER_COLUMNS, type TransferBase, type TransferRecord } from './transfers';
-import { rawOpponents, type DirRecord, type RawOpponent, type TeamNameRecord } from './directory';
+import { rawOpponents, type DirRecord, type RawOpponent, type TeamNameRecord, type TenureRecord } from './directory';
 import { PLAYER_COLUMNS, SEASON_RECORD_COLUMNS, type BestXiRecord, type PlayerRecord, type SeasonRecord } from './people';
 import type { CheckGoal, CheckMatch, CheckTotal } from './goalsCheck';
 import { opponentName } from '../format';
@@ -374,14 +374,37 @@ export async function loadTeamsPage(): Promise<TeamsPageData> {
 
 export interface CoachesPageData {
   records: (DirRecord & { match: { count: number }[] })[];
+  /** Сколько сроков у тренера; без миграции 20261020120000 — пусто. */
+  tenures: Map<number, number>;
 }
 
 export async function loadCoachesPage(): Promise<CoachesPageData> {
-  return {
-    records: await rows<CoachesPageData['records']>(
+  const [records, tenures] = await Promise.all([
+    rows<CoachesPageData['records']>(
       db().from('coach').select('id, full_name, short_name, birth_date, notes, match(count)').order('short_name'),
     ),
-  };
+    rows<{ coach_id: number }[]>(db().from('coach_tenure').select('coach_id')).catch(() => []),
+  ]);
+  const count = new Map<number, number>();
+  for (const t of tenures) count.set(t.coach_id, (count.get(t.coach_id) ?? 0) + 1);
+  return { records, tenures: count };
+}
+
+/** Сроки тренера и подсказка — даты его первого и последнего матча. */
+export interface TenuresData {
+  records: TenureRecord[];
+  firstMatch: string | null;
+  lastMatch: string | null;
+}
+
+export async function loadTenures(coachId: number): Promise<TenuresData> {
+  const [records, matches] = await Promise.all([
+    rows<TenureRecord[]>(db().from('coach_tenure').select('id, coach_id, from_date, to_date').eq('coach_id', coachId)),
+    rows<{ match_date: string }[]>(
+      db().from('match').select('match_date').eq('coach_id', coachId).not('match_date', 'is', null).order('match_date'),
+    ),
+  ]);
+  return { records, firstMatch: matches[0]?.match_date ?? null, lastMatch: matches.at(-1)?.match_date ?? null };
 }
 
 /** Где встречается клуб или тренер: матчи (и трансферы клуба) по сезонам. */

@@ -336,3 +336,108 @@ export function excelNames(matches: { opponent_raw: string | null; season: { sta
   }
   return [...by.values()].sort((a, b) => a.first - b.first || b.matches - a.matches);
 }
+
+// ===========================================================================
+// Сроки главного тренера (coach_tenure): назначение и увольнение
+// ===========================================================================
+
+export interface TenureRecord {
+  id: number;
+  coach_id: number;
+  from_date: string;
+  /** null — работает сейчас. */
+  to_date: string | null;
+}
+
+export interface TenureDraft {
+  key: string;
+  id: number | null;
+  from_date: string;
+  to_date: string;
+}
+
+export function tenuresDraft(records: TenureRecord[]): TenureDraft[] {
+  return [...records]
+    .sort((a, b) => a.from_date.localeCompare(b.from_date) || a.id - b.id)
+    .map((r) => ({ key: `id-${r.id}`, id: r.id, from_date: r.from_date, to_date: r.to_date ?? '' }));
+}
+
+const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+const tenureValues = (d: TenureDraft) => ({ from_date: d.from_date.trim(), to_date: d.to_date.trim() || null });
+
+/** Ошибки — пустое или неверное назначение, увольнение раньше назначения; предупреждения — сроки пересекаются. */
+export function validateTenures(draft: TenureDraft[]) {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const values = draft.map(tenureValues);
+  values.forEach((v, i) => {
+    const label = `Срок ${i + 1}`;
+    if (!isDate(v.from_date)) errors.push(`${label}: дата назначения — в формате ГГГГ-ММ-ДД.`);
+    if (v.to_date != null && !isDate(v.to_date)) errors.push(`${label}: дата увольнения — в формате ГГГГ-ММ-ДД или пусто.`);
+    else if (v.to_date != null && isDate(v.from_date) && v.to_date < v.from_date) errors.push(`${label}: увольнение раньше назначения.`);
+  });
+  const ok = values.filter((v) => isDate(v.from_date) && (v.to_date == null || isDate(v.to_date)));
+  for (let i = 0; i < ok.length; i++) {
+    for (let j = i + 1; j < ok.length; j++) {
+      const [a, b] = [ok[i], ok[j]];
+      if (a.from_date <= (b.to_date ?? '9999') && b.from_date <= (a.to_date ?? '9999')) {
+        warnings.push(`Сроки с ${a.from_date} и с ${b.from_date} пересекаются.`);
+      }
+    }
+  }
+  if (values.filter((v) => v.to_date == null).length > 1) warnings.push('Без даты увольнения больше одного срока — «работает сейчас» должен быть один.');
+  return { errors, warnings };
+}
+
+export function isTenuresDirty(draft: TenureDraft[], records: TenureRecord[]) {
+  if (draft.length !== records.length) return true;
+  const byId = new Map(records.map((r) => [r.id, r]));
+  return draft.some((d) => {
+    const r = d.id != null ? byId.get(d.id) : undefined;
+    const v = tenureValues(d);
+    return !r || r.from_date !== v.from_date || r.to_date !== v.to_date;
+  });
+}
+
+export interface TenuresSaveOutcome {
+  records: TenureRecord[];
+  draft: TenureDraft[];
+  error: unknown;
+}
+
+/** Удалить убранные → изменить правленые → вставить новые; как у названий клуба по годам. */
+export async function saveTenures(w: Writer, coachId: number, records0: TenureRecord[], draft0: TenureDraft[]): Promise<TenuresSaveOutcome> {
+  let records = records0;
+  let draft = draft0;
+  try {
+    const kept = new Set(draft.flatMap((d) => (d.id != null ? [d.id] : [])));
+    const removed = records.filter((r) => !kept.has(r.id)).map((r) => r.id);
+    if (removed.length > 0) {
+      await w.remove('coach_tenure', { coach_id: coachId }, ['id', removed]);
+      records = records.filter((r) => kept.has(r.id));
+    }
+    const byId = new Map(records.map((r) => [r.id, r]));
+    const changed = draft
+      .filter((d) => d.id != null)
+      .map((d) => ({ id: d.id!, coach_id: coachId, ...tenureValues(d) }))
+      .filter((v) => {
+        const r = byId.get(v.id)!;
+        return r.from_date !== v.from_date || r.to_date !== v.to_date;
+      });
+    if (changed.length > 0) {
+      await w.upsert('coach_tenure', changed, 'id');
+      const next = new Map(changed.map((c) => [c.id, c]));
+      records = records.map((r) => next.get(r.id) ?? r);
+    }
+    const added = draft.filter((d) => d.id == null).map((d) => ({ coach_id: coachId, ...tenureValues(d) }));
+    if (added.length > 0) {
+      const inserted = await w.insert<TenureRecord>('coach_tenure', added);
+      let i = 0;
+      draft = draft.map((d) => (d.id == null ? { ...d, id: inserted[i++].id, key: `id-${inserted[i - 1].id}` } : d));
+      records = [...records, ...inserted];
+    }
+    return { records, draft, error: null };
+  } catch (error) {
+    return { records, draft, error };
+  }
+}

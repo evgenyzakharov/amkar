@@ -18,8 +18,13 @@ import {
   saveTeamNames,
   teamNamesDraft,
   validateTeamNames,
+  isTenuresDirty,
+  saveTenures,
+  tenuresDraft,
+  validateTenures,
   type DirRecord,
   type TeamNameRecord,
+  type TenureRecord,
 } from '../src/admin/directory';
 import { migratedDb, pgliteWriter } from './db';
 
@@ -149,5 +154,43 @@ describe('названия клуба по годам', () => {
       { raw: 'Уралмаш', first: 1996, last: 2001, matches: 2 },
       { raw: 'Урал', first: 2005, last: 2017, matches: 2 },
     ]);
+  });
+});
+
+describe('сроки тренера', () => {
+  const loadTenures = async () =>
+    (await db.query<TenureRecord>('select id, coach_id, from_date::text, to_date::text from coach_tenure where coach_id = 1 order by from_date')).rows;
+
+  it('проверки: формат дат, увольнение не раньше назначения; пересечение и два «работает сейчас» — предупреждения', () => {
+    const d = (from_date: string, to_date = '') => ({ key: newDirKey(), id: null, from_date, to_date });
+    expect(validateTenures([d('2026-06-24'), d('24.06.2026'), d('2026-06-24', '2026-01-01')]).errors).toEqual([
+      'Срок 2: дата назначения — в формате ГГГГ-ММ-ДД.',
+      'Срок 3: увольнение раньше назначения.',
+    ]);
+    expect(validateTenures([d('2006-09-07', '2007-12-05'), d('2007-06-01', '2008-01-01'), d('2009-09-02'), d('2026-06-24')]).warnings).toEqual([
+      'Сроки с 2006-09-07 и с 2007-06-01 пересекаются.',
+      'Сроки с 2009-09-02 и с 2026-06-24 пересекаются.',
+      'Без даты увольнения больше одного срока — «работает сейчас» должен быть один.',
+    ]);
+  });
+
+  it('сохранение: добавить, поправить, убрать; повтор без изменений', async () => {
+    let records = await loadTenures();
+    let draft = [...tenuresDraft(records), { key: newDirKey(), id: null, from_date: '2025-09-09', to_date: '2026-06-23' }, { key: newDirKey(), id: null, from_date: '2026-06-24', to_date: '' }];
+    expect(isTenuresDirty(draft, records)).toBe(true);
+    let out = await saveTenures(pgliteWriter(db), 1, records, draft);
+    expect(out.error).toBeNull();
+    records = await loadTenures();
+    expect(records.map((r) => [r.from_date, r.to_date])).toEqual([
+      ['2025-09-09', '2026-06-23'],
+      ['2026-06-24', null],
+    ]);
+    expect(isTenuresDirty(out.draft, records)).toBe(false);
+
+    // первый срок убрали, у второго появилась дата увольнения
+    draft = tenuresDraft(records).slice(1).map((x) => ({ ...x, to_date: '2026-12-31' }));
+    out = await saveTenures(pgliteWriter(db), 1, records, draft);
+    expect(out.error).toBeNull();
+    expect((await loadTenures()).map((r) => [r.from_date, r.to_date])).toEqual([['2026-06-24', '2026-12-31']]);
   });
 });

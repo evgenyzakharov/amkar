@@ -1,4 +1,5 @@
 // Загрузка данных для страниц. Все запросы — чтение через публичный API с анонимным ключом.
+import type { CoachInfo, CoachMatch, CoachesData, Debut, Tenure } from '../coaches';
 import { NotFoundError, part, type Part } from '../load';
 import { supabase } from './supabase';
 import type {
@@ -127,7 +128,7 @@ export async function loadMatch(id: number): Promise<MatchPageData> {
   const match = await rows<MatchDetails | null>(
     db()
       .from('match')
-      .select(`${MATCH_COLUMNS}, season_id, formation, notes, season(label), coach(short_name)`)
+      .select(`${MATCH_COLUMNS}, season_id, formation, notes, season(label), coach(id, short_name)`)
       .eq('id', id)
       .maybeSingle(),
   );
@@ -384,4 +385,57 @@ export async function loadMilestones(): Promise<MilestonesData> {
     loadSeasons(),
   ]);
   return { milestones, seasons };
+}
+
+// ===========================================================================
+// Тренеры
+// ===========================================================================
+
+const COACH_MATCH_COLUMNS =
+  'id, seq, season_id, coach_id, round, match_date, venue, opponent_raw, opponent_name, result, goals_for, goals_against, ' +
+  'extra_time, pens_for, pens_against, awarded, competition(name, kind), team(name)';
+
+/** Всё для статистики тренеров: матчи (около тысячи), сроки и дебюты. Сроки и дебюты — из миграции 20261020120000:
+    без неё страница всё равно работает, период — по первому и последнему матчу. */
+export async function loadCoaches(): Promise<CoachesData> {
+  const [coaches, tenures, seasons, matches, debuts] = await Promise.all([
+    rows<CoachInfo[]>(db().from('coach').select('id, full_name, short_name, birth_date').order('id')),
+    optional(rows<Tenure[]>(db().from('coach_tenure').select('coach_id, from_date, to_date'))),
+    loadSeasons(),
+    allRows<CoachMatch>((from, to) => db().from('match').select(COACH_MATCH_COLUMNS).order('id').range(from, to)),
+    optional(
+      allRows<Debut>((from, to) =>
+        db()
+          .from('player_debut')
+          .select('player_id, display_name, academy, match_id, match_date, coach_id, season_label, start_year')
+          .order('player_id')
+          .range(from, to),
+      ),
+    ),
+  ]);
+  return { coaches, tenures, seasons, matches, debuts };
+}
+
+/** Игрок при тренере: матчи, минуты, голы. */
+export interface CoachPlayer {
+  player_id: number;
+  display_name: string;
+  games: number;
+  minutes: number;
+  goals: number;
+}
+
+export interface CoachPageData {
+  data: CoachesData;
+  players: CoachPlayer[];
+}
+
+/** Карточка тренера: общие данные (рекорды считаются среди всех тренеров) и его игроки. */
+export async function loadCoachPage(id: number): Promise<CoachPageData> {
+  const [data, players] = await Promise.all([
+    loadCoaches(),
+    optional(rows<CoachPlayer[]>(db().from('coach_player_stats').select('player_id, display_name, games, minutes, goals').eq('coach_id', id))),
+  ]);
+  if (!data.coaches.some((c) => c.id === id)) throw new NotFoundError(`Тренера №${id} в базе нет.`);
+  return { data, players };
 }

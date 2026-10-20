@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { EditLink, LoadStatus, PageNav, ResultBadge, Tag } from '../components/common';
 import { loadMatch } from '../db/queries';
 import type { Absence, AbsenceReason, Appearance, Goal, SquadEntry } from '../db/types';
@@ -14,7 +14,7 @@ import {
   opponentName,
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { adminMatchHref, matchHref, playerHref, seasonHref } from '../router';
+import { adminMatchHref, coachHref, matchHref, playerHref, seasonHref } from '../router';
 
 export function MatchPage({ id }: { id: number }) {
   const state = useLoad(id, loadMatch);
@@ -30,12 +30,16 @@ export function MatchPage({ id }: { id: number }) {
   const away = m.venue === 'away';
   const [left, right] = away ? [opponentName(m), 'Амкар'] : ['Амкар', opponentName(m)];
   const score = formatHomeScore(m);
-  const details = [
+  const details: ReactNode[] = [
     m.competition.name,
     m.round && (/^\d+$/.test(m.round) ? `${m.round}-й тур` : m.round),
     m.match_date && formatDate(m.match_date),
     m.venue && VENUE_LABEL[m.venue],
-    m.coach && `тренер ${m.coach.short_name}`,
+    m.coach && (
+      <>
+        тренер <a href={coachHref(m.coach.id)}>{m.coach.short_name}</a>
+      </>
+    ),
     m.formation && `схема ${m.formation}`,
   ].filter(Boolean);
 
@@ -58,7 +62,16 @@ export function MatchPage({ id }: { id: number }) {
         {score && <span className="score">{score}</span>}
         {!m.result && <span className="muted">результат неизвестен</span>}
       </p>
-      {details.length > 0 && <p className="muted">{details.join(' · ')}</p>}
+      {details.length > 0 && (
+        <p className="muted">
+          {details.map((d, k) => (
+            <Fragment key={k}>
+              {k > 0 && ' · '}
+              {d}
+            </Fragment>
+          ))}
+        </p>
+      )}
       {m.awarded && (
         <p className="note">
           Результат присуждён без игры{m.result && `: ${AWARDED_LABEL[m.result]}`}.

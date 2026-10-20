@@ -18,7 +18,7 @@ import {
   plural,
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { adminSeasonHref, matchHref, playerHref, seasonHref } from '../router';
+import { adminSeasonHref, coachHref, matchHref, playerHref, seasonHref } from '../router';
 
 export function SeasonPage({ label }: { label: string }) {
   useDocumentTitle(`Сезон ${label}`);
@@ -42,7 +42,7 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
       term: 'Итоговое место',
       value: season.teams_count ? `${season.final_place} из ${season.teams_count}` : String(season.final_place),
     },
-    coach && { term: 'Главный тренер', value: coach },
+    coach && { term: 'Главный тренер', value: <a href={coachHref(coach.id)}>{coach.name}</a> },
   ].filter((f) => !!f);
 
   const showSquad = () => {
@@ -174,17 +174,17 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
 }
 
 /** Главный тренер — тот, кто провёл больше всего официальных матчей сезона. */
-function mainCoach(matches: SeasonMatch[]): string | null {
-  const count = new Map<number, { name: string; n: number }>();
+function mainCoach(matches: SeasonMatch[]): { id: number; name: string } | null {
+  const count = new Map<number, { id: number; name: string; n: number }>();
   for (const m of matches) {
     if (!m.coach) continue;
-    const c = count.get(m.coach.id) ?? { name: m.coach.full_name, n: 0 };
+    const c = count.get(m.coach.id) ?? { id: m.coach.id, name: m.coach.full_name, n: 0 };
     c.n += 1;
     count.set(m.coach.id, c);
   }
-  let best: { name: string; n: number } | null = null;
+  let best: { id: number; name: string; n: number } | null = null;
   for (const c of count.values()) if (!best || c.n > best.n) best = c;
-  return best?.name ?? null;
+  return best && { id: best.id, name: best.name };
 }
 
 // «В–Н–П» не переносится по тире: между буквами — невидимые неразрывные соединители

@@ -8,12 +8,15 @@ import { LeadersPage } from './pages/LeadersPage';
 import { PlayersPage } from './pages/PlayersPage';
 import { SeasonPage } from './pages/SeasonPage';
 import { SeasonsPage } from './pages/SeasonsPage';
-import { adminHref, historyHref, leadersHref, parseRoute, playersHref, useHash, type Route } from './router';
+import { adminHref, coachesHref, historyHref, leadersHref, parseRoute, playersHref, useHash, type Route } from './router';
 
 // Админка — отдельным файлом: посетителям сайта её код не нужен
 const AdminPage = lazy(() => import('./admin/AdminPage').then((m) => ({ default: m.AdminPage })));
 // История с графиками — тоже отдельным файлом: главной странице она не нужна
 const HistoryPage = lazy(() => import('./pages/HistoryPage').then((m) => ({ default: m.HistoryPage })));
+// Тренеры — тоже: статистика считается на сайте из всех матчей
+const CoachesPage = lazy(() => import('./pages/CoachesPage').then((m) => ({ default: m.CoachesPage })));
+const CoachPage = lazy(() => import('./pages/CoachesPage').then((m) => ({ default: m.CoachPage })));
 
 function Page({ route }: { route: Route }) {
   switch (route.page) {
@@ -35,6 +38,18 @@ function Page({ route }: { route: Route }) {
       );
     case 'leaders':
       return <LeadersPage scope={route.scope} tab={route.tab} />;
+    case 'coaches':
+      return (
+        <Suspense fallback={<p className="muted">Загрузка…</p>}>
+          <CoachesPage scope={route.scope} />
+        </Suspense>
+      );
+    case 'coach':
+      return (
+        <Suspense fallback={<p className="muted">Загрузка…</p>}>
+          <CoachPage id={route.id} />
+        </Suspense>
+      );
     case 'admin':
       return (
         <Suspense fallback={<p className="muted">Загрузка…</p>}>
@@ -64,8 +79,9 @@ function AdminLinks() {
 }
 
 /** Раздел шапки, к которому относится страница: матчи — часть сезонов. */
-function sectionOf(route: Route): 'seasons' | 'history' | 'players' | 'leaders' | null {
+function sectionOf(route: Route): 'seasons' | 'history' | 'coaches' | 'players' | 'leaders' | null {
   if (route.page === 'leaders') return 'leaders';
+  if (route.page === 'coaches' || route.page === 'coach') return 'coaches';
   if (route.page === 'history') return 'history';
   if (route.page === 'seasons' || route.page === 'season' || route.page === 'match') return 'seasons';
   if (route.page === 'players' || route.page === 'player') return 'players';
@@ -97,6 +113,9 @@ function App() {
             </a>
             <a href={historyHref()} className={section === 'history' ? 'active' : undefined}>
               История
+            </a>
+            <a href={coachesHref()} className={section === 'coaches' ? 'active' : undefined}>
+              Тренеры
             </a>
             <a href={playersHref} className={section === 'players' ? 'active' : undefined}>
               Игроки

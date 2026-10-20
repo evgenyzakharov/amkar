@@ -43,7 +43,16 @@ const SCOPES: { scope: LeadersScope; label: string }[] = [
 ];
 
 /** Переключатель «Все турниры / Только чемпионат»: состояние — в адресе, ссылкой можно поделиться. */
-export function ScopeSwitch({ scope, href }: { scope: LeadersScope; href: (scope: LeadersScope) => string }) {
+export function ScopeSwitch({
+  scope,
+  href,
+  allLabel = SCOPES[0].label,
+}: {
+  scope: LeadersScope;
+  href: (scope: LeadersScope) => string;
+  /** Подпись «всех»: у тренеров — «Все игры». */
+  allLabel?: string;
+}) {
   return (
     <nav className="segmented" aria-label="Турниры">
       {SCOPES.map((s) => (
@@ -53,7 +62,7 @@ export function ScopeSwitch({ scope, href }: { scope: LeadersScope; href: (scope
           className={s.scope === scope ? 'active' : undefined}
           aria-current={s.scope === scope ? 'true' : undefined}
         >
-          {s.label}
+          {s.scope === 'all' ? allLabel : s.label}
         </a>
       ))}
     </nav>

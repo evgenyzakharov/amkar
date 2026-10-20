@@ -677,3 +677,72 @@ describe('схема сборной сезона (season.best_xi_formation)', ()
     );
   });
 });
+
+describe('тренеры: сроки (coach_tenure), дебюты (player_debut), игроки при тренере (coach_player_stats)', () => {
+  let tc: PGlite;
+  beforeAll(async () => {
+    tc = await migratedDb(SUPABASE_STRICT);
+    await tc.exec(`
+      insert into season (id, label, start_year, end_year) values (1, '1996', 1996, 1996), (2, '1997', 1997, 1997);
+      insert into coach (id, full_name, short_name) values (1, 'Сергей Оборин', 'Оборин'), (2, 'Рашид Рахимов', 'Рахимов');
+      insert into player (id, display_name, last_name, academy) values
+        (1, 'Пеев', 'Пеев', false), (2, 'Зырянов', 'Зырянов', true), (3, 'Запасной', 'Запасной', false);
+      insert into match (id, season_id, competition_id, seq, opponent_raw, coach_id, match_date) values
+        (1, 1, (select id from competition where kind = 'friendly'), 1, 'Звезда', 1, '1996-03-01'),
+        (2, 1, (select id from competition where kind = 'league'), 2, 'Уралмаш', 1, '1996-04-10'),
+        (3, 1, (select id from competition where kind = 'cup'), 3, 'Газовик', 1, '1996-05-02'),
+        (4, 2, (select id from competition where kind = 'league'), 1, 'Звезда', 2, '1997-04-12');
+      insert into appearance (match_id, player_id, role, minutes) values
+        (1, 2, 'start', 90),
+        (2, 1, 'start', 90), (2, 3, 'bench', 0),
+        (3, 1, 'start', 90), (3, 2, 'sub', 20),
+        (4, 1, 'start', 90), (4, 3, 'start', 45);
+      insert into goal (match_id, side, kind, minute, scorer_id) values
+        (1, 'amkar', 'open_play', 10, 2),
+        (2, 'amkar', 'penalty', 30, 1),
+        (3, 'amkar', 'own_goal', 50, null),
+        (4, 'amkar', 'open_play', 70, 1);
+    `);
+  }, 60_000);
+
+  it('дебют — первый официальный матч, без товарищеских и запаса', async () => {
+    const { rows } = await asUserIn(tc, null, 'select player_id, match_id, coach_id, season_label, academy from player_debut order by player_id');
+    expect(rows).toEqual([
+      { player_id: 1, match_id: 2, coach_id: 1, season_label: '1996', academy: false },
+      // товарищеский матч 1 — не дебют, дебют Зырянова — в кубке
+      { player_id: 2, match_id: 3, coach_id: 1, season_label: '1996', academy: true },
+      // в матче 2 сидел в запасе — дебют позже, при другом тренере
+      { player_id: 3, match_id: 4, coach_id: 2, season_label: '1997', academy: false },
+    ]);
+  });
+
+  it('игроки при тренере: матчи, минуты, голы — без товарищеских и автоголов', async () => {
+    const { rows } = await asUserIn(tc, null, 'select coach_id, player_id, games, minutes, goals from coach_player_stats order by coach_id, player_id');
+    expect(rows).toEqual([
+      { coach_id: 1, player_id: 1, games: 2, minutes: 180, goals: 1 },
+      { coach_id: 1, player_id: 2, games: 1, minutes: 20, goals: 0 },
+      { coach_id: 2, player_id: 1, games: 1, minutes: 90, goals: 1 },
+      { coach_id: 2, player_id: 3, games: 1, minutes: 45, goals: 0 },
+    ]);
+  });
+
+  it('сроки: увольнение не раньше назначения, пишет админ, читают все; view — только чтение', async () => {
+    await asUserIn(tc, ADMIN, `insert into coach_tenure (coach_id, from_date, to_date) values (1, '1995-01-01', '2006-08-26'), (2, '2006-09-07', null)`);
+    await expect(asUserIn(tc, ADMIN, `insert into coach_tenure (coach_id, from_date, to_date) values (2, '2009-09-02', '2009-01-01')`)).rejects.toThrow(
+      /coach_tenure_check/,
+    );
+    await expect(asUserIn(tc, STRANGER, `insert into coach_tenure (coach_id, from_date) values (1, '2010-01-01')`)).rejects.toThrow(
+      /row-level security/,
+    );
+    expect((await asUserIn(tc, null, 'select count(*)::int n from coach_tenure')).rows).toEqual([{ n: 2 }]);
+    const { rows } = await tc.query<{ v: string; w: boolean }>(`
+      select v, has_table_privilege('anon', v, 'insert') or has_table_privilege('authenticated', v, 'insert') w
+      from unnest(array['player_debut', 'coach_player_stats']) v`);
+    expect(rows.every((r) => !r.w)).toBe(true);
+    // удалили тренера без матчей — удалились и его сроки
+    await tc.exec(`insert into coach (id, full_name, short_name) values (3, 'Трубачёв', 'Трубачёв');
+      insert into coach_tenure (coach_id, from_date) values (3, '2012-07-19');
+      delete from coach where id = 3;`);
+    expect((await tc.query('select count(*)::int n from coach_tenure')).rows).toEqual([{ n: 2 }]);
+  });
+});

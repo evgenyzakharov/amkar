@@ -43,7 +43,7 @@ export interface MatchDetails extends MatchRow {
   formation: string | null;
   notes: string | null;
   season: { label: string };
-  coach: { short_name: string } | null;
+  coach: { id: number; short_name: string } | null;
 }
 
 /** Строка view player_season_stats: игрок в заявке сезона с итогами. */
