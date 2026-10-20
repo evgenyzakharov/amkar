@@ -1,13 +1,14 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { LoadStatus, PageNav } from '../components/common';
 import type { Position } from '../db/types';
 import { LINK_SITES, POSITION_LABEL, POSITION_TITLE, formatDate } from '../format';
-import { useDocumentTitle, useLoad } from '../load';
+import { errorMessage, useDocumentTitle, useLoad } from '../load';
 import { adminHref, adminPlayerHref, adminPlayersHref, adminSeasonHref, playerHref } from '../router';
 import { dbErrorMessage } from './dbErrors';
 import { LINK_SITE_KEYS, isPlayerDirty, playerDraft, savePlayer, validatePlayer, type PlayerDraft } from './people';
 import { PHOTO_TYPES, photoErrorMessage, removePhoto, replacePhoto, supabasePhotoStore } from './photos';
-import { loadAllPlayers, loadPlayerCard, type PlayerCardData } from './queries';
+import { adjustmentDraft, isAdjustmentsDirty, saveAdjustments, validateAdjustments, type AdjustmentDraft } from './points';
+import { loadAllPlayers, loadPlayerCard, loadPlayerPoints, type PlayerCardData, type PlayerPointsData } from './queries';
 import { useUnsavedGuard } from './useUnsavedGuard';
 import { supabaseWriter } from './writer';
 
@@ -262,7 +263,134 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
         </p>
       </div>
       <p className="note">Номер, позиция в сезоне и аренда — в заявке сезона. «Воспитанник» — у игрока целиком, во всех сезонах.</p>
+      <AdjustmentsPanel key={player.id} playerId={player.id} />
     </>
+  );
+}
+
+/** Очки по сезонам и ручные поправки автора: «яркий момент» до +5, «провал» −5. Сохраняются отдельно от карточки. */
+function AdjustmentsPanel({ playerId }: { playerId: number }) {
+  const [data, setData] = useState<PlayerPointsData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<AdjustmentDraft>({});
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    loadPlayerPoints(playerId).then(
+      (d) => {
+        if (!alive) return;
+        setData(d);
+        setDraft(adjustmentDraft(d.seasons, d.adjustments));
+      },
+      (e: unknown) => alive && setLoadError(errorMessage(e)),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [playerId]);
+
+  const dirty = data ? isAdjustmentsDirty(draft, data.seasons, data.adjustments) : false;
+  useUnsavedGuard(dirty);
+  if (loadError) return <p className="muted">Очки сезона и поправки появятся после миграции 20261020200000_season_points.sql.</p>;
+  if (!data) return <p className="muted">Очки сезона…</p>;
+  if (data.seasons.length === 0) return null;
+
+  const labelOf = (id: number) => data.seasons.find((s) => s.season_id === id)?.label ?? `сезон №${id}`;
+  const errors = validateAdjustments(draft, labelOf);
+  const edit = (id: number, field: 'points' | 'comment', value: string) => setDraft((d) => ({ ...d, [id]: { ...d[id], [field]: value } }));
+
+  async function save() {
+    if (!data) return;
+    setSaving(true);
+    setStatus(null);
+    try {
+      await saveAdjustments(supabaseWriter, playerId, data.seasons, data.adjustments, draft);
+      setStatus({ kind: 'ok', text: 'Поправки сохранены.' });
+    } catch (e) {
+      setStatus({ kind: 'error', text: dbErrorMessage(e) });
+    }
+    try {
+      const fresh = await loadPlayerPoints(playerId);
+      setData(fresh);
+      setDraft(adjustmentDraft(fresh.seasons, fresh.adjustments));
+    } catch (e) {
+      setStatus({ kind: 'error', text: `Не удалось перечитать очки: ${dbErrorMessage(e)}` });
+    }
+    setSaving(false);
+  }
+
+  return (
+    <section>
+      <h3>Очки сезона и ручные поправки</h3>
+      <p className="field-note">
+        Поправка прибавляется к очкам сезона: «яркий момент» — до +5 (в одиночку вытащил матч), «провал» — −5. Без комментария не сохранится.
+      </p>
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Сезон</th>
+              <th className="num">Очки</th>
+              <th className="num">Место в сезоне</th>
+              <th>Поправка</th>
+              <th>За что</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.seasons.map((s) => (
+              <tr key={s.season_id}>
+                <td>
+                  <a href={adminSeasonHref(s.label, 'squad')}>{s.label}</a>
+                </td>
+                <td className="num">{s.points == null ? '—' : Math.round(s.points)}</td>
+                <td className="num">{s.season_rank ?? '—'}</td>
+                <td>
+                  <input
+                    className="w-num"
+                    inputMode="decimal"
+                    aria-label={`поправка, ${s.label}`}
+                    value={draft[s.season_id]?.points ?? ''}
+                    onChange={(e) => edit(s.season_id, 'points', e.target.value)}
+                  />
+                </td>
+                <td>
+                  <input
+                    aria-label={`за что поправка, ${s.label}`}
+                    placeholder="в одиночку вытащил матч с …"
+                    value={draft[s.season_id]?.comment ?? ''}
+                    onChange={(e) => edit(s.season_id, 'comment', e.target.value)}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="save-bar">
+        {errors.length > 0 && (
+          <ul className="error">
+            {errors.map((e) => (
+              <li key={e}>{e}</li>
+            ))}
+          </ul>
+        )}
+        {status && (
+          <p className={status.kind === 'error' ? 'error' : 'ok'} role="status">
+            {status.text}
+          </p>
+        )}
+        <p className="button-row">
+          <button type="button" className="primary" disabled={saving || !dirty || errors.length > 0} onClick={() => void save()}>
+            {saving ? 'Сохранение…' : 'Сохранить поправки'}
+          </button>
+          <button type="button" disabled={saving || !dirty} onClick={() => setDraft(adjustmentDraft(data.seasons, data.adjustments))}>
+            Отменить изменения
+          </button>
+        </p>
+      </div>
+    </section>
   );
 }
 

@@ -1,5 +1,5 @@
 // Чтение для админки. Запись — в save.ts через Writer.
-import { NotFoundError } from '../load';
+import { NotFoundError, part } from '../load';
 import { db, loadFormation, loadSeasons, MATCH_COLUMNS, rows } from '../db/queries';
 import type { LinkSite, MatchRow, Position, Season } from '../db/types';
 import {
@@ -20,6 +20,7 @@ import { TRANSFER_COLUMNS, type TransferBase, type TransferRecord } from './tran
 import { rawOpponents, type DirRecord, type RawOpponent, type TeamNameRecord, type TenureRecord } from './directory';
 import { PLAYER_COLUMNS, SEASON_RECORD_COLUMNS, type BestXiRecord, type PlayerRecord, type SeasonRecord } from './people';
 import type { CheckGoal, CheckMatch, CheckTotal } from './goalsCheck';
+import { POINTS_SETTINGS_COLUMNS, type AdjustmentRecord, type PlayerSeasonPoints, type PointsSettings } from './points';
 import { opponentName } from '../format';
 
 /** Матч в списке админки: сколько уже записано по нему. */
@@ -518,8 +519,64 @@ export interface SeasonInfoData {
 export async function loadSeasonInfo(label: string): Promise<SeasonInfoData> {
   const season = await rows<SeasonRecord | null>(db().from('season').select(SEASON_RECORD_COLUMNS).eq('label', label).maybeSingle());
   if (!season) throw new NotFoundError(`Сезона «${label}» в базе нет.`);
-  const links = await rows<{ site: LinkSite; url: string }[]>(db().from('season_link').select('site, url').eq('season_id', season.id));
+  const [links, expected] = await Promise.all([
+    rows<{ site: LinkSite; url: string }[]>(db().from('season_link').select('site, url').eq('season_id', season.id)),
+    // отдельным запросом: без миграции 20261020200000 столбца нет, а вкладка должна работать
+    part(rows<{ expected_place: number | null }[]>(db().from('season').select('expected_place').eq('id', season.id))),
+  ]);
+  if ('data' in expected && expected.data[0]) season.expected_place = expected.data[0].expected_place;
   return { season, links };
+}
+
+// ===========================================================================
+// Очки сезона: формула, поправки
+// ===========================================================================
+
+export async function loadPointsSettings(): Promise<PointsSettings> {
+  const row = await rows<PointsSettings | null>(db().from('points_settings').select(POINTS_SETTINGS_COLUMNS).eq('id', 1).maybeSingle());
+  if (!row) throw new Error('Настроек формулы в базе нет: выполните миграцию 20261020200000_season_points.sql.');
+  return row;
+}
+
+export interface TopSeasonRow {
+  season_label: string;
+  display_name: string;
+  points: number;
+}
+
+/** Лучшие сезоны по текущей формуле — чтобы после правки чисел сразу видеть, что сдвинулось. */
+export const loadTopSeasons = (limit = 15) =>
+  rows<TopSeasonRow[]>(db().from('player_season_points').select('season_label, display_name, points').order('points', { ascending: false }).limit(limit));
+
+export interface PlayerPointsData {
+  seasons: PlayerSeasonPoints[];
+  adjustments: AdjustmentRecord[];
+}
+
+/** Сезоны игрока с очками и его ручные поправки; очков нет (view не создан) — сезоны без них. */
+export async function loadPlayerPoints(playerId: number): Promise<PlayerPointsData> {
+  const [squad, adjustments, points] = await Promise.all([
+    rows<{ season_id: number; season: { label: string; start_year: number } }[]>(
+      db().from('squad_member').select('season_id, season(label, start_year)').eq('player_id', playerId),
+    ),
+    rows<AdjustmentRecord[]>(db().from('player_season_adjustment').select('season_id, player_id, points, comment').eq('player_id', playerId)),
+    part(rows<{ season_id: number; points: number; season_rank: number }[]>(
+      db().from('player_season_points').select('season_id, points, season_rank').eq('player_id', playerId),
+    )),
+  ]);
+  const byId = new Map('data' in points ? points.data.map((p) => [p.season_id, p]) : []);
+  return {
+    seasons: squad
+      .map((s) => ({
+        season_id: s.season_id,
+        label: s.season.label,
+        start_year: s.season.start_year,
+        points: byId.get(s.season_id)?.points ?? null,
+        season_rank: byId.get(s.season_id)?.season_rank ?? null,
+      }))
+      .sort((a, b) => a.start_year - b.start_year),
+    adjustments,
+  };
 }
 
 // ===========================================================================

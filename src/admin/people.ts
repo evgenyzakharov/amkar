@@ -1,6 +1,7 @@
 // Сборная сезона по местам схемы и карточка игрока (ФИО, дата рождения, позиция, воспитанник, ссылки).
 import type { LinkSite, Position } from '../db/types';
 import { formationOf } from '../format';
+import { decimalText, parseDecimal } from './points';
 import type { Writer } from './writer';
 
 // ===========================================================================
@@ -304,6 +305,8 @@ export interface SeasonRecord {
   notes: string | null;
   /** Голы и передачи за сезон — по карточкам матчей, а не из таблицы автора. */
   goals_from_matches: boolean;
+  /** Ожидаемое место для очков сезона; undefined — столбца в базе ещё нет (миграция 20261020200000). */
+  expected_place?: number | null;
 }
 
 export const SEASON_RECORD_COLUMNS =
@@ -314,6 +317,8 @@ export interface SeasonDraft {
   tier: string;
   final_place: string;
   teams_count: string;
+  /** null — поля нет: столбец в базе ещё не создан. */
+  expected_place: string | null;
   notes: string;
   goals_from_matches: boolean;
   links: Record<LinkSite, string>;
@@ -327,6 +332,7 @@ export function seasonDraft(s: SeasonRecord, links: { site: LinkSite; url: strin
     tier: numText(s.tier),
     final_place: numText(s.final_place),
     teams_count: numText(s.teams_count),
+    expected_place: s.expected_place === undefined ? null : decimalText(s.expected_place),
     notes: s.notes ?? '',
     goals_from_matches: s.goals_from_matches,
     links: linksDraft(links),
@@ -344,11 +350,14 @@ function seasonValues(d: SeasonDraft) {
     const n = intOrNull(s);
     return n == null || Number.isNaN(n) ? null : n;
   };
+  const expected = d.expected_place?.trim() ? parseDecimal(d.expected_place) : null;
   return {
     division: d.division.trim() || null,
     tier: num(d.tier),
     final_place: num(d.final_place),
     teams_count: num(d.teams_count),
+    // без столбца в базе поле не пишем вовсе
+    ...(d.expected_place === null ? {} : { expected_place: expected == null || Number.isNaN(expected) ? null : expected }),
     notes: d.notes.trim() || null,
     goals_from_matches: d.goals_from_matches,
   };
@@ -362,6 +371,14 @@ export function validateSeason(d: SeasonDraft, siteLabel: (s: LinkSite) => strin
   if (teams != null && (Number.isNaN(teams) || teams < 1)) errors.push('Число команд — целое число больше нуля.');
   if (place != null && teams != null && !Number.isNaN(place) && !Number.isNaN(teams) && place > teams) {
     errors.push('Место не может быть больше числа команд.');
+  }
+  if (d.expected_place?.trim()) {
+    const expected = parseDecimal(d.expected_place);
+    if (Number.isNaN(expected) || expected < 1 || !/^\d+([.,]\d)?$/.test(d.expected_place.trim())) {
+      errors.push('Ожидаемое место — число от 1, можно с одним знаком после запятой: 2,5 — «между 2-м и 3-м».');
+    } else if (teams != null && !Number.isNaN(teams) && expected > teams) {
+      errors.push('Ожидаемое место не может быть больше числа команд.');
+    }
   }
   return [...errors, ...validateLinks(d.links, siteLabel)];
 }

@@ -812,3 +812,140 @@ describe('дашборды: голы по минутам, возраст, пер
     ]);
   });
 });
+
+describe('очки сезона: настройки (points_settings), ожидания, ручные поправки, player_season_points', () => {
+  let pt: PGlite;
+  const q = (sql: string) => asUserIn(pt, null, sql);
+  /** Строка view: игрок в сезоне. */
+  const row = async (seasonId: number, playerId: number) =>
+    (await q(`select * from player_season_points where season_id = ${seasonId} and player_id = ${playerId}`)).rows[0];
+  const settings = (set: string) => pt.exec(`update points_settings set ${set}`);
+
+  beforeAll(async () => {
+    pt = await migratedDb(SUPABASE_STRICT);
+    await pt.exec(`
+      insert into season (id, label, start_year, end_year, tier, final_place, teams_count, expected_place, goals_from_matches) values
+        (1, '2008', 2008, 2008, 1, 1, 11, 6, true),
+        (2, '2009', 2009, 2009, 2, 1, 11, null, true);
+      insert into player (id, display_name, last_name, position) values
+        (1, 'Вратарь', 'Вратарь', 'GK'), (2, 'Защитник', 'Защитник', 'DF'), (3, 'Нападающий', 'Нападающий', 'FW'), (4, 'Запасной', 'Запасной', null);
+      insert into squad_member (season_id, player_id) values (1, 1), (1, 2), (1, 3), (1, 4), (2, 3);
+      insert into match (id, season_id, competition_id, seq, opponent_raw, result, goals_for, goals_against) values
+        (1, 1, (select id from competition where kind = 'league'), 1, 'Химки', 'W', 1, 0),
+        (2, 1, (select id from competition where kind = 'cup'), 2, 'Газовик', 'D', 0, 0),
+        (3, 1, (select id from competition where kind = 'friendly'), 3, 'Звезда', 'W', 5, 0),
+        (4, 2, (select id from competition where kind = 'league'), 1, 'Химки', 'L', 0, 2);
+      insert into appearance (match_id, player_id, role, minutes, minute_on) values
+        (1, 1, 'start', 90, null), (1, 2, 'start', 90, null), (1, 3, 'sub', 30, 61),
+        (2, 1, 'start', 90, null), (2, 2, 'start', 45, null),
+        (3, 3, 'start', 90, null),
+        (4, 3, 'start', 90, null);
+      insert into goal (match_id, side, kind, minute, scorer_id, assist_id) values (1, 'amkar', 'open_play', 10, 2, 1);
+    `);
+  }, 60_000);
+
+  it('настройки по умолчанию — версия 1 формулы, одна строка', async () => {
+    const { rows } = await q(
+      'select per_90, per_start, goal_mf, per_draw, absolute_share, tier_rate_1, tier_rate_5, place_last, place_first, expect_range, peak_seasons from points_settings',
+    );
+    expect(rows).toEqual([
+      { per_90: '1.00', per_start: '0.20', goal_mf: '4.00', per_draw: '0.33', absolute_share: '0.700', tier_rate_1: '1.000',
+        tier_rate_5: '0.800', place_last: '1.000', place_first: '1.000', expect_range: '0.250', peak_seasons: 3 },
+    ]);
+    await expect(pt.exec('insert into points_settings (id) values (2)')).rejects.toThrow(/points_settings_single_row/);
+  });
+
+  it('составляющие: все официальные матчи, «сухие» и результат — когда сыграл 45+, позиция — основная', async () => {
+    const pick = ({ position, minutes, starts, goals, assists, clean_sheets, wins, draws }: Record<string, unknown>) => ({
+      position, minutes, starts, goals, assists, clean_sheets, wins, draws,
+    });
+    expect(pick(await row(1, 1))).toEqual({ position: 'GK', minutes: 180, starts: 2, goals: 0, assists: 1, clean_sheets: 2, wins: 1, draws: 1 });
+    expect(pick(await row(1, 2))).toEqual({ position: 'DF', minutes: 135, starts: 2, goals: 1, assists: 0, clean_sheets: 2, wins: 1, draws: 1 });
+    // товарищеский не в счёт, 30 минут — без «сухого» и результата
+    expect(pick(await row(1, 3))).toEqual({ position: 'FW', minutes: 30, starts: 0, goals: 0, assists: 0, clean_sheets: 0, wins: 0, draws: 0 });
+    // без позиции — полузащитник
+    expect(pick(await row(1, 4))).toEqual({ position: 'MF', minutes: 0, starts: 0, goals: 0, assists: 0, clean_sheets: 0, wins: 0, draws: 0 });
+  });
+
+  it('сырые очки по весам версии 1', async () => {
+    // вратарь: 2 матча + 2 старта × 0,2 + передача 2 + 2 «сухих» × 2 + победа 1 + ничья 0,33
+    expect((await row(1, 1)).raw_points).toBeCloseTo(2 + 0.4 + 2 + 4 + 1 + 0.33);
+    // защитник: 1,5 матча + 0,4 + гол защитника 5 + 2 «сухих» × 1 + 1 + 0,33
+    expect((await row(1, 2)).raw_points).toBeCloseTo(1.5 + 0.4 + 5 + 2 + 1 + 0.33);
+  });
+
+  it('«лучший в сезоне = 100», ручная поправка прибавляется к итогу', async () => {
+    await settings('absolute_share = 0, expect_range = 0');
+    expect((await row(1, 2)).points).toBeCloseTo(100);
+    expect((await row(1, 1)).points).toBeCloseTo((9.73 / 10.23) * 100);
+    expect((await row(1, 4)).points).toBe(0);
+    expect((await row(1, 2)).season_rank).toBe(1);
+    await asUserIn(pt, ADMIN, `insert into player_season_adjustment (season_id, player_id, points, comment) values (1, 1, 5, 'вытащил матч с Химками')`);
+    const keeper = await row(1, 1);
+    expect(keeper.points).toBeCloseTo((9.73 / 10.23) * 100 + 5);
+    expect([keeper.adjustment, keeper.adjustment_comment, keeper.season_rank]).toEqual([5, 'вытащил матч с Химками', 1]);
+    await pt.exec('delete from player_season_adjustment');
+  });
+
+  it('абсолютные очки: курс уровня лиги, средний лидер = 100; множитель — место и ожидания', async () => {
+    await settings('absolute_share = 1, expect_range = 0, short_season_power = 0, long_season_full = false, tier_rate_2 = 0.5');
+    // лидеры сезонов: 10,23 (уровень 1) и нападающий во втором — 1 + 0,2 = 1,2 (уровень 2, курс 0,5); средний — (10,23 + 0,6) / 2
+    const leader = (10.23 + 0.6) / 2;
+    expect((await row(1, 2)).points).toBeCloseTo((10.23 / leader) * 100);
+    expect((await row(2, 3)).points).toBeCloseTo(((1.2 * 0.5) / leader) * 100);
+    // первое место из 11 — ×1,2; ждали 6-е — 1 + 0,25 × 5 / 10
+    await settings('place_last = 0.8, place_first = 1.2, expect_range = 0.25');
+    const def = await row(1, 2);
+    expect(def.team_factor).toBeCloseTo(1.2 * 1.125);
+    expect(def.points).toBeCloseTo((10.23 / leader) * 100 * 1.35);
+    // ожидание не задано — только место
+    expect((await row(2, 3)).team_factor).toBeCloseTo(1.2);
+  });
+
+  it('карьера: сумма сезонов + лучшие сезоны ещё раз', async () => {
+    await settings('peak_seasons = 1, peak_weight = 2');
+    const seasons = (await q('select points from player_season_points where player_id = 3 order by points desc')).rows.map((r) => r.points as number);
+    const { rows } = await q('select seasons, first_year, last_year, total, peak, value from player_career_points where player_id = 3');
+    expect(rows[0]).toMatchObject({ seasons: 2, first_year: 2008, last_year: 2009 });
+    expect(rows[0].total).toBeCloseTo(seasons[0] + seasons[1], 1);
+    expect(rows[0].peak).toBeCloseTo(seasons[0], 1);
+    expect(rows[0].value).toBeCloseTo(seasons[0] + seasons[1] + 2 * seasons[0], 1);
+  });
+
+  it('ожидаемое место: от 1, не больше числа команд, можно «2,5»', async () => {
+    await pt.exec('update season set expected_place = 2.5 where id = 2');
+    await expect(pt.exec('update season set expected_place = 0 where id = 2')).rejects.toThrow(/season_expected_place_check/);
+    await expect(pt.exec('update season set expected_place = 12 where id = 2')).rejects.toThrow(/season_expected_place_teams/);
+  });
+
+  it('поправка: от −5 до +5 и не ноль, с комментарием, только игроку из заявки; убрать из заявки с поправкой нельзя', async () => {
+    const add = (season: number, player: number, points: number, comment: string) =>
+      pt.exec(`insert into player_season_adjustment (season_id, player_id, points, comment) values (${season}, ${player}, ${points}, '${comment}')`);
+    await expect(add(1, 1, 6, 'много')).rejects.toThrow(/player_season_adjustment_points_check/);
+    await expect(add(1, 1, 0, 'ноль')).rejects.toThrow(/player_season_adjustment_points_check/);
+    await expect(add(1, 1, -5, '  ')).rejects.toThrow(/player_season_adjustment_comment_check/);
+    await expect(add(2, 1, -5, 'не в заявке')).rejects.toThrow(/player_season_adjustment_season_id_player_id_fkey/);
+    await add(1, 4, -5, 'неудачное приобретение');
+    await expect(pt.exec('delete from squad_member where season_id = 1 and player_id = 4')).rejects.toThrow(
+      /player_season_adjustment_season_id_player_id_fkey/,
+    );
+  });
+
+  it('права: читают все, настройки и поправки меняет только админ, view — только чтение', async () => {
+    expect((await q('select count(*)::int n from player_season_adjustment')).rows).toEqual([{ n: 1 }]);
+    expect((await asUserIn(pt, STRANGER, 'update points_settings set per_90 = 2 returning id')).rows).toEqual([]);
+    expect((await asUserIn(pt, ADMIN, 'update points_settings set per_90 = 1.5 returning per_90')).rows).toEqual([{ per_90: '1.50' }]);
+    await expect(asUserIn(pt, ADMIN, 'update points_settings set per_90 = -1')).rejects.toThrow(/points_settings_weights/);
+    await expect(asUserIn(pt, ADMIN, 'update points_settings set place_first = 0.9, place_last = 1')).rejects.toThrow(/points_settings_place/);
+    await expect(asUserIn(pt, ADMIN, 'delete from points_settings')).rejects.toThrow(/permission denied/);
+    await expect(
+      asUserIn(pt, STRANGER, `insert into player_season_adjustment (season_id, player_id, points, comment) values (1, 2, 1, 'взлом')`),
+    ).rejects.toThrow(/row-level security/);
+    await asUserIn(pt, ADMIN, 'update player_season_adjustment set points = -4 where player_id = 4');
+    expect((await q('select points from player_season_adjustment')).rows).toEqual([{ points: '-4.0' }]);
+    const { rows } = await pt.query<{ v: string; w: boolean }>(`
+      select v, has_table_privilege('anon', v, 'insert') or has_table_privilege('authenticated', v, 'insert') w
+      from unnest(array['player_season_points', 'player_career_points']) v`);
+    expect(rows.every((r) => !r.w)).toBe(true);
+  });
+});

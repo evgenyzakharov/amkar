@@ -147,6 +147,21 @@ export const CONSTRAINT_MESSAGES: Record<string, string> = {
   season_link_site_check: 'Ссылки бывают на Transfermarkt, Википедию и Чемпионат.',
   season_link_url_check: 'Адрес ссылки должен начинаться с https://',
   season_link_season_id_fkey: 'Такого сезона нет.',
+
+  // очки сезона: формула, ожидания, ручные поправки
+  points_settings_pkey: 'Настройки формулы уже есть — правьте существующие.',
+  points_settings_single_row: 'Настройки формулы — одна строка.',
+  points_settings_weights: 'Веса очков — от 0 до 20.',
+  points_settings_shares: 'Доли — от 0 до 1 (от 0 до 100 %).',
+  points_settings_tier_rates: 'Курс уровня лиги — больше 0 и не больше 2.',
+  points_settings_place: 'Множитель за место: оба больше нуля, за первое место — не меньше, чем за последнее, и не больше 3.',
+  points_settings_peak: 'Лучших сезонов — от 0 до 10, их вес — от 0 до 5.',
+  season_expected_place_check: 'Ожидаемое место — от 1.',
+  season_expected_place_teams: 'Ожидаемое место не может быть больше числа команд.',
+  player_season_adjustment_pkey: 'Поправка этому игроку в этом сезоне уже есть.',
+  player_season_adjustment_points_check: 'Поправка — от −5 до +5 и не ноль.',
+  player_season_adjustment_comment_check: 'У поправки нужен комментарий: за что она.',
+  player_season_adjustment_season_id_player_id_fkey: 'Игрока нет в заявке этого сезона.',
 };
 
 /** Что за записи ссылаются на удаляемую — для «удалить нельзя». */
@@ -159,6 +174,7 @@ const REFERENCING_TABLE: Record<string, string> = {
   transfer: 'трансферы',
   season_best_xi: 'сборные сезонов',
   player_season_totals: 'итоги сезонов',
+  player_season_adjustment: 'ручные поправки очков сезона',
 };
 
 const COLUMN_LABEL: Record<string, string> = {

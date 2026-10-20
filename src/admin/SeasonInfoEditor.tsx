@@ -70,6 +70,13 @@ function SeasonInfo({ initial }: { initial: SeasonInfoData }) {
           Команд в лиге
           <input className="w-num" inputMode="numeric" value={draft.teams_count} onChange={(e) => set('teams_count', e.target.value)} />
         </label>
+        {draft.expected_place !== null && (
+          <label>
+            Ждали место
+            <input className="w-num" inputMode="decimal" value={draft.expected_place} onChange={(e) => set('expected_place', e.target.value)} />
+            <span className="field-note">перед сезоном, для очков сезона; 2,5 — между 2-м и 3-м</span>
+          </label>
+        )}
         {LINK_SITE_KEYS.map((s) => (
           <label key={s} className="span-2">
             {siteLabel(s)}

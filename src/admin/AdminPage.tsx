@@ -6,6 +6,7 @@ import { LoginForm } from './LoginForm';
 import { CoachesPage, TeamsPage } from './DirectoryPages';
 import { MatchEditor, NewMatchEditor } from './MatchEditor';
 import { PlayerEditor, PlayersList } from './PlayerEditor';
+import { PointsSettingsEditor } from './PointsSettingsEditor';
 
 /** #/admin/…: без входа — форма входа, без прав админа — объяснение, иначе раздел админки. */
 export function AdminPage({ route }: { route: AdminRoute }) {
@@ -47,5 +48,7 @@ export function AdminPage({ route }: { route: AdminRoute }) {
       return <PlayersList />;
     case 'player':
       return <PlayerEditor id={route.id} />;
+    case 'points':
+      return <PointsSettingsEditor />;
   }
 }

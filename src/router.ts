@@ -27,7 +27,8 @@ export type AdminRoute =
   | { page: 'teams' }
   | { page: 'coaches' }
   | { page: 'players' }
-  | { page: 'player'; id: number };
+  | { page: 'player'; id: number }
+  | { page: 'points' };
 
 /** Вкладки сезона в админке: матчи, сетка «игроки × матчи», заявка, трансферы, сборная, сведения о сезоне. */
 export type SeasonTab = 'matches' | 'grid' | 'squad' | 'transfers' | 'best' | 'info';
@@ -70,6 +71,7 @@ export const adminTeamsHref = '#/admin/teams';
 export const adminCoachesHref = '#/admin/coaches';
 export const adminPlayersHref = '#/admin/players';
 export const adminPlayerHref = (id: number) => `#/admin/player/${id}`;
+export const adminPointsHref = '#/admin/points';
 
 const isId = (s: string) => /^\d+$/.test(s);
 
@@ -77,7 +79,7 @@ function parseAdminRoute(parts: string[]): Route {
   const [page, param, extra] = parts;
   const admin = (r: AdminRoute): Route => ({ page: 'admin', admin: r });
   if (parts.length === 0) return admin({ page: 'home' });
-  if (parts.length === 1 && (page === 'teams' || page === 'coaches' || page === 'players')) return admin({ page });
+  if (parts.length === 1 && (page === 'teams' || page === 'coaches' || page === 'players' || page === 'points')) return admin({ page });
   if (page === 'player' && parts.length === 2 && isId(param)) return admin({ page: 'player', id: Number(param) });
   if (page === 'season' && parts.length === 2) return admin({ page: 'season', label: labelFromPart(param), tab: 'matches' });
   if (page === 'season' && parts.length === 3 && extra === 'new') {
