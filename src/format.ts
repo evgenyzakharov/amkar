@@ -73,6 +73,7 @@ export const TRANSFER_KIND_LABEL: Record<NonNullable<Transfer['kind']>, string> 
 /** Места сборной сезона: код в базе → подпись на поле. */
 export const SLOT_LABEL: Record<string, string> = {
   GK: 'ВР',
+  SW: 'ЛИБ',
   LB: 'ЛЗ',
   CB1: 'ЦЗ',
   CB2: 'ЦЗ',
@@ -96,6 +97,7 @@ export const SLOT_LABEL: Record<string, string> = {
 /** Подпись места → позиция словами, для подсказки. */
 export const SLOT_TITLE: Record<string, string> = {
   ВР: 'вратарь',
+  ЛИБ: 'либеро — последний защитник',
   ЛЗ: 'левый защитник',
   ЦЗ: 'центральный защитник',
   ПЗ: 'правый защитник',
@@ -139,6 +141,7 @@ export const FORMATIONS: Formation[] = [
   scheme('3-4-3', [['LW', 'ST1', 'RW'], ['LM', 'CM1', 'CM2', 'RM'], BACK3, ['GK']]),
   scheme('5-3-2', [['ST1', 'ST2'], ['CM1', 'CM2', 'CM3'], BACK5, ['GK']]),
   scheme('5-4-1', [['ST1'], ['LM', 'CM1', 'CM2', 'RM'], BACK5, ['GK']]),
+  scheme('1-3-4-2', [['ST1', 'ST2'], ['LM', 'CM1', 'CM2', 'RM'], BACK3, ['SW'], ['GK']], '1-3-4-2 (с либеро)'),
 ];
 
 /** Все места по линиям — для сборной, у которой в базе есть места не из её схемы. */
@@ -148,6 +151,7 @@ export const ALL_SLOT_LINES = [
   ['LM', 'CM1', 'CM2', 'CM3', 'RM'],
   ['DM1', 'DM2'],
   ['LWB', 'LB', 'CB1', 'CB2', 'CB3', 'RB', 'RWB'],
+  ['SW'],
   ['GK'],
 ];
 

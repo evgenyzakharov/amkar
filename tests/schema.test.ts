@@ -672,7 +672,11 @@ describe('схема сборной сезона (season.best_xi_formation)', ()
     expect((await asUser(null, 'select best_xi_formation from season where id = 1')).rows).toEqual([{ best_xi_formation: '4-1-2-1-2' }]);
 
     await asUser(ADMIN, `insert into season_best_xi (season_id, slot, player_id) values (1, 'DM1', 1), (1, 'AM', 2), (1, 'LWB', 3)`);
-    await expect(asUser(ADMIN, `insert into season_best_xi (season_id, slot, player_id) values (1, 'SW', 1)`)).rejects.toThrow(
+    // либеро — для схемы 1-3-4-2 (миграция 20261020220000)
+    await asUser(ADMIN, `update season set best_xi_formation = '1-3-4-2' where id = 1`);
+    await asUser(ADMIN, `delete from season_best_xi where season_id = 1 and slot = 'LWB'`);
+    await asUser(ADMIN, `insert into season_best_xi (season_id, slot, player_id) values (1, 'SW', 3)`);
+    await expect(asUser(ADMIN, `insert into season_best_xi (season_id, slot, player_id) values (1, 'XX', 1)`)).rejects.toThrow(
       /season_best_xi_slot_check/,
     );
   });

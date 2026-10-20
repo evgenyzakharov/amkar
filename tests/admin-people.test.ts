@@ -137,6 +137,17 @@ describe('сборная сезона', () => {
       expect(moved).toEqual([{ playerId: '4', from: 'CB3', to: 'LB' }]);
       expect(slotsOutside(draft, '4-4-2')).toEqual(['CM3']);
     });
+
+    it('4-4-2 → 1-3-4-2: крайние защитники — в либеро и третьего центрального, и обратно', () => {
+      const flat = xi({ GK: 1, LB: 2, CB1: 3, CB2: 4, RB: 5, LM: 6, CM1: 7, CM2: 8, RM: 9, ST1: 10, ST2: 11 });
+      const { draft, moved } = switchFormation(flat, '1-3-4-2');
+      expect(moved).toEqual([
+        { playerId: '2', from: 'LB', to: 'SW' },
+        { playerId: '5', from: 'RB', to: 'CB3' },
+      ]);
+      expect(slotsOutside(draft, '1-3-4-2')).toEqual([]);
+      expect(filled(switchFormation(draft, '4-4-2').draft)).toEqual(filled(flat));
+    });
   });
 });
 

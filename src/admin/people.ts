@@ -11,6 +11,7 @@ import type { Writer } from './writer';
 /** Все места, которые принимает база (season_best_xi_slot_check), — от вратаря к нападению. */
 export const BEST_XI_SLOTS = [
   'GK',
+  'SW',
   'LWB', 'LB', 'CB1', 'CB2', 'CB3', 'RB', 'RWB',
   'DM1', 'DM2', 'LM', 'CM1', 'CM2', 'CM3', 'RM', 'AM',
   'LW', 'ST1', 'ST2', 'RW',
@@ -63,6 +64,8 @@ export function placePlayer(draft: BestXiDraft, formation: string, slot: Slot, p
 
 const SLOT_LINE: Record<Slot, number> = {
   GK: 0,
+  // либеро — в линии защиты, по центру: при смене схемы садится на место центрального защитника
+  SW: 1,
   LWB: 1, LB: 1, CB1: 1, CB2: 1, CB3: 1, RB: 1, RWB: 1,
   DM1: 2, DM2: 2, LM: 2, CM1: 2, CM2: 2, CM3: 2, RM: 2, AM: 2,
   LW: 3, ST1: 3, ST2: 3, RW: 3,
