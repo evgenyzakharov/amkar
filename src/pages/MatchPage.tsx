@@ -9,7 +9,7 @@ import {
   POSITION_ORDER,
   VENUE_LABEL,
   formatDate,
-  formatScore,
+  formatHomeScore,
   num,
   opponentName,
 } from '../format';
@@ -26,7 +26,10 @@ export function MatchPage({ id }: { id: number }) {
 
   const { lineup, goals, absences, squad, prevId, nextId } = state.data;
   const m = state.data.match;
-  const score = formatScore(m);
+  // Хозяева слева: в гостях «Амкар» справа — в заголовке, счёте и голах
+  const away = m.venue === 'away';
+  const [left, right] = away ? [opponentName(m), 'Амкар'] : ['Амкар', opponentName(m)];
+  const score = formatHomeScore(m);
   const details = [
     m.competition.name,
     m.round && (/^\d+$/.test(m.round) ? `${m.round}-й тур` : m.round),
@@ -48,7 +51,7 @@ export function MatchPage({ id }: { id: number }) {
         next={nextId && <a href={matchHref(nextId)}>следующий ›</a>}
       />
       <h2>
-        Амкар — {opponentName(m)} <EditLink href={adminMatchHref(m.id)} />
+        {left} — {right} <EditLink href={adminMatchHref(m.id)} />
       </h2>
       <p className="match-score">
         <ResultBadge result={m.result} />
@@ -65,7 +68,7 @@ export function MatchPage({ id }: { id: number }) {
 
       {videos.status === 'ready' && videos.data.length > 0 && <Videos videos={videos.data} />}
 
-      {goals.length > 0 && <Goals goals={goals} opponent={opponentName(m)} />}
+      {goals.length > 0 && <Goals goals={goals} opponent={opponentName(m)} amkarRight={away} />}
 
       {lineup.length > 0 ? (
         <Lineup lineup={lineup} squad={squad} />
@@ -223,8 +226,8 @@ function Lineup({ lineup, squad }: { lineup: Appearance[]; squad: SquadEntry[] }
   );
 }
 
-/** Голы по ходу матча: забитые «Амкаром» — слева, соперником — справа. */
-function Goals({ goals, opponent }: { goals: Goal[]; opponent: string }) {
+/** Голы по ходу матча: колонки команд — как в заголовке, хозяева слева. */
+function Goals({ goals, opponent, amkarRight }: { goals: Goal[]; opponent: string; amkarRight: boolean }) {
   const minute = (g: Goal) => (g.minute == null ? '' : `${g.minute}${g.added_time ? `+${g.added_time}` : ''}'`);
   const describe = (g: Goal) => {
     const name = g.scorer_id ? (
@@ -254,16 +257,16 @@ function Goals({ goals, opponent }: { goals: Goal[]; opponent: string }) {
           <thead>
             <tr>
               <th className="num">Мин</th>
-              <th>Амкар</th>
-              <th>{opponent}</th>
+              <th>{amkarRight ? opponent : 'Амкар'}</th>
+              <th>{amkarRight ? 'Амкар' : opponent}</th>
             </tr>
           </thead>
           <tbody>
             {goals.map((g) => (
               <tr key={g.id}>
                 <td className="num">{minute(g)}</td>
-                <td>{g.side === 'amkar' && describe(g)}</td>
-                <td>{g.side === 'opponent' && describe(g)}</td>
+                <td>{g.side === (amkarRight ? 'opponent' : 'amkar') && describe(g)}</td>
+                <td>{g.side === (amkarRight ? 'amkar' : 'opponent') && describe(g)}</td>
               </tr>
             ))}
           </tbody>

@@ -175,6 +175,14 @@ export function formatScore(m: Pick<MatchRow, 'goals_for' | 'goals_against' | 'e
   return s.trim();
 }
 
+/** Счёт со стороны хозяев, как в заголовке «хозяева — гости»: в гостях «Амкар» справа — «2:0», а не «0:2». */
+export function formatHomeScore(
+  m: Pick<MatchRow, 'venue' | 'goals_for' | 'goals_against' | 'extra_time' | 'pens_for' | 'pens_against'>,
+): string {
+  if (m.venue !== 'away') return formatScore(m);
+  return formatScore({ ...m, goals_for: m.goals_against, goals_against: m.goals_for, pens_for: m.pens_against, pens_against: m.pens_for });
+}
+
 /** «2008-05-17» → «17.05.2008» без участия часового пояса. */
 export function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-');
