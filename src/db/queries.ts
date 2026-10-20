@@ -1,9 +1,13 @@
 // Загрузка данных для страниц. Все запросы — чтение через публичный API с анонимным ключом.
 import type { CoachInfo, CoachMatch, CoachesData, Debut, Tenure } from '../coaches';
+import type { OpponentMatch, OpponentTeam } from '../opponents';
 import { NotFoundError, part, type Part } from '../load';
 import { supabase } from './supabase';
 import type {
   Absence,
+  FirstGoal,
+  GoalMinute,
+  PlayerSeasonAge,
   Appearance,
   BestXiSlot,
   CareerStats,
@@ -128,7 +132,7 @@ export async function loadMatch(id: number): Promise<MatchPageData> {
   const match = await rows<MatchDetails | null>(
     db()
       .from('match')
-      .select(`${MATCH_COLUMNS}, season_id, formation, notes, season(label), coach(id, short_name)`)
+      .select(`${MATCH_COLUMNS}, season_id, opponent_id, formation, notes, season(label), coach(id, short_name)`)
       .eq('id', id)
       .maybeSingle(),
   );
@@ -312,10 +316,17 @@ export interface HistoryPageData {
   seasons: SeasonSummary[];
   /** Воспитанники с наибольшим числом матчей. */
   academy: CareerStats[];
+  /** Голы по минутам; без миграции 20261020160000 — пусто, как и возраст ниже. */
+  minutes: GoalMinute[];
+  /** Игроки с матчами по сезонам и их возраст. */
+  ages: PlayerSeasonAge[];
+  /** Дебюты и первые голы — для рекордов возраста. */
+  debuts: Debut[];
+  firstGoals: FirstGoal[];
 }
 
 export async function loadHistory(): Promise<HistoryPageData> {
-  const [seasons, graduates] = await Promise.all([
+  const [seasons, graduates, minutes, ages, debuts, firstGoals] = await Promise.all([
     rows<SeasonSummary[]>(
       db()
         .from('season_summary')
@@ -327,6 +338,27 @@ export async function loadHistory(): Promise<HistoryPageData> {
         .order('end_year'),
     ),
     rows<{ id: number }[]>(db().from('player').select('id').eq('academy', true)),
+    optional(rows<GoalMinute[]>(db().from('goal_minutes').select('side, minute, added, competition_kind, goals'))),
+    optional(
+      allRows<PlayerSeasonAge>((from, to) =>
+        db()
+          .from('player_season_age')
+          .select('season_id, player_id, display_name, academy, birth_date, games, minutes, age_minutes, age_first, age_last')
+          .order('season_id')
+          .order('player_id')
+          .range(from, to),
+      ),
+    ),
+    optional(
+      allRows<Debut>((from, to) =>
+        db()
+          .from('player_debut')
+          .select('player_id, display_name, academy, match_id, match_date, coach_id, season_label, start_year, opponent, birth_date')
+          .order('player_id')
+          .range(from, to),
+      ),
+    ),
+    optional(rows<FirstGoal[]>(db().from('player_first_goal').select('player_id, match_id, match_date, season_label, opponent, minute'))),
   ]);
   const academy =
     graduates.length === 0
@@ -344,7 +376,7 @@ export async function loadHistory(): Promise<HistoryPageData> {
             .order('last_name')
             .limit(10),
         );
-  return { seasons, academy };
+  return { seasons, academy, minutes, ages, debuts, firstGoals };
 }
 
 /** Серии: пять самых длинных за историю и лучшие в каждом сезоне, для всех турниров и только чемпионата. */
@@ -438,4 +470,119 @@ export async function loadCoachPage(id: number): Promise<CoachPageData> {
   ]);
   if (!data.coaches.some((c) => c.id === id)) throw new NotFoundError(`Тренера №${id} в базе нет.`);
   return { data, players };
+}
+
+// ===========================================================================
+// Соперники
+// ===========================================================================
+
+const OPPONENT_MATCH_COLUMNS =
+  'id, seq, season_id, opponent_id, round, match_date, venue, opponent_raw, opponent_name, result, goals_for, goals_against, ' +
+  'extra_time, pens_for, pens_against, awarded, competition(name, kind), team(name)';
+
+export interface OpponentsData {
+  teams: OpponentTeam[];
+  seasons: Season[];
+  matches: OpponentMatch[];
+}
+
+/** Все клубы справочника и все матчи с ними: личные встречи считаются на сайте. */
+export async function loadOpponents(): Promise<OpponentsData> {
+  const [teams, seasons, matches] = await Promise.all([
+    rows<OpponentTeam[]>(db().from('team').select('id, name, city').order('name')),
+    loadSeasons(),
+    allRows<OpponentMatch>((from, to) =>
+      db().from('match').select(OPPONENT_MATCH_COLUMNS).not('opponent_id', 'is', null).order('id').range(from, to),
+    ),
+  ]);
+  return { teams, seasons, matches };
+}
+
+/** Бомбардир «Амкара» в матчах с клубом. */
+export interface OpponentScorer {
+  player_id: number;
+  display_name: string;
+  goals: number;
+}
+
+export interface OpponentPageData {
+  team: OpponentTeam;
+  seasons: Season[];
+  matches: OpponentMatch[];
+  scorers: OpponentScorer[];
+}
+
+export async function loadOpponent(id: number): Promise<OpponentPageData> {
+  const [teams, seasons, matches] = await Promise.all([
+    rows<OpponentTeam[]>(db().from('team').select('id, name, city').eq('id', id)),
+    loadSeasons(),
+    rows<OpponentMatch[]>(db().from('match').select(OPPONENT_MATCH_COLUMNS).eq('opponent_id', id).order('id')),
+  ]);
+  const team = teams[0];
+  if (!team) throw new NotFoundError(`Клуба №${id} в справочнике нет.`);
+  const official = matches.filter((m) => m.competition.kind !== 'friendly').map((m) => m.id);
+  const goals =
+    official.length === 0
+      ? []
+      : await rows<{ scorer_id: number; player: { display_name: string } }[]>(
+          db()
+            .from('goal')
+            .select('scorer_id, player:scorer_id(display_name)')
+            .in('match_id', official)
+            .eq('side', 'amkar')
+            .neq('kind', 'own_goal')
+            .not('scorer_id', 'is', null),
+        );
+  const by = new Map<number, OpponentScorer>();
+  for (const g of goals) {
+    const s = by.get(g.scorer_id) ?? { player_id: g.scorer_id, display_name: g.player.display_name, goals: 0 };
+    s.goals++;
+    by.set(g.scorer_id, s);
+  }
+  return { team, seasons, matches, scorers: [...by.values()] };
+}
+
+// ===========================================================================
+// Выпускники академии
+// ===========================================================================
+
+export interface AcademyPlayer {
+  id: number;
+  display_name: string;
+  first_name: string | null;
+  last_name: string;
+  birth_date: string | null;
+}
+
+export interface AcademyData {
+  players: AcademyPlayer[];
+  debuts: Debut[];
+  firstGoals: FirstGoal[];
+  careers: CareerStats[];
+}
+
+/** Все воспитанники: дебют, первый гол, итоги за «Амкар». Дебюты и первые голы — из миграций 2026-10-20. */
+export async function loadAcademy(): Promise<AcademyData> {
+  const players = await rows<AcademyPlayer[]>(
+    db().from('player').select('id, display_name, first_name, last_name, birth_date').eq('academy', true).order('last_name'),
+  );
+  const ids = players.map((p) => p.id);
+  if (ids.length === 0) return { players, debuts: [], firstGoals: [], careers: [] };
+  const debutsOf = (columns: string) => optional(rows<Debut[]>(db().from('player_debut').select(columns).in('player_id', ids)));
+  const [debuts, firstGoals, careers] = await Promise.all([
+    // соперник и дата рождения в дебюте — из миграции 20261020160000; без неё — дебюты без них
+    debutsOf('player_id, display_name, academy, match_id, match_date, coach_id, season_label, start_year, opponent, birth_date').then((d) =>
+      d.length > 0 ? d : debutsOf('player_id, display_name, academy, match_id, match_date, coach_id, season_label, start_year'),
+    ),
+    optional(
+      rows<FirstGoal[]>(db().from('player_first_goal').select('player_id, match_id, match_date, season_label, opponent, minute').in('player_id', ids)),
+    ),
+    rows<CareerStats[]>(
+      db()
+        .from('player_career_stats')
+        .select('player_id, display_name, last_name, first_year, last_year, games, games_league, goals, goals_league')
+        .in('player_id', ids),
+    ),
+  ]);
+  return { players, debuts, firstGoals, careers };
 }

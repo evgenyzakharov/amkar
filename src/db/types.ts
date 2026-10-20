@@ -44,6 +44,7 @@ export interface MatchDetails extends MatchRow {
   notes: string | null;
   season: { label: string };
   coach: { id: number; short_name: string } | null;
+  opponent_id: number | null;
 }
 
 /** Строка view player_season_stats: игрок в заявке сезона с итогами. */
@@ -253,4 +254,38 @@ export interface Milestone {
   seq: number | null;
   match_date: string | null;
   opponent: string | null;
+}
+
+/** Голы на минуте матча: забитые (side = amkar) или пропущенные; added — в добавленное время. */
+export interface GoalMinute {
+  side: 'amkar' | 'opponent';
+  minute: number;
+  added: boolean;
+  competition_kind: CompetitionKind;
+  goals: number;
+}
+
+/** Игрок в сезоне с возрастом: в первом и последнем матче сезона; без даты рождения — null. */
+export interface PlayerSeasonAge {
+  season_id: number;
+  player_id: number;
+  display_name: string;
+  academy: boolean;
+  birth_date: string | null;
+  games: number;
+  minutes: number;
+  /** Сумма «минуты × возраст» — для среднего возраста по минутам. */
+  age_minutes: number | null;
+  age_first: number | null;
+  age_last: number | null;
+}
+
+/** Первый официальный гол игрока за «Амкар». */
+export interface FirstGoal {
+  player_id: number;
+  match_id: number;
+  match_date: string | null;
+  season_label: string;
+  opponent: string | null;
+  minute: number | null;
 }

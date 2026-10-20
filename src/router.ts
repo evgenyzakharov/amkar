@@ -10,6 +10,9 @@ export type Route =
   | { page: 'history'; scope: LeadersScope }
   | { page: 'coaches'; scope: LeadersScope }
   | { page: 'coach'; id: number }
+  | { page: 'opponents'; scope: LeadersScope }
+  | { page: 'opponent'; id: number }
+  | { page: 'academy' }
   | { page: 'match'; id: number }
   | { page: 'player'; id: number }
   | { page: 'admin'; admin: AdminRoute }
@@ -52,6 +55,11 @@ export const historyHref = (scope: LeadersScope = 'all') => `#/history${scope ==
 /** Тренеры: таблица — все игры или только чемпионат, как у лидеров. */
 export const coachesHref = (scope: LeadersScope = 'all') => `#/coaches${scope === 'league' ? '?scope=league' : ''}`;
 export const coachHref = (id: number) => `#/coach/${id}`;
+
+/** Соперники: личные встречи, как у тренеров — все игры или только чемпионат. */
+export const opponentsHref = (scope: LeadersScope = 'all') => `#/opponents${scope === 'league' ? '?scope=league' : ''}`;
+export const opponentHref = (id: number) => `#/opponent/${id}`;
+export const academyHref = '#/academy';
 
 export const adminHref = '#/admin';
 export const adminSeasonHref = (label: string, tab: SeasonTab = 'matches') =>
@@ -96,6 +104,8 @@ export function parseRoute(hash: string): Route {
   if (parts.length === 1 && parts[0] === 'players') return { page: 'players' };
   if (parts.length === 1 && parts[0] === 'history') return { page: 'history', scope: scopeOf(query) };
   if (parts.length === 1 && parts[0] === 'coaches') return { page: 'coaches', scope: scopeOf(query) };
+  if (parts.length === 1 && parts[0] === 'opponents') return { page: 'opponents', scope: scopeOf(query) };
+  if (parts.length === 1 && parts[0] === 'academy') return { page: 'academy' };
   if (parts.length === 1 && parts[0] === 'leaders') {
     return { page: 'leaders', scope: scopeOf(query), tab: new URLSearchParams(query).get('tab') === 'clubs' ? 'clubs' : 'tables' };
   }
@@ -107,6 +117,7 @@ export function parseRoute(hash: string): Route {
   if (page === 'match') return { page: 'match', id: Number(param) };
   if (page === 'player') return { page: 'player', id: Number(param) };
   if (page === 'coach') return { page: 'coach', id: Number(param) };
+  if (page === 'opponent') return { page: 'opponent', id: Number(param) };
   return { page: 'not-found' };
 }
 

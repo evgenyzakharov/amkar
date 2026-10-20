@@ -183,6 +183,14 @@ export function formatHomeScore(
   return formatScore({ ...m, goals_for: m.goals_against, goals_against: m.goals_for, pens_for: m.pens_against, pens_against: m.pens_for });
 }
 
+/** Возраст в годах на дату: «1990-01-01», «2008-03-15» → 18,2. Даты — без часового пояса. */
+export function ageYears(birth: string, on: string): number {
+  return (Date.parse(`${on}T00:00:00Z`) - Date.parse(`${birth}T00:00:00Z`)) / (365.25 * 86_400_000);
+}
+
+/** 18.2 → «18,2» */
+export const formatAge = (years: number) => years.toFixed(1).replace('.', ',');
+
 /** «2008-05-17» → «17.05.2008» без участия часового пояса. */
 export function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-');

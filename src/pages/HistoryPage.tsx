@@ -1,12 +1,13 @@
-import { Fragment } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { Card, Tiles, type Tile } from '../components/cards';
 import { LoadStatus } from '../components/common';
 import { Streaks } from '../components/Streaks';
-import { loadHistory } from '../db/queries';
-import type { CareerStats, SeasonSummary } from '../db/types';
-import { NEW_CLUB_FROM, SEASON_EPOCHS, formatInt, formatRatio, plural } from '../format';
+import { loadHistory, type HistoryPageData } from '../db/queries';
+import type { CareerStats, GoalMinute, SeasonSummary } from '../db/types';
+import { NEW_CLUB_FROM, SEASON_EPOCHS, formatAge, formatDate, formatInt, formatRatio, plural } from '../format';
+import { ageRecords, bucketColumns, minuteColumns, seasonAges, type AgeRecord, type MinuteColumn } from '../historyStats';
 import { useDocumentTitle, useLoad } from '../load';
-import { playerHref, seasonHref, type LeadersScope } from '../router';
+import { academyHref, matchHref, playerHref, seasonHref, type LeadersScope } from '../router';
 
 // Ключ один: история не зависит от адреса
 const ALL = 'all';
@@ -52,13 +53,15 @@ export function HistoryPage({ scope }: { scope: LeadersScope }) {
               проставлена примерно с 2010 года: у тех, кто ушёл раньше, её может не быть.
             </p>
           </Card>
-          <Card title="Лучшие воспитанники">
+          {state.data.ages.length > 0 && <AgeCard data={state.data} />}
+          <Card title="Лучшие воспитанники" aside={<a href={academyHref}>все выпускники →</a>}>
             <div className="academy-list">
               <AcademyLeaders players={state.data.academy} />
               <p className="note">По матчам за «Амкар» во всех турнирах, без товарищеских.</p>
             </div>
           </Card>
           <Streaks seasons={state.data.seasons} scope={scope} />
+          {state.data.minutes.length > 0 && <GoalMinutesCard rows={state.data.minutes} />}
         </>
       )}
     </div>
@@ -310,5 +313,148 @@ function RibbonRow({ s }: { s: SeasonSummary }) {
         )}
       </div>
     </li>
+  );
+}
+
+// ===========================================================================
+// Возраст состава
+// ===========================================================================
+
+/** Средний возраст по сезонам (по минутам) и рекорды: самые молодые дебютант и автор гола, самый возрастной игрок. */
+function AgeCard({ data }: { data: HistoryPageData }) {
+  const by = seasonAges(data.ages);
+  const avgs = [...by.values()].map((s) => s.avg).filter((v): v is number => v != null);
+  if (avgs.length === 0) return null;
+  // шкала — 10 лет с запасом снизу: столбики отличаются, а не тонут
+  const base = Math.floor(Math.min(...avgs)) - 2;
+  const youngest = data.seasons.find((s) => by.get(s.season_id)?.avg === Math.min(...avgs));
+  const oldest = data.seasons.find((s) => by.get(s.season_id)?.avg === Math.max(...avgs));
+  const last = [...data.seasons].reverse().find((s) => by.get(s.season_id)?.avg != null);
+  const records = ageRecords(data.ages, data.debuts, data.firstGoals);
+  const label = new Map(data.seasons.map((s) => [s.season_id, s.label]));
+  const missing = data.seasons.flatMap((s) => (by.get(s.season_id)?.missing ?? []).filter((m) => m.minutes > 0).map((m) => `${m.name} (${s.label}, ${m.minutes} мин)`));
+
+  return (
+    <Card title="Возраст состава" aside="средний, по минутам">
+      <SeasonColumns
+        seasons={data.seasons}
+        axis={[2, 4, 6, 8, 10].map((k) => String(base + k))}
+        column={(s) => {
+          const a = by.get(s.season_id);
+          if (a?.avg == null) return { value: null, title: `${s.label}: возраст не посчитать` };
+          const who = [a.youngest && `самый молодой — ${a.youngest.name} (${formatAge(a.youngest.age)})`, a.oldest && `самый возрастной — ${a.oldest.name} (${formatAge(a.oldest.age)})`];
+          return {
+            value: (a.avg - base) / 10,
+            title: [`${s.label}: ${formatAge(a.avg)} года`, ...who].filter(Boolean).join(' · '),
+            mark: s === youngest || s === oldest || s === last ? formatAge(a.avg) : undefined,
+          };
+        }}
+      />
+      <dl className="coach-facts age-records">
+        {records.youngestDebut && <AgeFact term="Самый молодой дебют" r={records.youngestDebut} />}
+        {records.youngestScorer && <AgeFact term="Самый молодой автор гола" r={records.youngestScorer} />}
+        {records.oldest && (
+          <div>
+            <dt>Самый возрастной игрок</dt>
+            <dd>
+              <a href={playerHref(records.oldest.player_id)}>{records.oldest.name}</a> — {formatAge(records.oldest.age)} года
+              <span className="muted"> (сезон {label.get(records.oldest.season_id)}, последний матч)</span>
+            </dd>
+          </div>
+        )}
+      </dl>
+      <p className="note">
+        Средний возраст — по минутам: каждый игрок весит столько, сколько сыграл в официальных матчах; возраст — на день матча.
+        Считаются только игроки с матчами в сезоне.
+        {missing.length > 0 && ` Без даты рождения и не учтены: ${missing.join(', ')}.`}
+      </p>
+    </Card>
+  );
+}
+
+function AgeFact({ term, r }: { term: string; r: AgeRecord }) {
+  return (
+    <div>
+      <dt>{term}</dt>
+      <dd>
+        <a href={playerHref(r.player_id)}>{r.name}</a> — {formatAge(r.age)} года{' '}
+        <span className="muted">
+          (<a href={matchHref(r.match_id)}>{r.date ? formatDate(r.date) : 'матч'}</a>
+          {r.opponent && `, ${r.opponent}`})
+        </span>
+      </dd>
+    </div>
+  );
+}
+
+// ===========================================================================
+// Голы по минутам
+// ===========================================================================
+
+const MINUTE_TICKS = new Set(['1', '15', '30', '45+', '60', '75', '90+']);
+
+/** Забитые — вверх, пропущенные — вниз: по 15-минуткам или по каждой минуте. */
+function GoalMinutesCard({ rows }: { rows: GoalMinute[] }) {
+  const [view, setView] = useState<'buckets' | 'minutes'>('buckets');
+  const buckets = bucketColumns(rows);
+  const cols = view === 'buckets' ? buckets : minuteColumns(rows);
+  const max = Math.max(1, ...cols.flatMap((c) => [c.scored, c.conceded]));
+  const scored = buckets.reduce((s, c) => s + c.scored, 0);
+  const conceded = buckets.reduce((s, c) => s + c.conceded, 0);
+  const most = (key: 'scored' | 'conceded') => [...buckets].sort((a, b) => b[key] - a[key])[0];
+  const share = (n: number, of: number) => `${Math.round((100 * n) / (of || 1))}%`;
+  const switcher: ReactNode = (
+    <span className="segmented" role="group" aria-label="Как показывать">
+      <button type="button" className={view === 'buckets' ? 'active' : undefined} aria-pressed={view === 'buckets'} onClick={() => setView('buckets')}>
+        По 15 минут
+      </button>
+      <button type="button" className={view === 'minutes' ? 'active' : undefined} aria-pressed={view === 'minutes'} onClick={() => setView('minutes')}>
+        По минутам
+      </button>
+    </span>
+  );
+
+  return (
+    <Card title="Голы по минутам" aside={switcher}>
+      <p className="wdl-legend mirror-legend">
+        <span>
+          <i className="mirror-scored" />
+          забитые — {formatInt(scored)}
+        </span>
+        <span>
+          <i className="mirror-conceded" />
+          пропущенные — {formatInt(conceded)}
+        </span>
+      </p>
+      <div className="chart-scroll">
+        <div className={`mirror mirror-${view}`}>
+          {cols.map((c) => (
+            <MirrorColumn key={c.label} c={c} max={max} numbers={view === 'buckets'} tick={view === 'buckets' || MINUTE_TICKS.has(c.label)} />
+          ))}
+        </div>
+      </div>
+      <p className="note">
+        Чаще всего забивали на {most('scored').label}-й минуте — {most('scored').scored} ({share(most('scored').scored, scored)}), пропускали — на{' '}
+        {most('conceded').label}-й — {most('conceded').conceded} ({share(most('conceded').conceded, conceded)}). Официальные матчи; «45+» и «90+» — добавленное
+        время тайма. Голы без записанной минуты не учтены.
+      </p>
+    </Card>
+  );
+}
+
+function MirrorColumn({ c, max, numbers, tick }: { c: MinuteColumn; max: number; numbers: boolean; tick: boolean }) {
+  const label = c.label === 'Доп. время' && !numbers ? 'д. в.' : c.label;
+  return (
+    <div className="mirror-col" title={`${c.label}: забито ${c.scored}, пропущено ${c.conceded}`}>
+      <span className="mirror-half mirror-up">
+        {numbers && c.scored > 0 && <b>{c.scored}</b>}
+        <span className="mirror-bar mirror-scored" style={{ height: `${(c.scored / max) * 100}%` }} />
+      </span>
+      <span className="mirror-label">{tick ? label : ''}</span>
+      <span className="mirror-half mirror-down">
+        <span className="mirror-bar mirror-conceded" style={{ height: `${(c.conceded / max) * 100}%` }} />
+        {numbers && c.conceded > 0 && <b>{c.conceded}</b>}
+      </span>
+    </div>
   );
 }

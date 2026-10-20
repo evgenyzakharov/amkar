@@ -8,7 +8,7 @@ import { LeadersPage } from './pages/LeadersPage';
 import { PlayersPage } from './pages/PlayersPage';
 import { SeasonPage } from './pages/SeasonPage';
 import { SeasonsPage } from './pages/SeasonsPage';
-import { adminHref, coachesHref, historyHref, leadersHref, parseRoute, playersHref, useHash, type Route } from './router';
+import { adminHref, coachesHref, historyHref, leadersHref, opponentsHref, parseRoute, playersHref, useHash, type Route } from './router';
 
 // Админка — отдельным файлом: посетителям сайта её код не нужен
 const AdminPage = lazy(() => import('./admin/AdminPage').then((m) => ({ default: m.AdminPage })));
@@ -17,6 +17,10 @@ const HistoryPage = lazy(() => import('./pages/HistoryPage').then((m) => ({ defa
 // Тренеры — тоже: статистика считается на сайте из всех матчей
 const CoachesPage = lazy(() => import('./pages/CoachesPage').then((m) => ({ default: m.CoachesPage })));
 const CoachPage = lazy(() => import('./pages/CoachesPage').then((m) => ({ default: m.CoachPage })));
+// Соперники и выпускники — тоже по запросу
+const OpponentsPage = lazy(() => import('./pages/OpponentsPage').then((m) => ({ default: m.OpponentsPage })));
+const OpponentPage = lazy(() => import('./pages/OpponentsPage').then((m) => ({ default: m.OpponentPage })));
+const AcademyPage = lazy(() => import('./pages/AcademyPage').then((m) => ({ default: m.AcademyPage })));
 
 function Page({ route }: { route: Route }) {
   switch (route.page) {
@@ -50,6 +54,24 @@ function Page({ route }: { route: Route }) {
           <CoachPage id={route.id} />
         </Suspense>
       );
+    case 'opponents':
+      return (
+        <Suspense fallback={<p className="muted">Загрузка…</p>}>
+          <OpponentsPage scope={route.scope} />
+        </Suspense>
+      );
+    case 'opponent':
+      return (
+        <Suspense fallback={<p className="muted">Загрузка…</p>}>
+          <OpponentPage id={route.id} />
+        </Suspense>
+      );
+    case 'academy':
+      return (
+        <Suspense fallback={<p className="muted">Загрузка…</p>}>
+          <AcademyPage />
+        </Suspense>
+      );
     case 'admin':
       return (
         <Suspense fallback={<p className="muted">Загрузка…</p>}>
@@ -79,8 +101,10 @@ function AdminLinks() {
 }
 
 /** Раздел шапки, к которому относится страница: матчи — часть сезонов. */
-function sectionOf(route: Route): 'seasons' | 'history' | 'coaches' | 'players' | 'leaders' | null {
+function sectionOf(route: Route): 'seasons' | 'history' | 'coaches' | 'opponents' | 'players' | 'leaders' | null {
   if (route.page === 'leaders') return 'leaders';
+  if (route.page === 'opponents' || route.page === 'opponent') return 'opponents';
+  if (route.page === 'academy') return 'history';
   if (route.page === 'coaches' || route.page === 'coach') return 'coaches';
   if (route.page === 'history') return 'history';
   if (route.page === 'seasons' || route.page === 'season' || route.page === 'match') return 'seasons';
@@ -116,6 +140,9 @@ function App() {
             </a>
             <a href={coachesHref()} className={section === 'coaches' ? 'active' : undefined}>
               Тренеры
+            </a>
+            <a href={opponentsHref()} className={section === 'opponents' ? 'active' : undefined}>
+              Соперники
             </a>
             <a href={playersHref} className={section === 'players' ? 'active' : undefined}>
               Игроки

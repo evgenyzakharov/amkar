@@ -746,3 +746,69 @@ describe('тренеры: сроки (coach_tenure), дебюты (player_debut)
     expect((await tc.query('select count(*)::int n from coach_tenure')).rows).toEqual([{ n: 2 }]);
   });
 });
+
+describe('дашборды: голы по минутам, возраст, первый гол, соперник дебюта', () => {
+  let dd: PGlite;
+  beforeAll(async () => {
+    dd = await migratedDb(SUPABASE_STRICT);
+    await dd.exec(`
+      insert into season (id, label, start_year, end_year) values (1, '2008', 2008, 2008);
+      insert into team (id, name) values (1, 'Химки'), (2, 'ЦСКА');
+      insert into player (id, display_name, last_name, academy, birth_date) values
+        (1, 'Кушев', 'Кушев', false, '1980-04-11'), (2, 'Зырянов', 'Зырянов', true, '1990-01-01'), (3, 'Без даты', 'Без даты', false, null);
+      insert into match (id, season_id, competition_id, seq, opponent_id, match_date) values
+        (1, 1, (select id from competition where kind = 'friendly'), 1, 2, '2008-02-01'),
+        (2, 1, (select id from competition where kind = 'league'), 2, 1, '2008-03-15'),
+        (3, 1, (select id from competition where kind = 'cup'), 3, 2, '2008-05-17');
+      insert into appearance (match_id, player_id, role, minutes) values
+        (1, 2, 'start', 90),
+        (2, 1, 'start', 90), (2, 2, 'sub', 30), (2, 3, 'start', 60),
+        (3, 1, 'start', 90), (3, 2, 'bench', 0);
+      insert into goal (match_id, side, kind, minute, added_time, scorer_id, scorer_name) values
+        (1, 'amkar', 'open_play', 10, null, 2, null),
+        (2, 'amkar', 'open_play', 45, 2, 1, null),
+        (2, 'opponent', 'penalty', 90, 3, null, 'Гонсалес'),
+        (3, 'amkar', 'open_play', 12, null, 2, null),
+        (3, 'amkar', 'open_play', 12, null, 1, null),
+        (3, 'opponent', 'open_play', null, null, null, 'Вагнер');
+    `);
+  }, 60_000);
+
+  it('голы по минутам: без товарищеских и без голов без минуты; добавленное время — отдельно', async () => {
+    const { rows } = await asUserIn(dd, null, 'select side, minute, added, competition_kind, goals from goal_minutes order by side, minute, competition_kind');
+    expect(rows).toEqual([
+      { side: 'amkar', minute: 12, added: false, competition_kind: 'cup', goals: 2 },
+      { side: 'amkar', minute: 45, added: true, competition_kind: 'league', goals: 1 },
+      { side: 'opponent', minute: 90, added: true, competition_kind: 'league', goals: 1 },
+    ]);
+  });
+
+  it('возраст в сезоне: по матчам, без запаса и товарищеских; без даты рождения — пусто', async () => {
+    const { rows } = await asUserIn(
+      dd,
+      null,
+      'select player_id, games, minutes, age_first::float8 af, age_last::float8 al, age_minutes::float8 am from player_season_age order by player_id',
+    );
+    expect(rows).toEqual([
+      // 15.03.2008 − 11.04.1980 = 10 200 дней ≈ 27,93 года; 17.05.2008 — 10 263 дня ≈ 28,10
+      { player_id: 1, games: 2, minutes: 180, af: 27.93, al: 28.1, am: 5042.22 },
+      { player_id: 2, games: 1, minutes: 30, af: 18.2, al: 18.2, am: 546.04 },
+      { player_id: 3, games: 1, minutes: 60, af: null, al: null, am: null },
+    ]);
+  });
+
+  it('первый гол и дебют: официальные матчи, с соперником', async () => {
+    const goals = await asUserIn(dd, null, 'select player_id, match_id, opponent, minute from player_first_goal order by player_id');
+    expect(goals.rows).toEqual([
+      { player_id: 1, match_id: 2, opponent: 'Химки', minute: 45 },
+      // гол в товарищеском матче 1 не первый — первый в кубке
+      { player_id: 2, match_id: 3, opponent: 'ЦСКА', minute: 12 },
+    ]);
+    const debut = await asUserIn(dd, null, 'select player_id, match_id, opponent, birth_date::text from player_debut order by player_id');
+    expect(debut.rows).toEqual([
+      { player_id: 1, match_id: 2, opponent: 'Химки', birth_date: '1980-04-11' },
+      { player_id: 2, match_id: 2, opponent: 'Химки', birth_date: '1990-01-01' },
+      { player_id: 3, match_id: 2, opponent: 'Химки', birth_date: null },
+    ]);
+  });
+});

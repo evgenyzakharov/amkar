@@ -6,6 +6,9 @@ import {
   adminSeasonHref,
   coachHref,
   coachesHref,
+  academyHref,
+  opponentHref,
+  opponentsHref,
   historyHref,
   leadersHref,
   parseRoute,
@@ -28,6 +31,9 @@ describe('маршруты', () => {
     expect(parseRoute(coachesHref())).toEqual({ page: 'coaches', scope: 'all' });
     expect(parseRoute(coachesHref('league'))).toEqual({ page: 'coaches', scope: 'league' });
     expect(parseRoute(coachHref(14))).toEqual({ page: 'coach', id: 14 });
+    expect(parseRoute(opponentsHref('league'))).toEqual({ page: 'opponents', scope: 'league' });
+    expect(parseRoute(opponentHref(7))).toEqual({ page: 'opponent', id: 7 });
+    expect(parseRoute(academyHref)).toEqual({ page: 'academy' });
     expect(parseRoute('#/coach/oborin')).toEqual({ page: 'not-found' });
   });
 

@@ -1,7 +1,7 @@
 // Статистика главных тренеров для страниц «Тренеры» и карточки тренера: всё считается из официальных матчей
 // (без товарищеских), сроков работы (coach_tenure) и дебютов игроков (view player_debut).
 import type { CompetitionKind, MatchRow, Result, Season } from './db/types';
-import { NEW_CLUB_FROM, plural } from './format';
+import { NEW_CLUB_FROM, formatRatio, plural } from './format';
 
 export interface CoachInfo {
   id: number;
@@ -31,6 +31,9 @@ export interface Debut {
   coach_id: number | null;
   season_label: string;
   start_year: number;
+  /** Соперник и дата рождения — из миграции 20261020160000. */
+  opponent?: string | null;
+  birth_date?: string | null;
 }
 
 export interface CoachesData {
@@ -56,10 +59,13 @@ export interface Totals {
   winPct: number | null;
 }
 
-export interface Run {
+/** Матч со счётом и результатом — всё, что нужно для итогов и серий (тренера, соперника). */
+export type ScoredMatch = Pick<MatchRow, 'result' | 'goals_for' | 'goals_against'>;
+
+export interface Run<M = CoachMatch> {
   n: number;
-  from: CoachMatch | null;
-  to: CoachMatch | null;
+  from: M | null;
+  to: M | null;
 }
 
 export interface CoachSeason {
@@ -128,7 +134,7 @@ const TIER_IN: Record<number, string> = {
 
 const POINTS: Record<Result, number> = { W: 3, D: 1, L: 0 };
 
-export function totals(matches: CoachMatch[]): Totals {
+export function totals(matches: ScoredMatch[]): Totals {
   const t = { p: matches.length, w: 0, d: 0, l: 0, gf: 0, ga: 0, cleanSheets: 0, points: 0 };
   for (const m of matches) {
     if (m.result === 'W') t.w++;
@@ -145,8 +151,8 @@ export function totals(matches: CoachMatch[]): Totals {
 }
 
 /** Самая длинная серия подряд идущих матчей, где выполнено условие. */
-export function longestRun(matches: CoachMatch[], ok: (m: CoachMatch) => boolean): Run {
-  let best: Run = { n: 0, from: null, to: null };
+export function longestRun<M extends ScoredMatch>(matches: M[], ok: (m: M) => boolean): Run<M> {
+  let best: Run<M> = { n: 0, from: null, to: null };
   let start = 0;
   let n = 0;
   matches.forEach((m, i) => {
@@ -161,15 +167,15 @@ export function longestRun(matches: CoachMatch[], ok: (m: CoachMatch) => boolean
   return best;
 }
 
-const margin = (m: CoachMatch) => (m.goals_for ?? 0) - (m.goals_against ?? 0);
-const hasScore = (m: CoachMatch) => m.goals_for != null && m.goals_against != null;
+const margin = (m: ScoredMatch) => (m.goals_for ?? 0) - (m.goals_against ?? 0);
+const hasScore = (m: ScoredMatch) => m.goals_for != null && m.goals_against != null;
 const cupStage = (m: CoachMatch) => (m.competition.kind === 'cup' ? (m.round ?? '').replace(/,.*$/, '').trim() : '');
 const year = (m: CoachMatch) => m.match_date?.slice(0, 4) ?? '';
 const newClub = (s: Season) => s.start_year >= NEW_CLUB_FROM;
 
 /** Самая крупная победа: по разнице мячей, при равенстве — больше забитых. */
-function biggest(matches: CoachMatch[], sign: 1 | -1): CoachMatch | null {
-  let best: CoachMatch | null = null;
+export function biggest<M extends ScoredMatch>(matches: M[], sign: 1 | -1): M | null {
+  let best: M | null = null;
   for (const m of matches) {
     if (!hasScore(m) || Math.sign(margin(m)) !== sign) continue;
     const better =
@@ -348,3 +354,22 @@ function addTierRecords(stats: CoachStats[], seasonOf: Map<number, Season>) {
     }
   }
 }
+
+// «В–Н–П» не переносится по тире: между буквами — невидимые неразрывные соединители
+export const WDL = 'В⁠–⁠Н⁠–⁠П';
+
+export const ppmText = (t: Totals) => (t.ppm == null ? '—' : formatRatio(t.ppm));
+
+/** Строки разрезов «по турнирам» и «дома и в гостях». */
+export const KIND_ROWS = [
+  ['league', 'Чемпионат'],
+  ['cup', 'Кубок России'],
+  ['europe', 'Лига Европы'],
+  ['playoff', 'Переходные матчи'],
+] as const;
+
+export const VENUE_ROWS = [
+  ['home', 'Дома'],
+  ['away', 'В гостях'],
+  ['neutral', 'Нейтральное поле'],
+] as const;

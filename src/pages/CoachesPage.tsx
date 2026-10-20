@@ -1,9 +1,17 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Card, ScopeSwitch, Tiles, type Tile } from '../components/cards';
 import { LoadStatus, NotFound, PageNav } from '../components/common';
-import { DEBUTS_FROM, TIER_LABEL, coachStats, type CoachMatch, type CoachStats, type Period, type Run, type Totals } from '../coaches';
+import { Slices, Wdl } from '../components/MatchStats';
+import {
+  DEBUTS_FROM,
+  KIND_ROWS,
+  TIER_LABEL,
+  VENUE_ROWS,
+  WDL,
+  coachStats,
+  ppmText, type CoachMatch, type CoachStats, type Period, type Run, type Totals } from '../coaches';
 import { loadCoachPage, loadCoaches, type CoachPlayer } from '../db/queries';
-import { formatDate, formatInt, formatRatio, formatScore, opponentName, plural } from '../format';
+import { formatDate, formatInt, formatScore, opponentName, plural } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { coachHref, coachesHref, matchHref, playerHref, seasonHref, type LeadersScope } from '../router';
 
@@ -25,34 +33,6 @@ function years(c: CoachStats): string {
   return year(from) === year(to) ? year(from) : `${year(from)}–${year(to)}`;
 }
 const periodText = (p: Period) => `${formatDate(p.from)} — ${p.to ? formatDate(p.to) : 'по н. в.'}`;
-const ppm = (t: Totals) => (t.ppm == null ? '—' : formatRatio(t.ppm));
-const WDL = 'В⁠–⁠Н⁠–⁠П';
-
-function WdlBar({ t }: { t: Totals }) {
-  return (
-    <span className="wdl-bar" aria-hidden="true">
-      {(
-        [
-          ['W', t.w],
-          ['D', t.d],
-          ['L', t.l],
-        ] as const
-      ).map(([r, n]) => n > 0 && <span key={r} className={`wdl-${r}`} style={{ flexGrow: n }} />)}
-    </span>
-  );
-}
-
-function Wdl({ t }: { t: Totals }) {
-  return (
-    <span className="coach-wdl">
-      <WdlBar t={t} />
-      <span className="num">
-        {t.w}–{t.d}–{t.l}
-      </span>
-    </span>
-  );
-}
-
 // ===========================================================================
 // Страница «Тренеры»
 // ===========================================================================
@@ -104,7 +84,7 @@ function overviewTiles(stats: CoachStats[]): Tile[] {
     { value: stats.length, label: `${plural(stats.length, ['главный тренер', 'главных тренера', 'главных тренеров'])} с 1995 года` },
     { value: formatInt(longest.all.p), label: `матчей — ${longest.coach.full_name}, ${years(longest)}` },
   ];
-  if (best) tiles.push({ value: ppm(best.all), label: `очка за матч — ${best.coach.full_name} (лучший, от 20 матчей)` });
+  if (best) tiles.push({ value: ppmText(best.all), label: `очка за матч — ${best.coach.full_name} (лучший, от 20 матчей)` });
   if (top) tiles.push({ value: `${top.s.final_place}-е`, label: `место в высшей лиге — ${top.c.coach.full_name}, ${top.s.label}` });
   return tiles;
 }
@@ -215,7 +195,7 @@ function CoachTable({ stats, scope }: { stats: CoachStats[]; scope: LeadersScope
                 <td>
                   <Wdl t={t} />
                 </td>
-                <td className="num">{ppm(t)}</td>
+                <td className="num">{ppmText(t)}</td>
                 <td className="num">{t.winPct == null ? '—' : `${t.winPct}%`}</td>
                 <td className="num nowrap">
                   {t.gf}:{t.ga}
@@ -274,7 +254,7 @@ function TierTable({ stats }: { stats: CoachStats[] }) {
                 const t = c.byTier[l];
                 return t ? (
                   <td key={l} className="num" style={{ background: shade(t.ppm ?? 0) }} title={`${t.p} матчей, ${t.w}–${t.d}–${t.l}`}>
-                    <b>{ppm(t)}</b> <span className="muted">({t.p})</span>
+                    <b>{ppmText(t)}</b> <span className="muted">({t.p})</span>
                   </td>
                 ) : (
                   <td key={l} />
@@ -340,25 +320,12 @@ export function CoachPage({ id }: { id: number }) {
       <div className="card-row card-row-even">
         <Card title="По турнирам">
           <Slices
-            rows={(
-              [
-                ['league', 'Чемпионат'],
-                ['cup', 'Кубок России'],
-                ['europe', 'Лига Европы'],
-                ['playoff', 'Переходные матчи'],
-              ] as const
-            ).flatMap(([k, label]) => (c.byKind[k] ? [{ label, t: c.byKind[k]! }] : []))}
+            rows={KIND_ROWS.flatMap(([k, label]) => (c.byKind[k] ? [{ label, t: c.byKind[k]! }] : []))}
           />
         </Card>
         <Card title="Дома и в гостях">
           <Slices
-            rows={(
-              [
-                ['home', 'Дома'],
-                ['away', 'В гостях'],
-                ['neutral', 'Нейтральное поле'],
-              ] as const
-            ).flatMap(([k, label]) => (c.byVenue[k] ? [{ label, t: c.byVenue[k]! }] : []))}
+            rows={VENUE_ROWS.flatMap(([k, label]) => (c.byVenue[k] ? [{ label, t: c.byVenue[k]! }] : []))}
           />
         </Card>
       </div>
@@ -385,7 +352,7 @@ function coachTiles(c: CoachStats): Tile[] {
   return [
     { value: formatInt(t.p), label: plural(t.p, ['официальный матч', 'официальных матча', 'официальных матчей']) },
     { value: `${t.w}–${t.d}–${t.l}`, label: 'победы, ничьи, поражения' },
-    { value: ppm(t), label: `очка за матч · ${t.winPct ?? 0}% побед` },
+    { value: ppmText(t), label: `очка за матч · ${t.winPct ?? 0}% побед` },
     { value: `${t.gf}:${t.ga}`, label: `мячи · ${t.cleanSheets} «сухих»` },
   ];
 }
@@ -415,42 +382,9 @@ function CoachSeasons({ c }: { c: CoachStats }) {
               <td>
                 <Wdl t={t} />
               </td>
-              <td className="num">{ppm(t)}</td>
+              <td className="num">{ppmText(t)}</td>
               <td className="num nowrap">
                 {led && s.final_place ? `${s.final_place}${s.teams_count ? ` из ${s.teams_count}` : ''}` : <span className="muted">—</span>}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function Slices({ rows }: { rows: { label: string; t: Totals }[] }) {
-  return (
-    <div className="table-wrap">
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th></th>
-            <th className="num">М</th>
-            <th>{WDL}</th>
-            <th className="num">Очки/м</th>
-            <th className="num">Мячи</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ label, t }) => (
-            <tr key={label}>
-              <td>{label}</td>
-              <td className="num">{t.p}</td>
-              <td className="nowrap">
-                {t.w}–{t.d}–{t.l}
-              </td>
-              <td className="num">{ppm(t)}</td>
-              <td className="num nowrap">
-                {t.gf}:{t.ga}
               </td>
             </tr>
           ))}

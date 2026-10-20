@@ -14,7 +14,7 @@ import {
   opponentName,
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { adminMatchHref, coachHref, matchHref, playerHref, seasonHref } from '../router';
+import { adminMatchHref, coachHref, matchHref, opponentHref, playerHref, seasonHref } from '../router';
 
 export function MatchPage({ id }: { id: number }) {
   const state = useLoad(id, loadMatch);
@@ -28,7 +28,8 @@ export function MatchPage({ id }: { id: number }) {
   const m = state.data.match;
   // Хозяева слева: в гостях «Амкар» справа — в заголовке, счёте и голах
   const away = m.venue === 'away';
-  const [left, right] = away ? [opponentName(m), 'Амкар'] : ['Амкар', opponentName(m)];
+  const opponent = m.opponent_id ? <a href={opponentHref(m.opponent_id)}>{opponentName(m)}</a> : opponentName(m);
+  const [left, right] = away ? [opponent, 'Амкар'] : ['Амкар', opponent];
   const score = formatHomeScore(m);
   const details: ReactNode[] = [
     m.competition.name,
