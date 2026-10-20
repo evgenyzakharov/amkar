@@ -8,7 +8,7 @@ import { LeadersPage } from './pages/LeadersPage';
 import { PlayersPage } from './pages/PlayersPage';
 import { SeasonPage } from './pages/SeasonPage';
 import { SeasonsPage } from './pages/SeasonsPage';
-import { adminHref, coachesHref, historyHref, leadersHref, opponentsHref, parseRoute, playersHref, useHash, type Route } from './router';
+import { adminHref, coachesHref, historyHref, leadersHref, opponentsHref, parseRoute, playersHref, pyramidHref, useHash, type Route } from './router';
 
 // Админка — отдельным файлом: посетителям сайта её код не нужен
 const AdminPage = lazy(() => import('./admin/AdminPage').then((m) => ({ default: m.AdminPage })));
@@ -21,6 +21,7 @@ const CoachPage = lazy(() => import('./pages/CoachesPage').then((m) => ({ defaul
 const OpponentsPage = lazy(() => import('./pages/OpponentsPage').then((m) => ({ default: m.OpponentsPage })));
 const OpponentPage = lazy(() => import('./pages/OpponentsPage').then((m) => ({ default: m.OpponentPage })));
 const AcademyPage = lazy(() => import('./pages/AcademyPage').then((m) => ({ default: m.AcademyPage })));
+const PyramidPage = lazy(() => import('./pages/PyramidPage').then((m) => ({ default: m.PyramidPage })));
 
 function Page({ route }: { route: Route }) {
   switch (route.page) {
@@ -72,6 +73,12 @@ function Page({ route }: { route: Route }) {
           <AcademyPage />
         </Suspense>
       );
+    case 'pyramid':
+      return (
+        <Suspense fallback={<p className="muted">Загрузка…</p>}>
+          <PyramidPage />
+        </Suspense>
+      );
     case 'admin':
       return (
         <Suspense fallback={<p className="muted">Загрузка…</p>}>
@@ -101,8 +108,9 @@ function AdminLinks() {
 }
 
 /** Раздел шапки, к которому относится страница: матчи — часть сезонов. */
-function sectionOf(route: Route): 'seasons' | 'history' | 'coaches' | 'opponents' | 'players' | 'leaders' | null {
+function sectionOf(route: Route): 'seasons' | 'history' | 'coaches' | 'opponents' | 'players' | 'leaders' | 'pyramid' | null {
   if (route.page === 'leaders') return 'leaders';
+  if (route.page === 'pyramid') return 'pyramid';
   if (route.page === 'opponents' || route.page === 'opponent') return 'opponents';
   if (route.page === 'academy') return 'history';
   if (route.page === 'coaches' || route.page === 'coach') return 'coaches';
@@ -149,6 +157,9 @@ function App() {
             </a>
             <a href={leadersHref()} className={section === 'leaders' ? 'active' : undefined}>
               Лидеры
+            </a>
+            <a href={pyramidHref} className={section === 'pyramid' ? 'active' : undefined}>
+              Пирамида
             </a>
           </nav>
           <AdminLinks />

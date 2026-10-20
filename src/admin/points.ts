@@ -1,6 +1,9 @@
 // Очки сезона: числа формулы (points_settings) и ручные поправки автора к сезону игрока.
 // Сама формула считается во view player_season_points (миграция 20261020200000) — здесь только правка чисел.
+import { TIER_NAMES } from '../pyramid';
 import type { Writer } from './writer';
+
+const TIER_KEYS = ['tier_1_from', 'tier_2_from', 'tier_3_from', 'tier_4_from', 'tier_5_from'] as const;
 
 // ===========================================================================
 // Числа формулы
@@ -13,6 +16,7 @@ export const POINTS_NUMBER_KEYS = [
   'absolute_share', 'tier_rate_1', 'tier_rate_2', 'tier_rate_3', 'tier_rate_4', 'tier_rate_5', 'short_season_power',
   'place_last', 'place_first', 'expect_range',
   'peak_seasons', 'peak_weight',
+  'tier_1_from', 'tier_2_from', 'tier_3_from', 'tier_4_from', 'tier_5_from',
 ] as const;
 export type PointsNumberKey = (typeof POINTS_NUMBER_KEYS)[number];
 
@@ -34,6 +38,7 @@ interface FieldSpec {
 const weight = (label: string): FieldSpec => ({ label, min: 0, max: 20, digits: 2 });
 const share = (label: string, note?: string): FieldSpec => ({ label, min: 0, max: 1, digits: 3, note });
 const tierRate = (label: string): FieldSpec => ({ label, min: 0, max: 2, digits: 3, above: true });
+const tierFrom = (name: string): FieldSpec => ({ label: `«${name}» — от`, min: 0, max: 10000, digits: 1 });
 
 export const POINTS_FIELDS: Record<PointsNumberKey, FieldSpec> = {
   per_90: weight('За 90 минут'),
@@ -61,6 +66,11 @@ export const POINTS_FIELDS: Record<PointsNumberKey, FieldSpec> = {
   expect_range: share('Ожидания', '0,25 — ±25 %, если команда финишировала на всю таблицу выше или ниже ожидаемого места'),
   peak_seasons: { label: 'Лучших сезонов ещё раз', min: 0, max: 10, digits: 0 },
   peak_weight: { label: 'С весом', min: 0, max: 5, digits: 2 },
+  tier_1_from: tierFrom(TIER_NAMES[0]),
+  tier_2_from: tierFrom(TIER_NAMES[1]),
+  tier_3_from: tierFrom(TIER_NAMES[2]),
+  tier_4_from: tierFrom(TIER_NAMES[3]),
+  tier_5_from: tierFrom(TIER_NAMES[4]),
 };
 
 /** Группы полей формы — в порядке формулы. */
@@ -84,6 +94,11 @@ export const POINTS_GROUPS: { title: string; note: string; keys: PointsNumberKey
     title: 'Ценность за карьеру',
     note: 'Сумма очков всех сезонов плюс лучшие сезоны ещё раз с этим весом.',
     keys: ['peak_seasons', 'peak_weight'],
+  },
+  {
+    title: 'Ярусы пирамиды',
+    note: 'С какой ценности за карьеру начинается ярус; ниже последнего порога — вне пирамиды.',
+    keys: ['tier_1_from', 'tier_2_from', 'tier_3_from', 'tier_4_from', 'tier_5_from'],
   },
 ];
 
@@ -126,6 +141,10 @@ export function validatePoints(d: PointsDraft) {
   }
   const [last, first] = [parseDecimal(d.place_last), parseDecimal(d.place_first)];
   if (!Number.isNaN(last) && !Number.isNaN(first) && first < last) errors.push('За первое место множитель не может быть меньше, чем за последнее.');
+  const tiers = TIER_KEYS.map((k) => parseDecimal(d[k]));
+  if (tiers.every((n) => !Number.isNaN(n)) && tiers.some((n, i) => i > 0 && n >= tiers[i - 1])) {
+    errors.push('Пороги ярусов — по убыванию: у «Пантеона» выше, чем у «Легенд», и так далее.');
+  }
   return errors;
 }
 

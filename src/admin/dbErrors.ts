@@ -156,6 +156,7 @@ export const CONSTRAINT_MESSAGES: Record<string, string> = {
   points_settings_tier_rates: 'Курс уровня лиги — больше 0 и не больше 2.',
   points_settings_place: 'Множитель за место: оба больше нуля, за первое место — не меньше, чем за последнее, и не больше 3.',
   points_settings_peak: 'Лучших сезонов — от 0 до 10, их вес — от 0 до 5.',
+  points_settings_tiers: 'Пороги ярусов — по убыванию: «Пантеон» выше «Легенд», те выше «Топа» и так далее; от 0 до 10 000.',
   season_expected_place_check: 'Ожидаемое место — от 1.',
   season_expected_place_teams: 'Ожидаемое место не может быть больше числа команд.',
   player_season_adjustment_pkey: 'Поправка этому игроку в этом сезоне уже есть.',

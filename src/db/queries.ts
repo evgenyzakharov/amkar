@@ -10,6 +10,7 @@ import type {
   PlayerSeasonAge,
   Appearance,
   BestXiSlot,
+  CareerPoints,
   CareerStats,
   ExternalLink,
   GridAbsence,
@@ -22,6 +23,7 @@ import type {
   PlayerSeasonStats,
   Season,
   SeasonMatch,
+  SeasonPoints,
   SeasonSummary,
   SquadEntry,
   TeamStreak,
@@ -89,7 +91,12 @@ export interface SeasonPageData {
   /** Схема сборной, '' — без схемы. */
   formation: string;
   links: ExternalLink[];
+  /** Очки сезона игроков; без миграции 20261020200000 — ошибка, страница работает без них. */
+  points: Part<SeasonPoints[]>;
 }
+
+const POINTS_COLUMNS = 'season_id, player_id, season_label, display_name, position, points, season_rank, overall_rank, adjustment, adjustment_comment';
+const CAREER_POINTS_COLUMNS = 'player_id, display_name, seasons, first_season, last_season, value, career_rank, tier';
 
 export async function loadSeason(label: string): Promise<SeasonPageData> {
   const seasons = await loadSeasons();
@@ -97,7 +104,7 @@ export async function loadSeason(label: string): Promise<SeasonPageData> {
   if (i < 0) throw new NotFoundError(`Сезона «${label}» в базе нет.`);
   const season = seasons[i];
 
-  const [matches, squad, bestXi, formation, links] = await Promise.all([
+  const [matches, squad, bestXi, formation, links, points] = await Promise.all([
     rows<SeasonMatch[]>(
       db().from('match').select(`${MATCH_COLUMNS}, coach(id, full_name)`).eq('season_id', season.id).order('seq'),
     ),
@@ -114,8 +121,60 @@ export async function loadSeason(label: string): Promise<SeasonPageData> {
     rows<BestXiSlot[]>(db().from('season_best_xi').select('slot, player(id, display_name)').eq('season_id', season.id)),
     loadFormation(season.id),
     optional(rows<ExternalLink[]>(db().from('season_link').select('site, url').eq('season_id', season.id))),
+    part(rows<SeasonPoints[]>(db().from('player_season_points').select(POINTS_COLUMNS).eq('season_id', season.id).order('points', { ascending: false }))),
   ]);
-  return { season, prev: seasons[i - 1] ?? null, next: seasons[i + 1] ?? null, matches, squad, bestXi, formation, links };
+  return { season, prev: seasons[i - 1] ?? null, next: seasons[i + 1] ?? null, matches, squad, bestXi, formation, links, points };
+}
+
+export interface PlayerPoints {
+  seasons: SeasonPoints[];
+  /** null — игрок без сезонов в заявке. */
+  career: CareerPoints | null;
+  /** Лучший сезон в истории — общая шкала полос у всех игроков. */
+  scaleMax: number;
+}
+
+/** Очки игрока по сезонам и за карьеру. */
+async function loadPlayerPoints(id: number): Promise<PlayerPoints> {
+  const [seasons, career, top] = await Promise.all([
+    rows<SeasonPoints[]>(db().from('player_season_points').select(POINTS_COLUMNS).eq('player_id', id)),
+    rows<CareerPoints | null>(db().from('player_career_points').select(CAREER_POINTS_COLUMNS).eq('player_id', id).maybeSingle()),
+    rows<{ points: number }[]>(db().from('player_season_points').select('points').order('points', { ascending: false }).limit(1)),
+  ]);
+  return { seasons, career, scaleMax: top[0]?.points ?? 0 };
+}
+
+export interface PyramidData {
+  /** Игроки в пирамиде, по убыванию ценности. */
+  careers: CareerPoints[];
+  /** Пороги ярусов сверху вниз и сколько лучших сезонов считаются ещё раз. */
+  thresholds: number[];
+  peakSeasons: number;
+  best: SeasonPoints[];
+  /** Лига сезона — для таблицы лучших сезонов. */
+  divisions: Map<number, string | null>;
+}
+
+export async function loadPyramid(): Promise<PyramidData> {
+  type Settings = { peak_seasons: number; tier_1_from: number; tier_2_from: number; tier_3_from: number; tier_4_from: number; tier_5_from: number };
+  const [careers, settings, best, seasons] = await Promise.all([
+    rows<CareerPoints[]>(
+      db().from('player_career_points').select(CAREER_POINTS_COLUMNS).not('tier', 'is', null).order('value', { ascending: false }),
+    ),
+    rows<Settings | null>(
+      db().from('points_settings').select('peak_seasons, tier_1_from, tier_2_from, tier_3_from, tier_4_from, tier_5_from').eq('id', 1).maybeSingle(),
+    ),
+    rows<SeasonPoints[]>(db().from('player_season_points').select(POINTS_COLUMNS).order('points', { ascending: false }).limit(20)),
+    loadSeasons(),
+  ]);
+  if (!settings) throw new Error('Формулы очков в базе нет.');
+  return {
+    careers,
+    thresholds: [settings.tier_1_from, settings.tier_2_from, settings.tier_3_from, settings.tier_4_from, settings.tier_5_from],
+    peakSeasons: settings.peak_seasons,
+    best,
+    divisions: new Map(seasons.map((s) => [s.id, s.division])),
+  };
 }
 
 export interface MatchPageData {
@@ -181,6 +240,8 @@ export interface PlayerPageData {
   links: ExternalLink[];
   career: Part<PlayerSeasonStats[]>;
   transfers: Transfer[];
+  /** Очки сезона и ценность за карьеру; без миграции очков — ошибка, страница работает без них. */
+  points: Part<PlayerPoints>;
 }
 
 // Порядок окон внутри сезона: в сезоне «весна — осень» зимнее окно раньше летнего, в «осень — весна» — наоборот
@@ -202,7 +263,7 @@ export async function loadPlayer(id: number): Promise<PlayerPageData> {
   );
   if (!player) throw new NotFoundError(`Игрока №${id} в базе нет.`);
 
-  const [links, career, transfers] = await Promise.all([
+  const [links, career, transfers, points] = await Promise.all([
     optional(rows<ExternalLink[]>(db().from('player_link').select('site, url').eq('player_id', id))),
     part(
       rows<PlayerSeasonStats[]>(
@@ -217,6 +278,7 @@ export async function loadPlayer(id: number): Promise<PlayerPageData> {
         )
         .eq('player_id', id),
     ),
+    part(loadPlayerPoints(id)),
   ]);
   transfers.sort(
     (a, b) =>
@@ -229,7 +291,7 @@ export async function loadPlayer(id: number): Promise<PlayerPageData> {
   const photoUrl = player.photo_path
     ? db().storage.from('player-photos').getPublicUrl(player.photo_path).data.publicUrl
     : null;
-  return { player, photoUrl, links, career, transfers };
+  return { player, photoUrl, links, career, transfers, points };
 }
 
 export interface PlayersPageItem extends PlayerListItem {

@@ -13,6 +13,7 @@ export type Route =
   | { page: 'opponents'; scope: LeadersScope }
   | { page: 'opponent'; id: number }
   | { page: 'academy' }
+  | { page: 'pyramid' }
   | { page: 'match'; id: number }
   | { page: 'player'; id: number }
   | { page: 'admin'; admin: AdminRoute }
@@ -61,6 +62,7 @@ export const coachHref = (id: number) => `#/coach/${id}`;
 export const opponentsHref = (scope: LeadersScope = 'all') => `#/opponents${scope === 'league' ? '?scope=league' : ''}`;
 export const opponentHref = (id: number) => `#/opponent/${id}`;
 export const academyHref = '#/academy';
+export const pyramidHref = '#/pyramid';
 
 export const adminHref = '#/admin';
 export const adminSeasonHref = (label: string, tab: SeasonTab = 'matches') =>
@@ -108,6 +110,7 @@ export function parseRoute(hash: string): Route {
   if (parts.length === 1 && parts[0] === 'coaches') return { page: 'coaches', scope: scopeOf(query) };
   if (parts.length === 1 && parts[0] === 'opponents') return { page: 'opponents', scope: scopeOf(query) };
   if (parts.length === 1 && parts[0] === 'academy') return { page: 'academy' };
+  if (parts.length === 1 && parts[0] === 'pyramid') return { page: 'pyramid' };
   if (parts.length === 1 && parts[0] === 'leaders') {
     return { page: 'leaders', scope: scopeOf(query), tab: new URLSearchParams(query).get('tab') === 'clubs' ? 'clubs' : 'tables' };
   }

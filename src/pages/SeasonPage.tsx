@@ -3,10 +3,11 @@ import { Card, ExternalLinks, Tiles, type Tile } from '../components/cards';
 import { EditLink, LoadStatus, Tag } from '../components/common';
 import { SeasonHeatmap } from '../components/SeasonHeatmap';
 import { loadSeason, type SeasonPageData } from '../db/queries';
-import type { BestXiSlot, CompetitionKind, PlayerSeasonStats, SeasonMatch } from '../db/types';
+import type { BestXiSlot, CompetitionKind, PlayerSeasonStats, SeasonMatch, SeasonPoints } from '../db/types';
 import {
   AWARDED_LABEL,
   bestXiLines,
+  formatInt,
   POSITION_LABEL,
   POSITION_TITLE,
   RESULT_LABEL,
@@ -18,7 +19,7 @@ import {
   plural,
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { adminSeasonHref, coachHref, matchHref, playerHref, seasonHref } from '../router';
+import { adminSeasonHref, coachHref, matchHref, playerHref, pyramidHref, seasonHref } from '../router';
 
 export function SeasonPage({ label }: { label: string }) {
   useDocumentTitle(`Сезон ${label}`);
@@ -30,6 +31,10 @@ export function SeasonPage({ label }: { label: string }) {
 function SeasonCard({ data }: { data: SeasonPageData }) {
   const { season, prev, next, matches, squad, bestXi, formation, links } = data;
   const squadRef = useRef<HTMLDetailsElement>(null);
+  // Очки сезона — отдельной частью: без миграции очков страница показывается без них
+  const points = 'data' in data.points ? data.points.data : [];
+  const pointsBy = new Map(points.map((p) => [p.player_id, p]));
+  const leader = points[0]?.points > 0 ? points[0] : null;
 
   const official = matches.filter((m) => m.competition.kind !== 'friendly');
   const friendlies = matches.filter((m) => m.competition.kind === 'friendly');
@@ -117,7 +122,7 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
         </div>
       </section>
 
-      <Tiles tiles={seasonTiles(official)} label="Итоги сезона" />
+      <Tiles tiles={[...seasonTiles(official), ...(leader ? [leaderTile(leader)] : [])]} label="Итоги сезона" />
 
       {matches.length > 0 ? (
         <Card title="Результаты по ходу сезона" aside={legend(official)}>
@@ -159,11 +164,17 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
       ) : players.length > 0 ? (
         <details className="card squad-details" ref={squadRef}>
           <summary className="card-title">{squadLabel}</summary>
-          <SquadTable squad={players} />
+          <SquadTable squad={players} points={pointsBy} />
           <p className="note">
             {players[0]?.goals_source === 'matches'
               ? 'Игры, минуты, голы и передачи — по записанным матчам, без товарищеских.'
               : 'Игры и минуты — без товарищеских матчей. Голы и передачи — итоги сезона из таблицы автора, пустая ячейка — данных нет.'}
+            {pointsBy.size > 0 && (
+              <>
+                {' '}
+                Очки — <a href={pyramidHref}>по формуле пирамиды</a>, место в сезоне — во всплывающей подсказке; звёздочка — с поправкой автора.
+              </>
+            )}
           </p>
         </details>
       ) : (
@@ -171,6 +182,14 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
       )}
     </div>
   );
+}
+
+/** Плитка «игрок сезона по очкам»: лучший по очкам сезона и его место среди всех сезонов в истории. */
+function leaderTile(p: SeasonPoints): Tile {
+  return {
+    value: <a href={playerHref(p.player_id)}>{p.display_name}</a>,
+    label: `игрок сезона по очкам — ${formatInt(Math.round(p.points))}, ${p.overall_rank}-й сезон в истории`,
+  };
 }
 
 /** Главный тренер — тот, кто провёл больше всего официальных матчей сезона. */
@@ -294,10 +313,11 @@ function TopList({ players, stat }: { players: PlayerSeasonStats[]; stat: 'goals
   );
 }
 
-function SquadTable({ squad }: { squad: PlayerSeasonStats[] }) {
+function SquadTable({ squad, points }: { squad: PlayerSeasonStats[]; points: Map<number, SeasonPoints> }) {
   const hasPositions = squad.some((p) => p.position);
   const hasConceded = squad.some((p) => p.goals_conceded != null);
-  const columns = 6 + Number(hasPositions) + Number(hasConceded);
+  const hasPoints = points.size > 0;
+  const columns = 6 + Number(hasPositions) + Number(hasConceded) + Number(hasPoints);
   const groups = [
     { title: null, rows: squad.filter((p) => p.squad_group === 'main') },
     { title: 'Молодёжь', rows: squad.filter((p) => p.squad_group === 'youth') },
@@ -328,6 +348,11 @@ function SquadTable({ squad }: { squad: PlayerSeasonStats[] }) {
                 Проп.
               </th>
             )}
+            {hasPoints && (
+              <th className="num" title="очки сезона по формуле пирамиды">
+                Очки
+              </th>
+            )}
           </tr>
         </thead>
         {groups.map((g) => (
@@ -355,12 +380,30 @@ function SquadTable({ squad }: { squad: PlayerSeasonStats[] }) {
                 <td className="num">{num(p.goals)}</td>
                 <td className="num">{num(p.assists)}</td>
                 {hasConceded && <td className="num">{num(p.goals_conceded)}</td>}
+                {hasPoints && <PointsCell points={points.get(p.player_id)} />}
               </tr>
             ))}
           </tbody>
         ))}
       </table>
     </div>
+  );
+}
+
+/** Очки сезона в заявке: место в сезоне — подсказкой, поправка автора — звёздочкой. */
+function PointsCell({ points }: { points: SeasonPoints | undefined }) {
+  if (!points) return <td className="num" />;
+  const title = [
+    `${points.season_rank}-е место в сезоне`,
+    points.adjustment ? `поправка автора ${points.adjustment > 0 ? '+' : '−'}${Math.abs(points.adjustment)}: ${points.adjustment_comment}` : '',
+  ]
+    .filter(Boolean)
+    .join('; ');
+  return (
+    <td className="num" title={title}>
+      {formatInt(Math.round(points.points))}
+      {points.adjustment ? '*' : ''}
+    </td>
   );
 }
 

@@ -912,6 +912,24 @@ describe('очки сезона: настройки (points_settings), ожид�
     expect(rows[0].value).toBeCloseTo(seasons[0] + seasons[1] + 2 * seasons[0], 1);
   });
 
+  it('ярус пирамиды — по порогам ценности; первый и последний сезон — подписью', async () => {
+    await settings('tier_1_from = 1000, tier_2_from = 650, tier_3_from = 500, tier_4_from = 350, tier_5_from = 250');
+    const value = (await q('select value from player_career_points where player_id = 3')).rows[0].value as number;
+    // порог «Свои» — ровно ценность нападающего: ярус 5; чуть выше — вне пирамиды
+    await settings(`tier_5_from = ${value}, tier_4_from = ${value + 1}`);
+    expect((await q('select first_season, last_season, tier from player_career_points where player_id = 3')).rows).toEqual([
+      { first_season: '2008', last_season: '2009', tier: 5 },
+    ]);
+    await settings(`tier_5_from = ${value + 0.1}, tier_4_from = ${value + 1}`);
+    expect((await q('select tier from player_career_points where player_id = 3')).rows).toEqual([{ tier: null }]);
+    // без игр — без сезонов в подписи
+    expect((await q('select seasons, first_season, last_season from player_career_points where player_id = 4')).rows).toEqual([
+      { seasons: 0, first_season: null, last_season: null },
+    ]);
+    // «Легенды» выше «Пантеона» — нельзя
+    await expect(settings('tier_2_from = 1500')).rejects.toThrow(/points_settings_tiers/);
+  });
+
   it('ожидаемое место: от 1, не больше числа команд, можно «2,5»', async () => {
     await pt.exec('update season set expected_place = 2.5 where id = 2');
     await expect(pt.exec('update season set expected_place = 0 where id = 2')).rejects.toThrow(/season_expected_place_check/);

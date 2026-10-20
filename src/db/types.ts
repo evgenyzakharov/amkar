@@ -76,6 +76,34 @@ export interface BestXiSlot {
   player: { id: number; display_name: string };
 }
 
+/** Строка view player_season_points: очки сезона игрока по формуле, места в сезоне и среди всех сезонов. */
+export interface SeasonPoints {
+  season_id: number;
+  player_id: number;
+  season_label: string;
+  display_name: string;
+  position: Position;
+  /** Без округления — округляет страница. */
+  points: number;
+  season_rank: number;
+  overall_rank: number;
+  /** Ручная поправка автора и за что. */
+  adjustment: number | null;
+  adjustment_comment: string | null;
+}
+
+/** Строка view player_career_points: ценность за карьеру и ярус пирамиды (1 — «Пантеон», пусто — вне пирамиды). */
+export interface CareerPoints {
+  player_id: number;
+  display_name: string;
+  seasons: number;
+  first_season: string | null;
+  last_season: string | null;
+  value: number;
+  career_rank: number;
+  tier: number | null;
+}
+
 export interface Appearance {
   player_id: number;
   role: 'start' | 'sub' | 'bench' | null;

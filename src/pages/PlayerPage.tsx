@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Card, ExternalLinks, Tiles, type Tile } from '../components/cards';
 import { EditLink, LoadStatus, Tag } from '../components/common';
-import { loadPlayer } from '../db/queries';
+import { loadPlayer, type PlayerPoints } from '../db/queries';
 import type { Player, PlayerSeasonStats, Transfer } from '../db/types';
 import {
   DIRECTION_LABEL,
@@ -15,14 +15,15 @@ import {
   sumKnown,
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { adminPlayerHref, playersHref, seasonHref } from '../router';
+import { tierName } from '../pyramid';
+import { adminPlayerHref, playersHref, pyramidHref, seasonHref } from '../router';
 
 export function PlayerPage({ id }: { id: number }) {
   const state = useLoad(id, loadPlayer);
   useDocumentTitle(state.status === 'ready' ? state.data.player.display_name : `Игрок №${id}`);
   if (state.status !== 'ready') return <LoadStatus state={state} />;
 
-  const { player, photoUrl, links, career, transfers } = state.data;
+  const { player, photoUrl, links, career, transfers, points } = state.data;
   const seasons = 'data' in career ? career.data : [];
 
   return (
@@ -41,6 +42,7 @@ export function PlayerPage({ id }: { id: number }) {
         <>
           <Tiles tiles={careerTiles(seasons)} label="Итоги за «Амкар»" />
           {seasons.some((s) => (s.goals ?? 0) > 0) && <GoalsChart seasons={seasons} />}
+          {'data' in points && <SeasonPointsBlock data={points.data} seasons={seasons} />}
           <Card title="Карьера в клубе">
             <CareerTable seasons={seasons} />
           </Card>
@@ -210,6 +212,51 @@ function GoalsChart({ seasons }: { seasons: PlayerSeasonStats[] }) {
         </div>
       </div>
     </Card>
+  );
+}
+
+/** Очки сезона по формуле пирамиды: ценность за карьеру, лучший сезон, ярус и полосы по сезонам. */
+function SeasonPointsBlock({ data, seasons }: { data: PlayerPoints; seasons: PlayerSeasonStats[] }) {
+  const bySeason = new Map(data.seasons.map((p) => [p.season_id, p]));
+  // По порядку сезонов карьеры и только сезоны, где игрок выходил на поле
+  const played = seasons.filter((s) => s.games > 0).flatMap((s) => bySeason.get(s.season_id) ?? []);
+  if (played.length === 0 || !data.career) return null;
+  const best = played.reduce((a, b) => (b.points > a.points ? b : a));
+  const tier = tierName(data.career.tier);
+  const tiles: Tile[] = [
+    { value: formatInt(Math.round(data.career.value)), label: `ценность за карьеру — ${data.career.career_rank}-е место в истории` },
+    { value: formatInt(Math.round(best.points)), label: `лучший сезон — ${best.season_label}, ${best.overall_rank}-й в истории` },
+  ];
+  if (tier) tiles.push({ value: <a href={pyramidHref}>{tier}</a>, label: 'ярус пирамиды' });
+
+  return (
+    <>
+      <Tiles tiles={tiles} label="Пирамида" />
+      <Card title="Очки по сезонам">
+        <div className="points-bars">
+          {played.map((p) => (
+            <div className="points-row" key={p.season_id}>
+              <a href={seasonHref(p.season_label)}>{p.season_label}</a>
+              <div className="points-bar" aria-hidden="true">
+                <i style={{ width: `${Math.max(1, Math.min(100, (p.points / (data.scaleMax || 1)) * 100))}%` }} />
+              </div>
+              <b>{formatInt(Math.round(p.points))}</b>
+              <span className="muted">{p.season_rank}-й в сезоне</span>
+              {p.adjustment != null && (
+                <span className="points-adjustment">
+                  поправка автора {p.adjustment > 0 ? '+' : '−'}
+                  {formatInt(Math.abs(p.adjustment))}: {p.adjustment_comment}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+        <p className="note">
+          Очки — <a href={pyramidHref}>по формуле пирамиды</a>. Шкала полос общая для всех игроков: полная полоса — лучший сезон в
+          истории.
+        </p>
+      </Card>
+    </>
   );
 }
 
