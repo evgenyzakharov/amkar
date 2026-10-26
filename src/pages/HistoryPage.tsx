@@ -419,6 +419,8 @@ function GoalMinutesCard({ rows }: { rows: GoalMinute[] }) {
   const conceded = buckets.reduce((s, c) => s + c.conceded, 0);
   const most = (key: 'scored' | 'conceded') => [...buckets].sort((a, b) => b[key] - a[key])[0];
   const share = (n: number, of: number) => `${Math.round((100 * n) / (of || 1))}%`;
+  // По минутам столбик дополнительного времени — последний и без подписи: под ним нет места рядом с «90+»
+  const extraUnlabeled = view === 'minutes' && cols.some((c) => c.label === 'Доп. время');
   const switcher: ReactNode = (
     <span className="segmented" role="group" aria-label="Как показывать">
       <button type="button" className={view === 'buckets' ? 'active' : undefined} aria-pressed={view === 'buckets'} onClick={() => setView('buckets')}>
@@ -452,21 +454,20 @@ function GoalMinutesCard({ rows }: { rows: GoalMinute[] }) {
       <p className="note">
         Чаще всего забивали на {most('scored').label}-й минуте — {most('scored').scored} ({share(most('scored').scored, scored)}), пропускали — на{' '}
         {most('conceded').label}-й — {most('conceded').conceded} ({share(most('conceded').conceded, conceded)}). Официальные матчи; «45+» и «90+» — добавленное
-        время тайма. Голы без записанной минуты не учтены.
+        время тайма{extraUnlabeled && ', последний столбик — дополнительное время'}. Голы без записанной минуты не учтены.
       </p>
     </Card>
   );
 }
 
 function MirrorColumn({ c, max, numbers, tick }: { c: MinuteColumn; max: number; numbers: boolean; tick: boolean }) {
-  const label = c.label === 'Доп. время' && !numbers ? 'д. в.' : c.label;
   return (
     <div className="mirror-col" title={`${c.label}: забито ${c.scored}, пропущено ${c.conceded}`}>
       <span className="mirror-half mirror-up">
         {numbers && c.scored > 0 && <b>{c.scored}</b>}
         <span className="mirror-bar mirror-scored" style={{ height: `${(c.scored / max) * 100}%` }} />
       </span>
-      <span className="mirror-label">{tick ? label : ''}</span>
+      <span className="mirror-label">{tick ? c.label : ''}</span>
       <span className="mirror-half mirror-down">
         <span className="mirror-bar mirror-conceded" style={{ height: `${(c.conceded / max) * 100}%` }} />
         {numbers && c.conceded > 0 && <b>{c.conceded}</b>}
