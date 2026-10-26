@@ -4,7 +4,7 @@ import { LoadStatus, PageNav } from '../components/common';
 import type { Debut } from '../coaches';
 import { loadAcademy, type AcademyData } from '../db/queries';
 import type { CareerStats, FirstGoal } from '../db/types';
-import { ageYears, formatAge, formatDate, plural } from '../format';
+import { ageYears, formatAgeExact, formatDate, plural } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { historyHref, matchHref, playerHref } from '../router';
 
@@ -44,7 +44,6 @@ export function AcademyPage() {
   const state = useLoad(ALL, load);
   const list = useMemo(() => (state.status === 'ready' ? graduates(state.data) : []), [state]);
   const played = list.filter((g) => g.debut);
-  const waiting = list.filter((g) => !g.debut);
 
   return (
     <div className="card-page coaches">
@@ -62,18 +61,6 @@ export function AcademyPage() {
               официальных матчах за «Амкар», по протоколам; возраст — на день дебюта.
             </p>
           </Card>
-          {waiting.length > 0 && (
-            <Card title="Ещё не играли за основу" aside={`${waiting.length}`}>
-              <p className="coach-debut-line">
-                {waiting.map((g, k) => (
-                  <span key={g.id}>
-                    {k > 0 && ', '}
-                    <a href={playerHref(g.id)}>{g.name}</a>
-                  </span>
-                ))}
-              </p>
-            </Card>
-          )}
         </>
       )}
     </div>
@@ -89,7 +76,9 @@ function academyTiles(list: Graduate[]): Tile[] {
     { value: list.length, label: `${plural(list.length, ['воспитанник', 'воспитанника', 'воспитанников'])} в базе` },
     { value: played.length, label: `${plural(played.length, ['сыграл', 'сыграли', 'сыграли'])} за «Амкар» · ${scored.length} забивали` },
   ];
-  if (youngest) tiles.push({ value: formatAge(youngest.debutAge!), label: `года — самый молодой дебют: ${youngest.name}` });
+  if (youngest?.birth && youngest.debut?.match_date) {
+    tiles.push({ value: formatAgeExact(youngest.birth, youngest.debut.match_date), label: `самый молодой дебют — ${youngest.name}` });
+  }
   if (most?.career) tiles.push({ value: most.career.games, label: `${plural(most.career.games, ['матч', 'матча', 'матчей'])} — ${most.name}, больше всех` });
   return tiles;
 }
@@ -145,7 +134,9 @@ function GraduatesTable({ list }: { list: Graduate[] }) {
                   </>
                 )}
               </td>
-              <td className="num">{g.debutAge == null ? <span className="muted">—</span> : formatAge(g.debutAge)}</td>
+              <td className="num nowrap">
+                {g.birth && g.debut?.match_date ? formatAgeExact(g.birth, g.debut.match_date) : <span className="muted">—</span>}
+              </td>
               <td>
                 {g.goal ? (
                   <>

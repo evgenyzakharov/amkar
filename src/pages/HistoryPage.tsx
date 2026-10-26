@@ -4,7 +4,7 @@ import { LoadStatus } from '../components/common';
 import { Streaks } from '../components/Streaks';
 import { loadHistory, type HistoryPageData } from '../db/queries';
 import type { CareerStats, GoalMinute, SeasonSummary } from '../db/types';
-import { NEW_CLUB_FROM, SEASON_EPOCHS, formatAge, formatDate, formatInt, formatRatio, plural } from '../format';
+import { NEW_CLUB_FROM, SEASON_EPOCHS, formatAge, formatAgeExact, formatDate, formatInt, formatRatio, plural } from '../format';
 import { ageRecords, bucketColumns, minuteColumns, seasonAges, type AgeRecord, type MinuteColumn } from '../historyStats';
 import { useDocumentTitle, useLoad } from '../load';
 import { academyHref, matchHref, playerHref, seasonHref, type LeadersScope } from '../router';
@@ -363,7 +363,8 @@ function AgeCard({ data }: { data: HistoryPageData }) {
           <div>
             <dt>Самый возрастной игрок</dt>
             <dd>
-              <a href={playerHref(records.oldest.player_id)}>{records.oldest.name}</a> — {formatAge(records.oldest.age)} года
+              <a href={playerHref(records.oldest.player_id)}>{records.oldest.name}</a> —{' '}
+              {records.oldest.birth && records.oldest.date ? formatAgeExact(records.oldest.birth, records.oldest.date) : `${formatAge(records.oldest.age)} года`}
               <span className="muted">
                 {' '}
                 (
@@ -392,7 +393,7 @@ function AgeFact({ term, r }: { term: string; r: AgeRecord }) {
     <div>
       <dt>{term}</dt>
       <dd>
-        <a href={playerHref(r.player_id)}>{r.name}</a> — {formatAge(r.age)} года{' '}
+        <a href={playerHref(r.player_id)}>{r.name}</a> — {r.date ? formatAgeExact(r.birth, r.date) : `${formatAge(r.age)} года`}{' '}
         <span className="muted">
           (<a href={matchHref(r.match_id)}>{r.date ? formatDate(r.date) : 'матч'}</a>
           {r.opponent && `, ${r.opponent}`})

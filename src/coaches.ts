@@ -108,13 +108,13 @@ export interface CoachStats {
   last: CoachMatch | null;
   bigWin: CoachMatch | null;
   bigLoss: CoachMatch | null;
-  /** Дебютанты с 1996 года: в первом сезоне 1995 дебютировали все. */
+  /** Дебютанты при тренере, с первого сезона. */
   debutants: Debut[];
   achievements: Achievement[];
 }
 
-/** С этого года считаем дебюты: в 1995 за «Амкар» дебютировали все. */
-export const DEBUTS_FROM = 1996;
+/** С этого года считаем дебюты — с первого сезона клуба. */
+export const DEBUTS_FROM = 1995;
 
 /** Уровни лиги по схеме автора (season.tier). */
 export const TIER_LABEL: Record<number, string> = {

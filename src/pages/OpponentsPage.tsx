@@ -208,9 +208,9 @@ function OpponentCard({ data }: { data: OpponentPageData }) {
                   <tr>
                     <th>Сезон</th>
                     <th>Дата</th>
+                    <th>Счёт</th>
                     <th>Турнир</th>
                     <th>Где</th>
-                    <th>Счёт</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -220,14 +220,14 @@ function OpponentCard({ data }: { data: OpponentPageData }) {
                       <tr key={m.id}>
                         <td>{s && <a href={seasonHref(s.label)}>{s.label}</a>}</td>
                         <td className="nowrap">{m.match_date && formatDate(m.match_date)}</td>
+                        <td className="nowrap">
+                          <ResultBadge result={m.result} /> <a href={matchHref(m.id)}>{formatScore(m) || 'счёт?'}</a>
+                        </td>
                         <td>
                           {m.competition.name}
                           {m.round && <span className="muted"> · {/^\d+$/.test(m.round) ? `${m.round}-й тур` : m.round}</span>}
                         </td>
                         <td>{m.venue && VENUE_LABEL[m.venue]}</td>
-                        <td className="nowrap">
-                          <ResultBadge result={m.result} /> <a href={matchHref(m.id)}>{formatScore(m) || 'счёт?'}</a>
-                        </td>
                       </tr>
                     );
                   })}

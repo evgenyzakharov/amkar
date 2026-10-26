@@ -3,7 +3,6 @@ import { Card, ScopeSwitch, Tiles, type Tile } from '../components/cards';
 import { LoadStatus, NotFound, PageNav } from '../components/common';
 import { Slices, Wdl } from '../components/MatchStats';
 import {
-  DEBUTS_FROM,
   KIND_ROWS,
   TIER_LABEL,
   VENUE_ROWS,
@@ -50,21 +49,20 @@ export function CoachesPage({ scope }: { scope: LeadersScope }) {
       ) : (
         <>
           <Tiles tiles={overviewTiles(stats)} label="Тренеры в цифрах" />
-          <Card title="Эпохи" aside="кто вёл команду">
+          <Card title="Эпохи">
             <Epochs stats={stats} />
           </Card>
           <Card title="Все главные тренеры" aside={<ScopeSwitch scope={scope} href={coachesHref} allLabel="Все игры" />}>
             <CoachTable stats={stats} scope={scope} />
             <p className="note">
               Официальные матчи, без товарищеских. Очки — 3 за победу, 1 за ничью, у технических результатов — тоже.
-              Наведите на значки — названия ачивок.
+              Наведите на значки — названия достижений.
             </p>
           </Card>
           <Card title="Очки за матч по уровню лиги" aside="чемпионат">
             <TierTable stats={stats} />
             <p className="note">
-              «Амкар» играл от Третьей лиги до Премьер-лиги — сравнивать тренеров честнее внутри одного уровня. В скобках —
-              матчи.
+              В скобках — матчи.
             </p>
           </Card>
         </>
@@ -129,7 +127,6 @@ function Epochs({ stats }: { stats: CoachStats[] }) {
           </li>
         ))}
       </ul>
-      <p className="note">Штриховка — время без «Амкара»: в 2018–2021 клуба не было.</p>
     </>
   );
 }
@@ -143,7 +140,7 @@ const COLUMNS: { key: SortKey; label: string; num?: boolean; value: (c: CoachSta
   { key: 'ppm', label: 'Очки/м', num: true, value: (_, t) => t.ppm ?? -1 },
   { key: 'winPct', label: '% побед', num: true, value: (_, t) => t.winPct ?? -1 },
   { key: 'goals', label: 'Мячи', num: true, value: (_, t) => t.gf - t.ga },
-  { key: 'ach', label: 'Ачивки', value: (c) => c.achievements.length },
+  { key: 'ach', label: 'Достижения', value: (c) => c.achievements.length },
 ];
 
 function CoachTable({ stats, scope }: { stats: CoachStats[]; scope: LeadersScope }) {
@@ -212,7 +209,7 @@ function CoachTable({ stats, scope }: { stats: CoachStats[]; scope: LeadersScope
   );
 }
 
-/** Значки ачивок в строке таблицы: одинаковые — одним значком с числом (у Оборина восемь рекордов). */
+/** Значки достижений в строке таблицы: одинаковые — одним значком с числом (у Оборина восемь рекордов). */
 function AchievementIcons({ c }: { c: CoachStats }) {
   const count = new Map<string, number>();
   for (const a of c.achievements) count.set(a.icon, (count.get(a.icon) ?? 0) + 1);
@@ -302,7 +299,7 @@ export function CoachPage({ id }: { id: number }) {
       </section>
       <Tiles tiles={coachTiles(c)} label="Тренер в цифрах" />
       {c.achievements.length > 0 && (
-        <Card title="Ачивки">
+        <Card title="Достижения">
           <ul className="achievements">
             {c.achievements.map((a) => (
               <li key={a.title} className={a.kind === 'record' ? 'record' : undefined}>
@@ -484,7 +481,6 @@ function Debutants({ c }: { c: CoachStats }) {
           ))}
         </p>
       )}
-      <p className="note">Дебюты считаются с {DEBUTS_FROM} года: в первом сезоне 1995-го за «Амкар» дебютировали все.</p>
     </>
   );
 }

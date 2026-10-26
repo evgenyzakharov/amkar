@@ -199,6 +199,21 @@ export function ageYears(birth: string, on: string): number {
   return (Date.parse(`${on}T00:00:00Z`) - Date.parse(`${birth}T00:00:00Z`)) / (365.25 * 86_400_000);
 }
 
+/** Полные годы и дни с последнего дня рождения; родившийся 29 февраля в невисокосный год празднует 1 марта. */
+export function ageExact(birth: string, on: string): { years: number; days: number } {
+  const [by, bm, bd] = birth.split('-').map(Number);
+  const [y, m, d] = on.split('-').map(Number);
+  const years = y - by - (m < bm || (m === bm && d < bd) ? 1 : 0);
+  const days = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(by + years, bm - 1, bd)) / 86_400_000);
+  return { years, days };
+}
+
+/** «15 лет 147 дней» — возраст на дату. */
+export function formatAgeExact(birth: string, on: string): string {
+  const { years, days } = ageExact(birth, on);
+  return `${years} ${plural(years, ['год', 'года', 'лет'])} ${days} ${plural(days, ['день', 'дня', 'дней'])}`;
+}
+
 /** 18.2 → «18,2» */
 export const formatAge = (years: number) => years.toFixed(1).replace('.', ',');
 

@@ -248,7 +248,7 @@ function SeasonPointsBlock({ data, seasons }: { data: PlayerPoints; seasons: Pla
               <span className="muted">{p.season_rank}-й в сезоне</span>
               {p.adjustment != null && (
                 <span className="points-adjustment">
-                  поправка автора {p.adjustment > 0 ? '+' : '−'}
+                  поправка {p.adjustment > 0 ? '+' : '−'}
                   {formatInt(Math.abs(p.adjustment))}: {p.adjustment_comment}
                 </span>
               )}

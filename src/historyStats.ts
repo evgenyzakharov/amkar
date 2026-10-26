@@ -104,6 +104,8 @@ export function seasonAges(rows: PlayerSeasonAge[]): Map<number, SeasonAge> {
 export interface AgeRecord {
   player_id: number;
   name: string;
+  /** Для «15 лет 147 дней». */
+  birth: string;
   age: number;
   match_id: number;
   date: string | null;
@@ -116,13 +118,13 @@ export function ageRecords(ages: PlayerSeasonAge[], debuts: Debut[], firstGoals:
   for (const a of ages) if (a.birth_date) birth.set(a.player_id, { name: a.display_name, birth: a.birth_date });
   const youngestDebut = debuts
     .filter((d) => d.birth_date && d.match_date)
-    .map((d): AgeRecord => ({ player_id: d.player_id, name: d.display_name, age: ageYears(d.birth_date!, d.match_date!), match_id: d.match_id, date: d.match_date, opponent: d.opponent ?? null }))
+    .map((d): AgeRecord => ({ player_id: d.player_id, name: d.display_name, birth: d.birth_date!, age: ageYears(d.birth_date!, d.match_date!), match_id: d.match_id, date: d.match_date, opponent: d.opponent ?? null }))
     .sort((a, b) => a.age - b.age)[0];
   const youngestScorer = firstGoals
     .filter((g) => g.match_date && birth.has(g.player_id))
     .map((g): AgeRecord => {
       const b = birth.get(g.player_id)!;
-      return { player_id: g.player_id, name: b.name, age: ageYears(b.birth, g.match_date!), match_id: g.match_id, date: g.match_date, opponent: g.opponent };
+      return { player_id: g.player_id, name: b.name, birth: b.birth, age: ageYears(b.birth, g.match_date!), match_id: g.match_id, date: g.match_date, opponent: g.opponent };
     })
     .sort((a, b) => a.age - b.age)[0];
   const oldest = ages.filter((a) => a.age_last != null).sort((a, b) => Number(b.age_last) - Number(a.age_last))[0];
@@ -134,6 +136,7 @@ export function ageRecords(ages: PlayerSeasonAge[], debuts: Debut[], firstGoals:
           player_id: oldest.player_id,
           name: oldest.display_name,
           age: Number(oldest.age_last),
+          birth: oldest.birth_date,
           season_id: oldest.season_id,
           // последний матч сезона — из миграции 20261026120000; без неё — только сезон
           match_id: oldest.last_match_id ?? null,

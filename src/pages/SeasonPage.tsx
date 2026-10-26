@@ -170,7 +170,7 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
             {pointsBy.size > 0 && (
               <>
                 {' '}
-                Очки — <a href={pyramidHref}>по формуле Амкаровской пирамиды</a>, место в сезоне — во всплывающей подсказке; звёздочка — с поправкой автора.
+                Очки — <a href={pyramidHref}>по формуле Амкаровской пирамиды</a>, место в сезоне — во всплывающей подсказке; звёздочка — с поправкой.
               </>
             )}
           </p>
@@ -407,12 +407,12 @@ function SquadTable({ squad, points }: { squad: PlayerSeasonStats[]; points: Map
   );
 }
 
-/** Очки сезона в заявке: место в сезоне — подсказкой, поправка автора — звёздочкой. */
+/** Очки сезона в заявке: место в сезоне — подсказкой, поправка — звёздочкой. */
 function PointsCell({ points }: { points: SeasonPoints | undefined }) {
   if (!points) return <td className="num" />;
   const title = [
     `${points.season_rank}-е место в сезоне`,
-    points.adjustment ? `поправка автора ${points.adjustment > 0 ? '+' : '−'}${Math.abs(points.adjustment)}: ${points.adjustment_comment}` : '',
+    points.adjustment ? `поправка ${points.adjustment > 0 ? '+' : '−'}${Math.abs(points.adjustment)}: ${points.adjustment_comment}` : '',
   ]
     .filter(Boolean)
     .join('; ');

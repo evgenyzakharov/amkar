@@ -426,10 +426,36 @@ export interface HistoryPageData {
   firstGoals: FirstGoal[];
 }
 
-const loadAges = (columns: string) =>
+const loadAges = () =>
   optional(
-    allRows<PlayerSeasonAge>((from, to) => db().from('player_season_age').select(columns).order('season_id').order('player_id').range(from, to)),
+    allRows<PlayerSeasonAge>((from, to) =>
+      db()
+        .from('player_season_age')
+        .select('season_id, player_id, display_name, academy, birth_date, games, minutes, age_minutes, age_first, age_last')
+        .order('season_id')
+        .order('player_id')
+        .range(from, to),
+    ),
   );
+
+/**
+ * Последний матч самого возрастного игрока. Отдельным запросом: последний матч по всем строкам вида
+ * считается секунды и не укладывается в лимит анонимного запроса, а по одной строке — мгновенно.
+ */
+async function withOldestLastMatch(ages: PlayerSeasonAge[]): Promise<PlayerSeasonAge[]> {
+  const oldest = ages.filter((a) => a.age_last != null).sort((a, b) => Number(b.age_last) - Number(a.age_last))[0];
+  if (!oldest) return ages;
+  const [last] = await optional(
+    rows<Pick<PlayerSeasonAge, 'last_match_id' | 'last_match_date' | 'last_opponent'>[]>(
+      db()
+        .from('player_season_age')
+        .select('last_match_id, last_match_date, last_opponent')
+        .eq('season_id', oldest.season_id)
+        .eq('player_id', oldest.player_id),
+    ),
+  );
+  return last ? ages.map((a) => (a === oldest ? { ...a, ...last } : a)) : ages;
+}
 
 export async function loadHistory(): Promise<HistoryPageData> {
   const [seasons, graduates, minutes, ages, debuts, firstGoals] = await Promise.all([
@@ -445,9 +471,7 @@ export async function loadHistory(): Promise<HistoryPageData> {
     ),
     rows<{ id: number }[]>(db().from('player').select('id').eq('academy', true)),
     optional(rows<GoalMinute[]>(db().from('goal_minutes').select('side, minute, added, competition_kind, goals'))),
-    loadAges('season_id, player_id, display_name, academy, birth_date, games, minutes, age_minutes, age_first, age_last, last_match_id, last_match_date, last_opponent').then(
-      (rows) => (rows.length > 0 ? rows : loadAges('season_id, player_id, display_name, academy, birth_date, games, minutes, age_minutes, age_first, age_last')),
-    ),
+    loadAges().then(withOldestLastMatch),
     optional(
       allRows<Debut>((from, to) =>
         db()
