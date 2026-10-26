@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ageExact, formatAgeExact, formatHomeScore, formatScore } from '../src/format';
+import { ageExact, formatAgeExact, formatHomeScore, formatScore, opponentCodes } from '../src/format';
 
 const match = { goals_for: 0, goals_against: 2, extra_time: false, pens_for: null, pens_against: null };
 
@@ -34,5 +34,33 @@ describe('возраст годами и днями', () => {
     expect(ageExact('2004-02-29', '2021-02-28')).toEqual({ years: 16, days: 365 });
     expect(ageExact('2004-02-29', '2021-03-01')).toEqual({ years: 17, days: 0 });
     expect(ageExact('2004-02-29', '2024-02-29')).toEqual({ years: 20, days: 0 });
+  });
+});
+
+describe('соперник в 3–4 буквы', () => {
+  const codes = (...names: string[]) => Object.fromEntries(opponentCodes(names));
+
+  it('три первые буквы, короткое слово и аббревиатура — целиком, дубль — с пометкой', () => {
+    expect(codes('Рубин', 'Урал', 'ЦСКА', 'ФК Москва', 'Рубин-2', 'Балтика-М', 'КамАЗ-Дубль', 'Химик-Август')).toEqual({
+      Рубин: 'РУБ',
+      Урал: 'УРАЛ',
+      ЦСКА: 'ЦСКА',
+      'ФК Москва': 'МОС',
+      'Рубин-2': 'РУБ2',
+      'Балтика-М': 'БАЛМ',
+      'КамАЗ-Дубль': 'КАМД',
+      'Химик-Август': 'ХИМ',
+    });
+  });
+
+  it('тёзки в одном списке различаются городом, однословные — последней буквой', () => {
+    expect(codes('Динамо Москва')).toEqual({ 'Динамо Москва': 'ДИН' });
+    expect(codes('Динамо Москва', 'Динамо Пермь', 'Динамо Москва')).toEqual({ 'Динамо Москва': 'ДИНМ', 'Динамо Пермь': 'ДИНП' });
+    expect(codes('Динамо СПб', 'Динамо Ставрополь')).toEqual({ 'Динамо СПб': 'ДИНС', 'Динамо Ставрополь': 'ДСТА' });
+    expect(codes('Уралмаш', 'Уралец', 'Урал')).toEqual({ Уралмаш: 'УРАШ', Уралец: 'УРАЦ', Урал: 'УРАЛ' });
+  });
+
+  it('не складывается в слово', () => {
+    expect(codes('Спартак Москва', 'Спартак Нальчик')).toEqual({ 'Спартак Москва': 'СМОС', 'Спартак Нальчик': 'СПАН' });
   });
 });

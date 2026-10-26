@@ -171,6 +171,43 @@ export function bestXiLines(key: string | null | undefined, filled: string[]): s
 export const opponentName = (m: Pick<MatchRow, 'team' | 'opponent_raw' | 'opponent_name'>) =>
   m.opponent_name ?? m.team?.name ?? m.opponent_raw ?? 'соперник не указан';
 
+const RESERVE_SUFFIX = /-(2|м|дубль)$/i;
+/** Сокращения, которые читаются как слово. */
+const AWKWARD_CODES = new Set(['СПАМ']);
+
+/** Варианты сокращения по порядку: «РУБ», «УРАЛ», «ЦСКА», «РУБ2»; для тёзок — с городом «ДИНП», «Д» + город «ДСТА»; для однословных — «УРАШ». */
+function codeCandidates(name: string): string[] {
+  const clean = name.replace(/^ФК\s+/, '').trim();
+  const reserve = RESERVE_SUFFIX.exec(clean);
+  const [first, ...rest] = (reserve ? clean.slice(0, reserve.index) : clean).split(/[\s-]+/);
+  const main = first.toUpperCase();
+  const city = rest.join('').toUpperCase();
+  const three = first === main && /^[А-ЯЁA-Z]{2,4}$/.test(first) ? main : main.slice(0, 3);
+  const out: string[] = [];
+  if (reserve) out.push(three.slice(0, 3) + (reserve[1] === '2' ? '2' : reserve[1].toLowerCase() === 'м' ? 'М' : 'Д'));
+  else out.push(main.length <= 4 ? main : three);
+  if (city) out.push(three.slice(0, 3) + city[0], main[0] + city.slice(0, 3));
+  if (main.length > 4) out.push(main.slice(0, 3) + main.at(-1), main.slice(0, 4));
+  return out.filter((c) => !AWKWARD_CODES.has(c));
+}
+
+/**
+ * Сокращения соперников в 3–4 буквы, однозначные в пределах списка: один «Динамо» — «ДИН»,
+ * два — «ДИНМ» и «ДИНП»; «Уралмаш» и «Уралец» в одном сезоне — «УРАШ» и «УРАЦ».
+ */
+export function opponentCodes(names: string[]): Map<string, string> {
+  const unique = [...new Set(names)];
+  const candidates = new Map(unique.map((n) => [n, codeCandidates(n)]));
+  const codes = new Map<string, string>();
+  const taken = (code: string, self: string) =>
+    unique.some((o) => o !== self && (candidates.get(o)![0] === code || codes.get(o) === code));
+  for (const name of unique) {
+    const own = candidates.get(name)!;
+    codes.set(name, own.find((c) => !taken(c, name)) ?? own.at(-1) ?? name.slice(0, 3).toUpperCase());
+  }
+  return codes;
+}
+
 /** «2:1», «1:1 д.в. (пен. 4:3)», «д.в.», если счёт ещё не внесён. Счёт — со стороны «Амкара». */
 export function formatScore(m: Pick<MatchRow, 'goals_for' | 'goals_against' | 'extra_time' | 'pens_for' | 'pens_against'>): string {
   let s = m.goals_for != null && m.goals_against != null ? `${m.goals_for}:${m.goals_against}` : '';

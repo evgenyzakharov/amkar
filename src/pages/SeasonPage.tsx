@@ -16,6 +16,7 @@ import {
   SLOT_LABEL,
   SLOT_TITLE,
   num,
+  opponentCodes,
   opponentName,
   plural,
 } from '../format';
@@ -38,6 +39,7 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
 
   const official = matches.filter((m) => m.competition.kind !== 'friendly');
   const friendlies = matches.filter((m) => m.competition.kind === 'friendly');
+  const codes = opponentCodes(matches.map(opponentName));
   const players = 'data' in squad ? squad.data : [];
   // Бомбардиры и ассистенты: все турниры или только чемпионат — одним переключателем на обе карточки
   const [leagueOnly, setLeagueOnly] = useState(false);
@@ -124,11 +126,11 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
 
       {matches.length > 0 ? (
         <Card title="Результаты по ходу сезона" aside={legend(official)}>
-          {official.length > 0 && <ResultStrip matches={official} />}
+          {official.length > 0 && <ResultStrip matches={official} codes={codes} />}
           {friendlies.length > 0 && (
             <>
               <h3 className="strip-title">Товарищеские матчи</h3>
-              <ResultStrip matches={friendlies} />
+              <ResultStrip matches={friendlies} codes={codes} />
             </>
           )}
         </Card>
@@ -254,8 +256,8 @@ function legend(official: SeasonMatch[]) {
   return ringed.length ? `с рамкой — ${ringed.join(', ')}` : undefined;
 }
 
-/** Матчи квадратами по порядку: буква результата и счёт, пока счёта нет — номер матча. */
-function ResultStrip({ matches }: { matches: SeasonMatch[] }) {
+/** Матчи квадратами по порядку: буква результата и счёт, пока счёта нет — номер матча; под квадратом — соперник в 3–4 буквы. */
+function ResultStrip({ matches, codes }: { matches: SeasonMatch[]; codes: Map<string, string> }) {
   return (
     <ol className="result-strip">
       {matches.map((m) => {
@@ -275,6 +277,9 @@ function ResultStrip({ matches }: { matches: SeasonMatch[] }) {
               <span className="form-letter">{m.result ? RESULT_LABEL[m.result] : '?'}</span>
               <span className="form-sub">{score ?? m.seq}</span>
             </a>
+            <span className="form-opp" aria-hidden="true">
+              {codes.get(opponentName(m))}
+            </span>
           </li>
         );
       })}
