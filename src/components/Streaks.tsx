@@ -82,8 +82,7 @@ export function Streaks({ seasons, scope }: { seasons: SeasonSummary[]; scope: L
         {state.status !== 'ready' ? <LoadStatus state={state} /> : <Records streaks={streaks} />}
         <p className="note">
           {scope === 'league' ? 'Только матчи чемпионата.' : 'Все официальные матчи, без товарищеских.'} Серии идут по
-          порядку матчей через границы сезонов и рвутся на матче с неизвестным результатом (весь 2013/14) и на перерыве
-          2018–2021: с 2021 года — новый клуб.
+          порядку матчей через границы сезонов.
         </p>
       </Card>
       {state.status === 'ready' && (

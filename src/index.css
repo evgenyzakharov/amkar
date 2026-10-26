@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   /* Цвета клуба: красный и чёрный. Палитра — из макета «матч-программы» */
   --accent: #c8102e;
   --amkar-red: var(--accent);
@@ -29,27 +30,26 @@
   background: var(--bg);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Тёмный текст ссылок светлее акцента: #c8102e на тёмном фоне читается плохо */
-    --amkar-red: #ff4d5e;
-    --bg: #0e0e0e;
-    --surface: #191919;
-    --text: #ededed;
-    --muted: #a6a6a6;
-    --border: #2d2d2d;
-    --band: #000000;
-    --bar: #2b2b2b;
-    --link: #ff6b7d;
-    --highlight: #202020;
-    --win: #2f8f57;
-    --draw: #9a7a16;
-    --loss: #c4303b;
-    --pitch: #14211a;
-    --gold: #2e2610;
-    --gold-border: #7a6420;
-    --gold-text: #ffb3b3;
-  }
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  /* Тёмный текст ссылок светлее акцента: #c8102e на тёмном фоне читается плохо */
+  --amkar-red: #ff4d5e;
+  --bg: #0e0e0e;
+  --surface: #191919;
+  --text: #ededed;
+  --muted: #a6a6a6;
+  --border: #2d2d2d;
+  --band: #000000;
+  --bar: #2b2b2b;
+  --link: #ff6b7d;
+  --highlight: #202020;
+  --win: #2f8f57;
+  --draw: #9a7a16;
+  --loss: #c4303b;
+  --pitch: #14211a;
+  --gold: #2e2610;
+  --gold-border: #7a6420;
+  --gold-text: #ffb3b3;
 }
 
 * {
@@ -87,6 +87,39 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-decoration: none;
+}
+
+.site-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.site-logo-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+/* Переключатель темы — круглая кнопка в шапке */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--band-muted);
+  border-radius: 50%;
+  background: none;
+  color: var(--band-text);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  border-color: var(--band-text);
 }
 
 .site-nav {
@@ -1075,18 +1108,16 @@ h3 {
   --hm-hatch: #cfc6bd;
 }
 
-@media (prefers-color-scheme: dark) {
-  .heatmap,
-  .hm-legend {
-    --hm-0: #24221f;
-    --hm-1: #5a534d;
-    --hm-2: #7f7770;
-    --hm-3: #aaa198;
-    --hm-4: #e6dfd7;
-    --hm-ink-light: #ffffff;
-    --hm-ink-dark: #16130f;
-    --hm-hatch: #4a4540;
-  }
+:root[data-theme='dark'] .heatmap,
+:root[data-theme='dark'] .hm-legend {
+  --hm-0: #24221f;
+  --hm-1: #5a534d;
+  --hm-2: #7f7770;
+  --hm-3: #aaa198;
+  --hm-4: #e6dfd7;
+  --hm-ink-light: #ffffff;
+  --hm-ink-dark: #16130f;
+  --hm-hatch: #4a4540;
 }
 
 .hm-legend {
@@ -1227,15 +1258,13 @@ h3 {
   color: var(--hm-ink-dark);
 }
 
-@media (prefers-color-scheme: dark) {
-  .hm-2 {
-    color: var(--hm-ink-light);
-  }
+:root[data-theme='dark'] .hm-2 {
+  color: var(--hm-ink-light);
+}
 
-  .hm-3,
-  .hm-4 {
-    color: var(--hm-ink-dark);
-  }
+:root[data-theme='dark'] .hm-3,
+:root[data-theme='dark'] .hm-4 {
+  color: var(--hm-ink-dark);
 }
 
 .hm-unknown {
@@ -1400,11 +1429,9 @@ h3 {
   gap: 4px 12px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .ribbon,
-  .wdl-legend {
-    --wdl-d: #9d968e;
-  }
+:root[data-theme='dark'] .ribbon,
+:root[data-theme='dark'] .wdl-legend {
+  --wdl-d: #9d968e;
 }
 
 .wdl-legend i {
@@ -2291,10 +2318,8 @@ input.w-year {
   --wdl-l: var(--loss);
 }
 
-@media (prefers-color-scheme: dark) {
-  .coaches {
-    --wdl-d: #9d968e;
-  }
+:root[data-theme='dark'] .coaches {
+  --wdl-d: #9d968e;
 }
 
 .coaches .nowrap {
@@ -2465,12 +2490,10 @@ input.w-year {
   font-size: 22px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .achievements li {
-    border-color: #7a6420;
-    background: #2e2610;
-    color: var(--text);
-  }
+:root[data-theme='dark'] .achievements li {
+  border-color: #7a6420;
+  background: #2e2610;
+  color: var(--text);
 }
 
 .coach-facts {
@@ -2856,5 +2879,74 @@ input.w-year {
 
   .points-row .muted {
     display: none;
+  }
+}
+
+/* Карточка матча: счёт после гола — только на широком экране; замены — значком в строке */
+@media (max-width: 640px) {
+  .goals-table .goal-score {
+    display: none;
+  }
+}
+
+.goals-table .goal-score {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sub-swap {
+  white-space: nowrap;
+}
+
+.sub-swap + .sub-swap {
+  margin-left: 10px;
+}
+
+/* Лидеры: действующие игроки подсвечены, фильтр «только действующие»; на телефоне — узкие колонки */
+.leaders-table tr.current-row td {
+  background: var(--highlight);
+}
+
+.leaders-table tr.current-row td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.current-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.leaders-table .narrow {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .leaders-table .wide {
+    display: none;
+  }
+
+  .leaders-table .narrow {
+    display: inline;
+  }
+
+  .leaders-table th,
+  .leaders-table td {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .leaders-table .rank {
+    width: 2em;
+  }
+
+  .leaders-table .value {
+    font-size: 17px;
+  }
+
+  .leaders-table .years {
+    white-space: nowrap;
   }
 }

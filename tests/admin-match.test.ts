@@ -28,7 +28,7 @@ const base = (patch: Partial<CardBase> = {}): CardBase => ({
   match: {
     id: 10, season_id: 1, competition_id: 1, seq: 3, round: null, match_date: null, venue: null, opponent_id: null,
     opponent_raw: 'Томь', result: 'W', goals_for: null, goals_against: null, extra_time: false, pens_for: null,
-    pens_against: null, awarded: false, coach_id: null, formation: null, notes: null,
+    pens_against: null, awarded: false, coach_id: null, formation: null, notes: null, attendance: null,
   },
   nextSeq: 20,
   goals: [],

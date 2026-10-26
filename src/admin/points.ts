@@ -96,8 +96,8 @@ export const POINTS_GROUPS: { title: string; note: string; keys: PointsNumberKey
     keys: ['peak_seasons', 'peak_weight'],
   },
   {
-    title: 'Ярусы пирамиды',
-    note: 'С какой ценности за карьеру начинается ярус; ниже последнего порога — вне пирамиды.',
+    title: 'Ярусы Амкаровской пирамиды',
+    note: 'С какого рейтинга карьеры начинается ярус; ниже последнего порога — вне пирамиды.',
     keys: ['tier_1_from', 'tier_2_from', 'tier_3_from', 'tier_4_from', 'tier_5_from'],
   },
 ];

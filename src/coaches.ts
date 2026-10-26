@@ -118,14 +118,14 @@ export const DEBUTS_FROM = 1996;
 
 /** Уровни лиги по схеме автора (season.tier). */
 export const TIER_LABEL: Record<number, string> = {
-  1: 'Высшая',
+  1: 'Премьер-лига',
   2: 'Первая',
   3: 'Вторая',
   4: 'Третья / «А» Серебро',
   5: 'Вторая «Б»',
 };
 const TIER_IN: Record<number, string> = {
-  1: 'в высшей лиге',
+  1: 'в Премьер-лиге',
   2: 'в первой лиге',
   3: 'во второй лиге',
   4: 'в третьей лиге и «А» Серебро',
@@ -283,11 +283,11 @@ function achievements(c: CoachStats, seasonsSorted: Season[]): Achievement[] {
     if (s.final_place === 1) out.push({ kind: 'title', icon: '🏆', title: `Победитель: ${s.division ?? 'чемпионат'}, ${s.label}` });
     const next = seasonsSorted[seasonsSorted.indexOf(s) + 1];
     if (next && newClub(next) === newClub(s) && next.tier != null && s.tier != null && next.tier < s.tier) {
-      out.push({ kind: 'promotion', icon: '⬆', title: next.tier === 1 ? `Вывел в высшую лигу: ${s.label}` : `Повышение в классе: ${s.label}` });
+      out.push({ kind: 'promotion', icon: '⬆', title: next.tier === 1 ? `Вывел в Премьер-лигу: ${s.label}` : `Повышение в классе: ${s.label}` });
     }
   }
   const top = led.filter((s) => s.tier === 1 && s.final_place != null && s.final_place <= 8).sort((a, b) => a.final_place! - b.final_place!)[0];
-  if (top) out.push({ kind: 'place', icon: '⭐', title: `${top.final_place}-е место в высшей лиге (${top.label})` });
+  if (top) out.push({ kind: 'place', icon: '⭐', title: `${top.final_place}-е место в Премьер-лиге (${top.label})` });
 
   // Кубок: годы матчей стадии; полуфинал — в те годы, когда до финала не дошли
   const stageYears = (stage: string) => [...new Set(c.matches.filter((m) => cupStage(m) === stage).map(year))];

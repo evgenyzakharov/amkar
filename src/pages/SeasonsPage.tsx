@@ -50,7 +50,7 @@ function SeasonList({ seasons }: { seasons: Season[] }) {
           {s.final_place && (
             <span className="muted">
               {' '}
-              · {s.final_place} место{s.teams_count ? ` из ${s.teams_count}` : ''}
+              · {s.final_place}{s.teams_count ? ` из ${s.teams_count}` : ' место'}
             </span>
           )}
         </li>

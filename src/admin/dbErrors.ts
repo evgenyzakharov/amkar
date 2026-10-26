@@ -37,6 +37,7 @@ export const CONSTRAINT_MESSAGES: Record<string, string> = {
   match_competition_id_fkey: 'Такого турнира нет.',
   match_opponent_id_fkey: 'Такого соперника нет в справочнике.',
   match_coach_id_fkey: 'Такого тренера нет в справочнике.',
+  match_attendance_check: 'Зрителей не может быть меньше нуля.',
 
   // состав на матч
   appearance_pkey: 'Игрок уже есть в составе на этот матч.',

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useState } from 'react';
 import { Card, ExternalLinks, Tiles, type Tile } from '../components/cards';
 import { EditLink, LoadStatus, Tag } from '../components/common';
 import { SeasonHeatmap } from '../components/SeasonHeatmap';
@@ -9,6 +9,7 @@ import {
   bestXiLines,
   formatInt,
   POSITION_LABEL,
+  POSITION_ORDER,
   POSITION_TITLE,
   RESULT_LABEL,
   RESULT_TITLE,
@@ -30,7 +31,6 @@ export function SeasonPage({ label }: { label: string }) {
 
 function SeasonCard({ data }: { data: SeasonPageData }) {
   const { season, prev, next, matches, squad, bestXi, formation, links } = data;
-  const squadRef = useRef<HTMLDetailsElement>(null);
   // Очки сезона — отдельной частью: без миграции очков страница показывается без них
   const points = 'data' in data.points ? data.points.data : [];
   const pointsBy = new Map(points.map((p) => [p.player_id, p]));
@@ -39,7 +39,9 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
   const official = matches.filter((m) => m.competition.kind !== 'friendly');
   const friendlies = matches.filter((m) => m.competition.kind === 'friendly');
   const players = 'data' in squad ? squad.data : [];
-  const squadLabel = `Весь состав — ${players.length} ${plural(players.length, ['игрок', 'игрока', 'игроков'])}`;
+  // Бомбардиры и ассистенты: все турниры или только чемпионат — одним переключателем на обе карточки
+  const [leagueOnly, setLeagueOnly] = useState(false);
+  const leagueBy = new Map(data.league.map((l) => [l.player_id, l]));
   const coach = mainCoach(official);
   const facts = [
     season.division && { term: 'Турнир', value: season.division },
@@ -50,34 +52,30 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
     coach && { term: 'Главный тренер', value: <a href={coachHref(coach.id)}>{coach.name}</a> },
   ].filter((f) => !!f);
 
-  const showSquad = () => {
-    const el = squadRef.current;
-    if (!el) return;
-    el.open = true;
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   // Блок лидеров — только если есть кого показать: передачи в старых сезонах не учитывались (null)
   const hasGoals = players.some((p) => (p.goals ?? 0) > 0);
   const hasAssists = players.some((p) => (p.assists ?? 0) > 0);
-  const squadButton = (
-    <button type="button" className="link-button" onClick={showSquad}>
-      {squadLabel}
-    </button>
+  const scopeSwitch = leagueBy.size > 0 && (
+    <span className="segmented" role="group" aria-label="Турниры">
+      <button type="button" className={leagueOnly ? undefined : 'active'} aria-pressed={!leagueOnly} onClick={() => setLeagueOnly(false)}>
+        Все турниры
+      </button>
+      <button type="button" className={leagueOnly ? 'active' : undefined} aria-pressed={leagueOnly} onClick={() => setLeagueOnly(true)}>
+        Только чемпионат
+      </button>
+    </span>
   );
+  const statOf = (stat: 'goals' | 'assists') => (p: PlayerSeasonStats) =>
+    leagueOnly ? (leagueBy.get(p.player_id)?.[stat === 'goals' ? 'goals_league' : 'assists_league'] ?? 0) : (p[stat] ?? 0);
   const leaderCards = [
     hasGoals && (
-      <Card key="goals" title="Лучшие бомбардиры">
-        <TopList players={players} stat="goals" />
-        <p className="note">Голы во всех турнирах. {squadButton}</p>
+      <Card key="goals" title="Лучшие бомбардиры" aside={scopeSwitch}>
+        <TopList players={players} value={statOf('goals')} />
       </Card>
     ),
     hasAssists && (
-      <Card key="assists" title="Лучшие ассистенты">
-        <TopList players={players} stat="assists" />
-        <p className="note">
-          Передачи во всех турнирах.{!hasGoals && <> {squadButton}</>}
-        </p>
+      <Card key="assists" title="Лучшие ассистенты" aside={scopeSwitch}>
+        <TopList players={players} value={statOf('assists')} />
       </Card>
     ),
   ].filter((card) => !!card);
@@ -162,8 +160,8 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
       {'error' in squad ? (
         <p className="error">Статистика заявки не загрузилась: {squad.error}</p>
       ) : players.length > 0 ? (
-        <details className="card squad-details" ref={squadRef}>
-          <summary className="card-title">{squadLabel}</summary>
+        <details className="card squad-details">
+          <summary className="card-title">Заявка</summary>
           <SquadTable squad={players} points={pointsBy} />
           <p className="note">
             {players[0]?.goals_source === 'matches'
@@ -172,7 +170,7 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
             {pointsBy.size > 0 && (
               <>
                 {' '}
-                Очки — <a href={pyramidHref}>по формуле пирамиды</a>, место в сезоне — во всплывающей подсказке; звёздочка — с поправкой автора.
+                Очки — <a href={pyramidHref}>по формуле Амкаровской пирамиды</a>, место в сезоне — во всплывающей подсказке; звёздочка — с поправкой автора.
               </>
             )}
           </p>
@@ -250,9 +248,10 @@ function seasonTiles(official: SeasonMatch[]): Tile[] {
 
 const RINGED: CompetitionKind[] = ['cup', 'europe', 'playoff'];
 
+/** Подпись к квадратам: какие турниры обведены рамкой. */
 function legend(official: SeasonMatch[]) {
   const ringed = [...new Set(official.filter((m) => RINGED.includes(m.competition.kind)).map((m) => m.competition.name))];
-  return `В — победа · Н — ничья · П — поражение${ringed.length ? ` · с рамкой — ${ringed.join(', ')}` : ''}`;
+  return ringed.length ? `с рамкой — ${ringed.join(', ')}` : undefined;
 }
 
 /** Матчи квадратами по порядку: буква результата и счёт, пока счёта нет — номер матча. */
@@ -284,13 +283,13 @@ function ResultStrip({ matches }: { matches: SeasonMatch[] }) {
 }
 
 /** Лучшие по голам или передачам: пять строк, только больше нуля — null значит «не учитывались», а не ноль. */
-function TopList({ players, stat }: { players: PlayerSeasonStats[]; stat: 'goals' | 'assists' }) {
-  const value = (p: PlayerSeasonStats) => p[stat] ?? 0;
+function TopList({ players, value }: { players: PlayerSeasonStats[]; value: (p: PlayerSeasonStats) => number }) {
   const leaders = players
     .filter((p) => value(p) > 0)
     .sort((a, b) => value(b) - value(a) || a.games - b.games || a.display_name.localeCompare(b.display_name, 'ru'))
     .slice(0, 5);
-  const top = leaders.length > 0 ? value(leaders[0]) : 1;
+  if (leaders.length === 0) return <p className="muted">Данных нет.</p>;
+  const top = value(leaders[0]);
   return (
     <ol className="scorers">
       {leaders.map((s) => {
@@ -313,46 +312,64 @@ function TopList({ players, stat }: { players: PlayerSeasonStats[]; stat: 'goals
   );
 }
 
+type SquadSort = 'number' | 'position' | 'name' | 'games' | 'minutes' | 'goals' | 'assists' | 'conceded' | 'points';
+
+/** Заявка сезона: порядок — как в заявке, по клику на заголовок — сортировка (основа и молодёжь — отдельно). */
 function SquadTable({ squad, points }: { squad: PlayerSeasonStats[]; points: Map<number, SeasonPoints> }) {
+  const [sort, setSort] = useState<{ key: SquadSort; dir: 1 | -1 } | null>(null);
   const hasPositions = squad.some((p) => p.position);
   const hasConceded = squad.some((p) => p.goals_conceded != null);
   const hasPoints = points.size > 0;
   const columns = 6 + Number(hasPositions) + Number(hasConceded) + Number(hasPoints);
+  const value: Record<SquadSort, (p: PlayerSeasonStats) => number | string> = {
+    number: (p) => p.shirt_number ?? 999,
+    position: (p) => (p.position ? POSITION_ORDER[p.position] : 9),
+    name: (p) => p.display_name,
+    games: (p) => p.games,
+    minutes: (p) => p.minutes,
+    goals: (p) => p.goals ?? -1,
+    assists: (p) => p.assists ?? -1,
+    conceded: (p) => p.goals_conceded ?? -1,
+    points: (p) => points.get(p.player_id)?.points ?? -1,
+  };
+  const sorted = (rows: PlayerSeasonStats[]) => {
+    if (!sort) return rows;
+    const f = value[sort.key];
+    return [...rows].sort((a, b) => {
+      const [va, vb] = [f(a), f(b)];
+      return (va > vb ? 1 : va < vb ? -1 : 0) * sort.dir || a.display_name.localeCompare(b.display_name, 'ru');
+    });
+  };
   const groups = [
-    { title: null, rows: squad.filter((p) => p.squad_group === 'main') },
-    { title: 'Молодёжь', rows: squad.filter((p) => p.squad_group === 'youth') },
+    { title: null, rows: sorted(squad.filter((p) => p.squad_group === 'main')) },
+    { title: 'Молодёжь', rows: sorted(squad.filter((p) => p.squad_group === 'youth')) },
   ].filter((g) => g.rows.length > 0);
+  // числа — сначала большие, номер, позиция и фамилия — по возрастанию
+  const by = (key: SquadSort) =>
+    setSort((s) => (s?.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: ['number', 'position', 'name'].includes(key) ? 1 : -1 }));
+  const head = (key: SquadSort, label: string, title?: string, num = true) => (
+    <th className={num ? 'num' : undefined} title={title} aria-sort={sort?.key === key ? (sort.dir === 1 ? 'ascending' : 'descending') : undefined}>
+      <button type="button" className="sort-button" onClick={() => by(key)}>
+        {label}
+        {sort?.key === key && (sort.dir === 1 ? ' ↑' : ' ↓')}
+      </button>
+    </th>
+  );
 
   return (
     <div className="table-wrap">
       <table className="data-table">
         <thead>
           <tr>
-            <th className="num">№</th>
-            {hasPositions && <th title="позиция">Поз.</th>}
-            <th>Игрок</th>
-            <th className="num" title="игры">
-              И
-            </th>
-            <th className="num" title="минуты">
-              Мин
-            </th>
-            <th className="num" title="голы">
-              Г
-            </th>
-            <th className="num" title="голевые передачи">
-              П
-            </th>
-            {hasConceded && (
-              <th className="num" title="пропущенные мячи (вратари)">
-                Проп.
-              </th>
-            )}
-            {hasPoints && (
-              <th className="num" title="очки сезона по формуле пирамиды">
-                Очки
-              </th>
-            )}
+            {head('number', '№')}
+            {hasPositions && head('position', 'Поз.', 'позиция', false)}
+            {head('name', 'Игрок', undefined, false)}
+            {head('games', 'И', 'игры')}
+            {head('minutes', 'Мин', 'минуты')}
+            {head('goals', 'Г', 'голы')}
+            {head('assists', 'П', 'голевые передачи')}
+            {hasConceded && head('conceded', 'Проп.', 'пропущенные мячи (вратари)')}
+            {hasPoints && head('points', 'Очки', 'очки сезона по формуле Амкаровской пирамиды')}
           </tr>
         </thead>
         {groups.map((g) => (

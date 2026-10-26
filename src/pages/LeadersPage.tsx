@@ -4,6 +4,7 @@ import { LoadStatus } from '../components/common';
 import { MilestoneClubs } from '../components/MilestoneClubs';
 import { loadLeaders } from '../db/queries';
 import type { CareerStats } from '../db/types';
+import { clubYears } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { leadersHref, playerHref, type LeadersScope, type LeadersTab } from '../router';
 
@@ -42,6 +43,8 @@ export function LeadersPage({ scope, tab }: { scope: LeadersScope; tab: LeadersT
   useDocumentTitle('Лидеры');
   const state = useLoad(ALL, load);
   const league = scope === 'league';
+  // Только действующие: места остаются как в общей таблице — видно, где игрок в истории клуба
+  const [onlyCurrent, setOnlyCurrent] = useState(false);
 
   return (
     <div className="card-page">
@@ -62,28 +65,34 @@ export function LeadersPage({ scope, tab }: { scope: LeadersScope; tab: LeadersT
       {state.status !== 'ready' ? (
         <LoadStatus state={state} />
       ) : tab === 'clubs' ? (
-        <MilestoneClubs careers={state.data} />
+        <MilestoneClubs careers={state.data.careers} />
       ) : (
         <>
+          {state.data.current.size > 0 && (
+            <label className="current-filter">
+              <input type="checkbox" checked={onlyCurrent} onChange={(e) => setOnlyCurrent(e.target.checked)} /> Только действующие игроки
+            </label>
+          )}
           <div className="card-row">
             {/* key со scope: при смене фильтра таблица снова показывает топ */}
             <LeaderTable
-              key={`games-${scope}`}
+              key={`games-${scope}-${onlyCurrent}`}
               title="По играм"
               column="Игры"
-              rows={rank(state.data, (p) => (league ? p.games_league : p.games))}
+              current={state.data.current}
+              rows={only(rank(state.data.careers, (p) => (league ? p.games_league : p.games)), onlyCurrent && state.data.current)}
             />
             <LeaderTable
-              key={`goals-${scope}`}
+              key={`goals-${scope}-${onlyCurrent}`}
               title="По голам"
               column="Голы"
-              rows={rank(state.data, (p) => (league ? p.goals_league : p.goals))}
+              current={state.data.current}
+              rows={only(rank(state.data.careers, (p) => (league ? p.goals_league : p.goals)), onlyCurrent && state.data.current)}
             />
           </div>
           <p className="note">
             {league ? 'Только матчи чемпионата.' : 'Чемпионат, кубок, еврокубки и стыковые матчи.'} Товарищеские не в
-            счёт. Голы — итоги сезонов из таблицы автора, а где голы внесены по матчам — по карточкам матчей. Одинаковые
-            значения делят место.
+            счёт.{state.data.current.size > 0 && ' Подсвечены действующие игроки.'}
           </p>
         </>
       )}
@@ -91,7 +100,10 @@ export function LeadersPage({ scope, tab }: { scope: LeadersScope; tab: LeadersT
   );
 }
 
-function LeaderTable({ title, column, rows }: { title: string; column: string; rows: Ranked[] }) {
+/** Только действующие — если фильтр включён. */
+const only = (rows: Ranked[], current: Set<number> | false) => (current ? rows.filter((r) => current.has(r.player.player_id)) : rows);
+
+function LeaderTable({ title, column, rows, current }: { title: string; column: string; rows: Ranked[]; current: Set<number> }) {
   const [all, setAll] = useState(false);
   const top = rows.filter((r) => r.rank <= TOP);
   const shown = all ? rows : top;
@@ -106,8 +118,9 @@ function LeaderTable({ title, column, rows }: { title: string; column: string; r
             <table className="data-table leaders-table">
               <thead>
                 <tr>
-                  <th scope="col" className="num">
-                    Место
+                  <th scope="col" className="num" title="место">
+                    <span className="wide">Место</span>
+                    <span className="narrow">#</span>
                   </th>
                   <th scope="col">Игрок</th>
                   <th scope="col" className="num">
@@ -118,16 +131,15 @@ function LeaderTable({ title, column, rows }: { title: string; column: string; r
               </thead>
               <tbody>
                 {shown.map((r) => (
-                  <tr key={r.player.player_id}>
+                  <tr key={r.player.player_id} className={current.has(r.player.player_id) ? 'current-row' : undefined}>
                     <td className="num rank">{r.rank}</td>
                     <td>
                       <a href={playerHref(r.player.player_id)}>{r.player.display_name}</a>
                     </td>
                     <td className="num value">{r.value}</td>
-                    <td className="muted">
-                      {r.player.first_year === r.player.last_year
-                        ? r.player.first_year
-                        : `${r.player.first_year}–${r.player.last_year}`}
+                    <td className="muted years">
+                      <span className="wide">{clubYears(r.player.first_year, r.player.last_year, current.has(r.player.player_id))}</span>
+                      <span className="narrow">{clubYears(r.player.first_year, r.player.last_year, current.has(r.player.player_id), true)}</span>
                     </td>
                   </tr>
                 ))}

@@ -10,15 +10,15 @@ const ALL = 'all';
 const load = () => loadPyramid();
 const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
 
-/** #/pyramid — игроки по ценности за карьеру ярусами, в духе пирамиды Билла Симмонса, и лучшие сезоны в истории. */
+/** #/pyramid — игроки по рейтингу карьеры ярусами, в духе пирамиды Билла Симмонса, и лучшие сезоны в истории. */
 export function PyramidPage() {
-  useDocumentTitle('Пирамида');
+  useDocumentTitle('Амкаровская пирамида');
   const state = useLoad(ALL, load);
   return (
     <div className="card-page">
-      <h1 className="page-title">Пирамида</h1>
+      <h1 className="page-title">Амкаровская пирамида</h1>
       <p className="page-lead">
-        Игроки «Амкара» по ценности за карьеру, в духе пирамиды Билла Симмонса. Очки сезона — минуты, голы и передачи, «сухие» матчи и
+        Игроки «Амкара» по рейтингу карьеры, в духе пирамиды Билла Симмонса. Очки сезона — минуты, голы и передачи, «сухие» матчи и
         победы с поправкой на уровень лиги и на то, как команда сыграла против ожиданий.
       </p>
       {state.status === 'ready' ? <Pyramid data={state.data} /> : <LoadStatus state={state} />}
@@ -30,7 +30,7 @@ function Pyramid({ data }: { data: PyramidData }) {
   const { careers, thresholds, peakSeasons, best, divisions } = data;
   return (
     <>
-      <Card title="Пирамида" aside={`${careers.length} ${plural(careers.length, ['игрок', 'игрока', 'игроков'])}`}>
+      <Card title="Амкаровская пирамида" aside={`${careers.length} ${plural(careers.length, ['игрок', 'игрока', 'игроков'])}`}>
         <div className="pyramid">
           {byTier(careers).map(({ tier, rows }) => (
             <section className={`tier tier-${tier}`} key={tier} aria-label={TIER_NAMES[tier - 1]}>
@@ -58,9 +58,9 @@ function Pyramid({ data }: { data: PyramidData }) {
           ))}
         </div>
         <p className="note">
-          Ярус — по ценности за карьеру: сумма очков всех сезонов плюс {peakSeasons}{' '}
+          Ярус — по рейтингу карьеры: сумма очков всех сезонов плюс {peakSeasons}{' '}
           {plural(peakSeasons, ['лучший сезон', 'лучших сезона', 'лучших сезонов'])} ещё раз. Под фамилией — годы в «Амкаре», ниже —
-          ценность.
+          рейтинг.
         </p>
       </Card>
 

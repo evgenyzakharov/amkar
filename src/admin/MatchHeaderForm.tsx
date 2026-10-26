@@ -170,6 +170,10 @@ export function MatchHeaderForm({ header: h, base, competitions, nameThen, onCha
           ))}
         </datalist>
       </label>
+      <label>
+        Зрители
+        <input inputMode="numeric" className="w-short" value={h.attendance} onChange={(e) => set('attendance', e.target.value)} />
+      </label>
       <label className="span-all">
         Заметки
         <textarea rows={2} value={h.notes} onChange={(e) => set('notes', e.target.value)} />

@@ -17,7 +17,7 @@ const load = () => loadHistory();
 const ppg = (s: SeasonSummary) => (s.league_played > 0 ? s.league_points / s.league_played : null);
 
 const placeText = (s: SeasonSummary) =>
-  s.final_place ? `${s.final_place} место${s.teams_count ? ` из ${s.teams_count}` : ''}` : null;
+  s.final_place ? `${s.final_place}${s.teams_count ? ` из ${s.teams_count}` : ' место'}` : null;
 
 /** Подпись столбика — год начала сезона: «95», «11». У второго сезона того же года (2025 и 2025/26) подписи нет,
     полное название — в подсказке и в ленте ниже. */
@@ -36,21 +36,20 @@ export function HistoryPage({ scope }: { scope: LeadersScope }) {
       ) : (
         <>
           <Tiles tiles={historyTiles(state.data.seasons)} label="Итоги истории" />
-          <Card title="Уровень лиги" aside="1 — высший дивизион">
+          <Card title="Уровень лиги" aside="1 — Премьер-лига; выше столбик — выше место">
             <TierChart seasons={state.data.seasons} />
           </Card>
           <Card title="Сезон за сезоном" aside={<WdlLegend />}>
             <SeasonRibbon seasons={state.data.seasons} />
             <p className="note">
               Очки за матч и победы, ничьи, поражения — только чемпионат, по результатам матчей: техническая победа —
-              тоже победа. Матчи без известного результата не считаются.
+              тоже победа.
             </p>
           </Card>
           <Card title="Воспитанники: доля минут">
             <AcademyChart seasons={state.data.seasons} />
             <p className="note">
-              Доля минут игроков с отметкой «воспитанник» в официальных матчах сезона. Отметка — из таблицы автора и
-              проставлена примерно с 2010 года: у тех, кто ушёл раньше, её может не быть.
+              Доля минут игроков с отметкой «воспитанник» в официальных матчах сезона.
             </p>
           </Card>
           {state.data.ages.length > 0 && <AgeCard data={state.data} />}
@@ -73,9 +72,9 @@ function historyTiles(seasons: SeasonSummary[]): Tile[] {
   const best = [...top].filter((s) => s.final_place).sort((a, b) => (a.final_place ?? 99) - (b.final_place ?? 99))[0];
   const tiles: Tile[] = [{ value: seasons.length, label: plural(seasons.length, ['сезон', 'сезона', 'сезонов']) }];
   if (top.length > 0) {
-    tiles.push({ value: top.length, label: `${plural(top.length, ['сезон', 'сезона', 'сезонов'])} в высшем дивизионе` });
+    tiles.push({ value: top.length, label: `${plural(top.length, ['сезон', 'сезона', 'сезонов'])} в Премьер-лиге` });
   }
-  if (best?.final_place) tiles.push({ value: `${best.final_place}-е`, label: `лучшее место в высшем дивизионе · ${best.label}` });
+  if (best?.final_place) tiles.push({ value: `${best.final_place}-е`, label: `лучшее место в Премьер-лиге · ${best.label}` });
   return tiles;
 }
 
@@ -140,6 +139,16 @@ function SeasonColumns({
   );
 }
 
+/**
+ * Высота столбика: полоса уровня лиги (1/5 шкалы на уровень), внутри неё — по итоговому месту: первое место — верх
+ * полосы, последнее — низ. Места нет — середина полосы.
+ */
+function tierHeight(s: SeasonSummary): number | null {
+  if (!s.tier) return null;
+  const within = s.final_place && s.teams_count && s.teams_count > 1 ? 1 - (s.final_place - 1) / (s.teams_count - 1) : 0.5;
+  return (5 - s.tier) / 5 + 0.04 + 0.16 * within;
+}
+
 /** Уровень лиги по сезонам: чем выше лига, тем выше столбик; шкала — 5 (снизу) … 1 (сверху). */
 function TierChart({ seasons }: { seasons: SeasonSummary[] }) {
   return (
@@ -147,7 +156,7 @@ function TierChart({ seasons }: { seasons: SeasonSummary[] }) {
       seasons={seasons}
       axis={['5', '4', '3', '2', '1']}
       column={(s) => ({
-        value: s.tier ? (6 - s.tier) / 5 : null,
+        value: tierHeight(s),
         title: [s.label, s.division, s.tier && `уровень ${s.tier}`, placeText(s)].filter(Boolean).join(' · '),
       })}
     />
@@ -251,9 +260,6 @@ function SeasonRibbon({ seasons }: { seasons: SeasonSummary[] }) {
         if (list.length === 0) return null;
         return (
           <section key={epoch.title} className="ribbon-epoch">
-            {list[0].start_year >= NEW_CLUB_FROM && (
-              <p className="ribbon-break">2018–2021 — перерыв. С 2021 года — новый клуб, история идёт заново.</p>
-            )}
             <h3 className="ribbon-epoch-title">{epoch.title}</h3>
             <ul className="ribbon-list">
               {list.map((s) => (
@@ -358,7 +364,16 @@ function AgeCard({ data }: { data: HistoryPageData }) {
             <dt>Самый возрастной игрок</dt>
             <dd>
               <a href={playerHref(records.oldest.player_id)}>{records.oldest.name}</a> — {formatAge(records.oldest.age)} года
-              <span className="muted"> (сезон {label.get(records.oldest.season_id)}, последний матч)</span>
+              <span className="muted">
+                {' '}
+                (
+                {records.oldest.match_id ? (
+                  <a href={matchHref(records.oldest.match_id)}>{records.oldest.date ? formatDate(records.oldest.date) : 'матч'}</a>
+                ) : (
+                  `сезон ${label.get(records.oldest.season_id)}`
+                )}
+                {records.oldest.opponent && `, ${records.oldest.opponent}`})
+              </span>
             </dd>
           </div>
         )}

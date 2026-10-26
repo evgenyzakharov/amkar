@@ -1,5 +1,6 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { signOut, useAuth } from './auth';
+import { currentTheme, followSystem, logoSrc, setTheme, type Theme } from './theme';
 import { AuthProvider } from './components/AuthProvider';
 import { NotFound } from './components/common';
 import { MatchPage } from './pages/MatchPage';
@@ -90,6 +91,36 @@ function Page({ route }: { route: Route }) {
   }
 }
 
+/** Логотип клуба слева от названия: старый или новый, как выбрал index.html. Не загрузился — просто текст. */
+function ClubLogo() {
+  const [src] = useState(logoSrc);
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return null;
+  return <img className="site-logo-img" src={src} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
+}
+
+/** Переключатель темы: солнце — включить светлую, луна — тёмную. */
+function ThemeToggle() {
+  const [theme, setState] = useState<Theme>(currentTheme);
+  useEffect(() => followSystem(setState), []);
+  const next: Theme = theme === 'dark' ? 'light' : 'dark';
+  const label = next === 'dark' ? 'Тёмная тема' : 'Светлая тема';
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      aria-label={label}
+      title={label}
+      onClick={() => {
+        setTheme(next);
+        setState(next);
+      }}
+    >
+      {next === 'dark' ? '☾' : '☀'}
+    </button>
+  );
+}
+
 /** Ссылки админа в шапке. Посетителям без входа ничего не показываем: в админку заходят по адресу #/admin. */
 function AdminLinks() {
   const auth = useAuth();
@@ -137,6 +168,7 @@ function App() {
       <header className="site-header">
         <div className="site-header-inner">
           <a className="site-logo" href="#/" title="Амкар — история в цифрах">
+            <ClubLogo />
             Амкар
           </a>
           <nav className="site-nav" aria-label="Разделы сайта">
@@ -159,9 +191,10 @@ function App() {
               Лидеры
             </a>
             <a href={pyramidHref} className={section === 'pyramid' ? 'active' : undefined}>
-              Пирамида
+              Амкаровская пирамида
             </a>
           </nav>
+          <ThemeToggle />
           <AdminLinks />
         </div>
       </header>

@@ -9,6 +9,7 @@ import {
   POSITION_ORDER,
   VENUE_LABEL,
   formatDate,
+  formatInt,
   formatHomeScore,
   num,
   opponentName,
@@ -24,7 +25,7 @@ export function MatchPage({ id }: { id: number }) {
   useDocumentTitle(match ? `${opponentName(match)}, ${match.season.label}` : `Матч №${id}`);
   if (state.status !== 'ready') return <LoadStatus state={state} />;
 
-  const { lineup, goals, absences, squad, prevId, nextId } = state.data;
+  const { lineup, goals, absences, squad, prevId, nextId, attendance } = state.data;
   const m = state.data.match;
   // Хозяева слева: в гостях «Амкар» справа — в заголовке, счёте и голах
   const away = m.venue === 'away';
@@ -42,6 +43,7 @@ export function MatchPage({ id }: { id: number }) {
       </>
     ),
     m.formation && `схема ${m.formation}`,
+    attendance != null && `зрители: ${formatInt(attendance)}`,
   ].filter(Boolean);
 
   return (
@@ -138,19 +140,33 @@ function Lineup({ lineup, squad }: { lineup: Appearance[]; squad: SquadEntry[] }
   const nameOf = new Map(lineup.map((a) => [a.player_id, a.player.display_name]));
   const replacedBy = new Map(subs.flatMap((s) => (s.replaced_player_id ? [[s.replaced_player_id, s] as const] : [])));
   const playerLink = (playerId: number) => <a href={playerHref(playerId)}>{nameOf.get(playerId)}</a>;
+  // Вышедшие на замену видны в строке того, кого заменили; без пары — отдельной таблицей
+  const reached = new Set<number>();
+  for (const s of starters) for (let r = replacedBy.get(s.player_id); r; r = replacedBy.get(r.player_id)) reached.add(r.player_id);
+  const unpaired = subs.filter((s) => !reached.has(s.player_id));
 
   const events = (a: Appearance) => {
     const list: ReactNode[] = [];
     if (a.role === 'sub' && a.replaced_player_id) list.push(<>вместо {playerLink(a.replaced_player_id)}</>);
-    const replacement = replacedBy.get(a.player_id);
     if (a.sent_off) list.push(<Tag title="удалён с поля">удалён{a.minute_off ? ` на ${a.minute_off}'` : ''}</Tag>);
-    else if (replacement) {
+    else if (replacedBy.has(a.player_id)) {
+      // цепочка: вышедший на замену тоже мог быть заменён
+      for (let r = replacedBy.get(a.player_id); r; r = replacedBy.get(r.player_id)) {
+        const minute = r.minute_on;
+        list.push(
+          <span className="sub-swap" title={minute ? `замена на ${minute}-й минуте` : 'замена'}>
+            <span aria-hidden="true">🔄</span>
+            {minute && <span className="muted"> {minute}'</span>} {playerLink(r.player_id)}
+          </span>,
+        );
+      }
+    } else if (a.minute_off) {
       list.push(
-        <>
-          замена на {replacement.minute_on ?? a.minute_off}': {playerLink(replacement.player_id)}
-        </>,
+        <span className="sub-swap" title={`заменён на ${a.minute_off}-й минуте`}>
+          <span aria-hidden="true">🔄</span> <span className="muted">{a.minute_off}'</span>
+        </span>,
       );
-    } else if (a.minute_off) list.push(<>заменён на {a.minute_off}'</>);
+    }
     if (a.injured) list.push(<Tag title="получил травму в этом матче">травма</Tag>);
     return list.map((e, i) => (
       <span key={i} className="event">
@@ -211,10 +227,10 @@ function Lineup({ lineup, squad }: { lineup: Appearance[]; squad: SquadEntry[] }
           {table(starters, false)}
         </section>
       )}
-      {subs.length > 0 && (
+      {unpaired.length > 0 && (
         <section>
-          <h3>Вышли на замену ({subs.length})</h3>
-          {table(subs, true)}
+          <h3>Ещё выходили на замену ({unpaired.length})</h3>
+          {table(unpaired, true)}
         </section>
       )}
       {playedUnknown.length > 0 && (
@@ -226,7 +242,7 @@ function Lineup({ lineup, squad }: { lineup: Appearance[]; squad: SquadEntry[] }
       )}
       {bench.length > 0 && (
         <section>
-          <h3>Запасные ({bench.length})</h3>
+          <h3>Остались в запасе ({bench.length})</h3>
           {names(bench)}
         </section>
       )}
@@ -243,6 +259,13 @@ function Lineup({ lineup, squad }: { lineup: Appearance[]; squad: SquadEntry[] }
 /** Голы по ходу матча: колонки команд — как в заголовке, хозяева слева. */
 function Goals({ goals, opponent, amkarRight }: { goals: Goal[]; opponent: string; amkarRight: boolean }) {
   const minute = (g: Goal) => (g.minute == null ? '' : `${g.minute}${g.added_time ? `+${g.added_time}` : ''}'`);
+  // Счёт после каждого гола — как в заголовке, хозяева слева
+  let [l, r] = [0, 0];
+  const scoreAfter = goals.map((g) => {
+    if (g.side === (amkarRight ? 'opponent' : 'amkar')) l++;
+    else r++;
+    return `${l}:${r}`;
+  });
   const describe = (g: Goal) => {
     const name = g.scorer_id ? (
       <a href={playerHref(g.scorer_id)}>{g.scorer?.display_name}</a>
@@ -270,14 +293,16 @@ function Goals({ goals, opponent, amkarRight }: { goals: Goal[]; opponent: strin
         <table className="data-table goals-table">
           <thead>
             <tr>
+              <th className="num goal-score">Счёт</th>
               <th className="num">Мин</th>
               <th>{amkarRight ? opponent : 'Амкар'}</th>
               <th>{amkarRight ? 'Амкар' : opponent}</th>
             </tr>
           </thead>
           <tbody>
-            {goals.map((g) => (
+            {goals.map((g, i) => (
               <tr key={g.id}>
+                <td className="num goal-score">{scoreAfter[i]}</td>
                 <td className="num">{minute(g)}</td>
                 <td>{g.side === (amkarRight ? 'opponent' : 'amkar') && describe(g)}</td>
                 <td>{g.side === (amkarRight ? 'amkar' : 'opponent') && describe(g)}</td>

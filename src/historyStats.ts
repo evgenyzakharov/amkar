@@ -129,6 +129,17 @@ export function ageRecords(ages: PlayerSeasonAge[], debuts: Debut[], firstGoals:
   return {
     youngestDebut: youngestDebut ?? null,
     youngestScorer: youngestScorer ?? null,
-    oldest: oldest ? { player_id: oldest.player_id, name: oldest.display_name, age: Number(oldest.age_last), season_id: oldest.season_id } : null,
+    oldest: oldest
+      ? {
+          player_id: oldest.player_id,
+          name: oldest.display_name,
+          age: Number(oldest.age_last),
+          season_id: oldest.season_id,
+          // последний матч сезона — из миграции 20261026120000; без неё — только сезон
+          match_id: oldest.last_match_id ?? null,
+          date: oldest.last_match_date ?? null,
+          opponent: oldest.last_opponent ?? null,
+        }
+      : null,
   };
 }

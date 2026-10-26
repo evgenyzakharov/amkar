@@ -85,7 +85,7 @@ function overviewTiles(stats: CoachStats[]): Tile[] {
     { value: formatInt(longest.all.p), label: `матчей — ${longest.coach.full_name}, ${years(longest)}` },
   ];
   if (best) tiles.push({ value: ppmText(best.all), label: `очка за матч — ${best.coach.full_name} (лучший, от 20 матчей)` });
-  if (top) tiles.push({ value: `${top.s.final_place}-е`, label: `место в высшей лиге — ${top.c.coach.full_name}, ${top.s.label}` });
+  if (top) tiles.push({ value: `${top.s.final_place}-е`, label: `место в Премьер-лиге — ${top.c.coach.full_name}, ${top.s.label}` });
   return tiles;
 }
 

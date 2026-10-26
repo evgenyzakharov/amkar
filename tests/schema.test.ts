@@ -971,3 +971,58 @@ describe('очки сезона: настройки (points_settings), ожид�
     expect(rows.every((r) => !r.w)).toBe(true);
   });
 });
+
+describe('приёмка 1: чемпионат в итогах, последний матч, действующие, зрители', () => {
+  let ar: PGlite;
+  beforeAll(async () => {
+    ar = await migratedDb(SUPABASE_STRICT);
+    await ar.exec(`
+      insert into season (id, label, start_year, end_year, goals_from_matches) values
+        (1, '2025/26', 2025, 2026, true), (2, '2026/27', 2026, 2027, true);
+      insert into team (id, name) values (1, 'Иртыш'), (2, 'Тюмень');
+      insert into player (id, display_name, last_name, position, birth_date) values
+        (1, 'Котик', 'Котик', 'FW', '2000-01-01'), (2, 'Ушёл', 'Ушёл', 'MF', null), (3, 'Вратарь', 'Вратарь', 'GK', null);
+      insert into squad_member (season_id, player_id) values (1, 1), (2, 1), (2, 2), (2, 3);
+      insert into transfer (player_id, season_id, direction, transfer_window) values (2, 2, 'out', 'winter');
+      insert into match (id, season_id, competition_id, seq, opponent_id, match_date) values
+        (1, 2, (select id from competition where kind = 'league'), 1, 1, '2026-07-18'),
+        (2, 2, (select id from competition where kind = 'cup'), 2, 2, '2026-08-20'),
+        (3, 2, (select id from competition where kind = 'friendly'), 3, 2, '2026-09-01');
+      insert into appearance (match_id, player_id, role, minutes) values
+        (1, 1, 'start', 90), (2, 1, 'start', 60), (3, 1, 'start', 90), (1, 3, 'start', 90), (2, 3, 'start', 90);
+      insert into goal (match_id, side, kind, minute, scorer_id, scorer_name) values
+        (1, 'amkar', 'open_play', 10, 1, null), (2, 'amkar', 'open_play', 20, 1, null), (2, 'amkar', 'penalty', 30, 1, null),
+        (3, 'amkar', 'open_play', 5, 1, null),
+        (1, 'opponent', 'open_play', 50, null, 'Сидоров'), (2, 'opponent', 'open_play', 60, null, 'Петров');
+    `);
+  }, 60_000);
+
+  it('итоги сезона: все официальные и только чемпионат, без товарищеских', async () => {
+    const { rows } = await asUserIn(
+      ar,
+      null,
+      `select player_id, games, games_league, minutes, minutes_league, goals, goals_league, goals_conceded, goals_conceded_league
+       from player_season_stats where season_id = 2 and player_id in (1, 3) order by player_id`,
+    );
+    expect(rows).toEqual([
+      { player_id: 1, games: 2, games_league: 1, minutes: 150, minutes_league: 90, goals: 3, goals_league: 1, goals_conceded: null, goals_conceded_league: null },
+      { player_id: 3, games: 2, games_league: 1, minutes: 180, minutes_league: 90, goals: 0, goals_league: 0, goals_conceded: 2, goals_conceded_league: 1 },
+    ]);
+  });
+
+  it('возраст: последний официальный матч сезона и соперник', async () => {
+    const { rows } = await asUserIn(ar, null, 'select player_id, last_match_id, last_match_date::text d, last_opponent from player_season_age where season_id = 2 and player_id = 1');
+    expect(rows).toEqual([{ player_id: 1, last_match_id: 2, d: '2026-08-20', last_opponent: 'Тюмень' }]);
+  });
+
+  it('действующие: в заявке последнего сезона, без ухода в нём', async () => {
+    const { rows } = await asUserIn(ar, null, 'select player_id from current_player order by player_id');
+    expect(rows).toEqual([{ player_id: 1 }, { player_id: 3 }]);
+  });
+
+  it('зрители: не меньше нуля, пишет админ', async () => {
+    await asUserIn(ar, ADMIN, 'update match set attendance = 12500 where id = 1');
+    await expect(asUserIn(ar, ADMIN, 'update match set attendance = -1 where id = 1')).rejects.toThrow(/match_attendance_check/);
+    expect((await asUserIn(ar, null, 'select attendance from match where id = 1')).rows).toEqual([{ attendance: 12500 }]);
+  });
+});

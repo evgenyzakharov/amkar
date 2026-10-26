@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { LoadStatus } from '../components/common';
 import { loadPlayers, type PlayersPageItem } from '../db/queries';
-import { plural } from '../format';
+import { clubYears, plural } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { playerHref } from '../router';
 
@@ -54,7 +54,7 @@ export function PlayersPage() {
                   <span className="muted">
                     {p.firstYear == null
                       ? 'только трансфер'
-                      : `${p.firstYear === p.lastYear ? p.firstYear : `${p.firstYear}–${p.lastYear}`} · ${p.games} ${plural(p.games, ['матч', 'матча', 'матчей'])}`}
+                      : `${clubYears(p.firstYear, p.lastYear ?? p.firstYear, p.current)} · ${p.games} ${plural(p.games, ['матч', 'матча', 'матчей'])}`}
                   </span>
                 </li>
               ))}

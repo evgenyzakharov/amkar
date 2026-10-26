@@ -284,6 +284,17 @@ export interface Milestone {
   opponent: string | null;
 }
 
+/** Итоги игрока за сезон только в чемпионате (view player_season_stats, миграция 20261026120000). */
+export interface LeagueStats {
+  season_id: number;
+  player_id: number;
+  games_league: number;
+  minutes_league: number;
+  goals_league: number | null;
+  assists_league: number | null;
+  goals_conceded_league: number | null;
+}
+
 /** Голы на минуте матча: забитые (side = amkar) или пропущенные; added — в добавленное время. */
 export interface GoalMinute {
   side: 'amkar' | 'opponent';
@@ -306,6 +317,10 @@ export interface PlayerSeasonAge {
   age_minutes: number | null;
   age_first: number | null;
   age_last: number | null;
+  /** Последний матч сезона (миграция 20261026120000). */
+  last_match_id?: number | null;
+  last_match_date?: string | null;
+  last_opponent?: string | null;
 }
 
 /** Первый официальный гол игрока за «Амкар». */

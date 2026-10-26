@@ -187,6 +187,13 @@ export function formatHomeScore(
   return formatScore({ ...m, goals_for: m.goals_against, goals_against: m.goals_for, pens_for: m.pens_against, pens_against: m.pens_for });
 }
 
+/** Годы в клубе: «1996–2014», «2009», у действующего игрока — «2021 — н. в.». short — две цифры, для узких таблиц. */
+export function clubYears(first: number, last: number, current: boolean, short = false): string {
+  const y = (n: number) => (short ? String(n).slice(2) : String(n));
+  if (current) return short ? `${y(first)}–н. в.` : `${first} — н. в.`;
+  return first === last ? y(first) : `${y(first)}–${y(last)}`;
+}
+
 /** Возраст в годах на дату: «1990-01-01», «2008-03-15» → 18,2. Даты — без часового пояса. */
 export function ageYears(birth: string, on: string): number {
   return (Date.parse(`${on}T00:00:00Z`) - Date.parse(`${birth}T00:00:00Z`)) / (365.25 * 86_400_000);

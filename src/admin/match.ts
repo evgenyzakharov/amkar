@@ -34,13 +34,15 @@ export interface MatchRecord {
   coach_id: number | null;
   formation: string | null;
   notes: string | null;
+  /** Зрители (миграция 20261026120000). */
+  attendance: number | null;
 }
 
 export type MatchValues = Omit<MatchRecord, 'id'>;
 
 export const MATCH_RECORD_COLUMNS =
   'id, season_id, competition_id, seq, round, match_date, venue, opponent_id, opponent_raw, result, goals_for, ' +
-  'goals_against, extra_time, pens_for, pens_against, awarded, coach_id, formation, notes';
+  'goals_against, extra_time, pens_for, pens_against, awarded, coach_id, formation, notes, attendance';
 
 export interface AppearanceRecord {
   match_id: number;
@@ -157,6 +159,7 @@ export interface HeaderDraft {
   coach: string;
   formation: string;
   notes: string;
+  attendance: string;
 }
 
 /** Статус игрока в карточке: роль в составе, пропуск матча или '' — нет в заявке на матч. */
@@ -250,6 +253,7 @@ export function headerDraft(base: CardBase, competitions: Competition[]): Header
     coach: base.coaches.find((c) => c.id === m?.coach_id)?.short_name ?? '',
     formation: m?.formation ?? '',
     notes: m?.notes ?? '',
+    attendance: str(m?.attendance),
   };
 }
 
@@ -313,6 +317,7 @@ export function headerValues(h: HeaderDraft, base: CardBase): HeaderValues {
       coach_id: coach?.id ?? null,
       formation: text(h.formation),
       notes: text(h.notes),
+      attendance: num(h.attendance),
     },
     newTeam: opponent && !team ? opponent : null,
     newCoach: coachName && !coach ? coachName : null,
@@ -325,6 +330,8 @@ export function validateHeader(h: HeaderDraft, base: CardBase): { errors: string
   const seq = parseInt0(h.seq);
   if (seq == null || Number.isNaN(seq) || seq < 1) errors.push('Номер матча в сезоне — целое число больше нуля.');
   if (!h.competition_id) errors.push('Выберите турнир.');
+  const attendance = parseInt0(h.attendance);
+  if (attendance != null && (Number.isNaN(attendance) || attendance < 0)) errors.push('Зрители — целое число, не меньше нуля.');
 
   const pair = (a: string, b: string, what: string, max: number) => {
     const [x, y] = [parseInt0(a), parseInt0(b)];

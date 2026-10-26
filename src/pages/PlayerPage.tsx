@@ -2,12 +2,13 @@ import { useState, type ReactNode } from 'react';
 import { Card, ExternalLinks, Tiles, type Tile } from '../components/cards';
 import { EditLink, LoadStatus, Tag } from '../components/common';
 import { loadPlayer, type PlayerPoints } from '../db/queries';
-import type { Player, PlayerSeasonStats, Transfer } from '../db/types';
+import type { LeagueStats, Player, PlayerSeasonStats, Transfer } from '../db/types';
 import {
   DIRECTION_LABEL,
   POSITION_NAME,
   TRANSFER_KIND_LABEL,
   WINDOW_LABEL,
+  clubYears,
   formatDate,
   formatInt,
   formatRatio,
@@ -21,10 +22,21 @@ import { adminPlayerHref, playersHref, pyramidHref, seasonHref } from '../router
 export function PlayerPage({ id }: { id: number }) {
   const state = useLoad(id, loadPlayer);
   useDocumentTitle(state.status === 'ready' ? state.data.player.display_name : `Игрок №${id}`);
+  const [leagueOnly, setLeagueOnly] = useState(false);
   if (state.status !== 'ready') return <LoadStatus state={state} />;
 
-  const { player, photoUrl, links, career, transfers, points } = state.data;
+  const { player, photoUrl, links, career, transfers, points, league, current } = state.data;
   const seasons = 'data' in career ? career.data : [];
+  const scopeSwitch = league.length > 0 && (
+    <span className="segmented" role="group" aria-label="Турниры">
+      <button type="button" className={leagueOnly ? undefined : 'active'} aria-pressed={!leagueOnly} onClick={() => setLeagueOnly(false)}>
+        Все турниры
+      </button>
+      <button type="button" className={leagueOnly ? 'active' : undefined} aria-pressed={leagueOnly} onClick={() => setLeagueOnly(true)}>
+        Только чемпионат
+      </button>
+    </span>
+  );
 
   return (
     <div className="card-page">
@@ -32,7 +44,7 @@ export function PlayerPage({ id }: { id: number }) {
         <a href={playersHref}>Игроки</a> / {player.display_name} <EditLink href={adminPlayerHref(player.id)} />
       </nav>
 
-      <PlayerHero player={player} photoUrl={photoUrl} seasons={seasons}>
+      <PlayerHero player={player} photoUrl={photoUrl} seasons={seasons} current={current}>
         <ExternalLinks links={links} />
       </PlayerHero>
 
@@ -43,8 +55,8 @@ export function PlayerPage({ id }: { id: number }) {
           <Tiles tiles={careerTiles(seasons)} label="Итоги за «Амкар»" />
           {seasons.some((s) => (s.goals ?? 0) > 0) && <GoalsChart seasons={seasons} />}
           {'data' in points && <SeasonPointsBlock data={points.data} seasons={seasons} />}
-          <Card title="Карьера в клубе">
-            <CareerTable seasons={seasons} />
+          <Card title="Карьера в клубе" aside={scopeSwitch}>
+            <CareerTable seasons={leagueOnly ? leagueSeasons(seasons, league) : seasons} leagueOnly={leagueOnly} />
           </Card>
         </>
       ) : (
@@ -79,33 +91,22 @@ function givenName(p: Player): string | null {
   return prefix || null;
 }
 
-const PhotoSilhouette = () => (
-  <svg width="120" height="140" viewBox="0 0 120 140" fill="none" stroke="#6f6f6f" strokeWidth="3" role="img" aria-label="Фото нет">
-    <circle cx="60" cy="46" r="26" />
-    <path d="M14 136c4-30 24-46 46-46s42 16 46 46" />
-  </svg>
-);
-
 /**
- * Фото игрока: загруженное в хранилище, иначе по ссылке с внешнего сайта, иначе силуэт.
- * Внешнюю картинку грузим без referer (часть сайтов не отдаёт её чужим) и лениво; не открылась — силуэт.
+ * Фото игрока: загруженное в хранилище, иначе по ссылке с внешнего сайта; нет фото — нет и блока.
+ * Внешнюю картинку грузим без referer (часть сайтов не отдаёт её чужим) и лениво; не открылась — блок пропадает.
  */
 function PlayerPhoto({ uploaded, external, credit, alt }: { uploaded: string | null; external: string | null; credit: string | null; alt: string }) {
   const [failed, setFailed] = useState<string | null>(null);
   const src = uploaded ?? external;
-  const shown = src && failed !== src;
+  if (!src || failed === src) return null;
   return (
     <figure className="player-photo">
-      {shown ? (
-        uploaded ? (
-          <img src={uploaded} alt={alt} />
-        ) : (
-          <img src={src} alt={alt} referrerPolicy="no-referrer" loading="lazy" onError={() => setFailed(src)} />
-        )
+      {uploaded ? (
+        <img src={uploaded} alt={alt} />
       ) : (
-        <PhotoSilhouette />
+        <img src={src} alt={alt} referrerPolicy="no-referrer" loading="lazy" onError={() => setFailed(src)} />
       )}
-      {shown && credit && <figcaption>{credit}</figcaption>}
+      {credit && <figcaption>{credit}</figcaption>}
     </figure>
   );
 }
@@ -114,11 +115,14 @@ function PlayerHero({
   player,
   photoUrl,
   seasons,
+  current,
   children,
 }: {
   player: Player;
   photoUrl: string | null;
   seasons: PlayerSeasonStats[];
+  /** Действующий игрок — «2021 — н. в.». */
+  current: boolean;
   children: ReactNode;
 }) {
   const number = mainNumber(seasons);
@@ -126,7 +130,7 @@ function PlayerHero({
   const fullName = [given, player.last_name].filter(Boolean).join(' ');
   const years =
     seasons.length > 0
-      ? `${seasons[0].start_year}–${seasons[seasons.length - 1].end_year} · ${seasons.length} ${plural(seasons.length, ['сезон', 'сезона', 'сезонов'])}`
+      ? `${clubYears(seasons[0].start_year, seasons[seasons.length - 1].end_year, current)} · ${seasons.length} ${plural(seasons.length, ['сезон', 'сезона', 'сезонов'])}`
       : null;
   const facts = [
     player.position && { term: 'Позиция', value: POSITION_NAME[player.position], strong: true },
@@ -215,7 +219,7 @@ function GoalsChart({ seasons }: { seasons: PlayerSeasonStats[] }) {
   );
 }
 
-/** Очки сезона по формуле пирамиды: ценность за карьеру, лучший сезон, ярус и полосы по сезонам. */
+/** Очки сезона по формуле Амкаровской пирамиды: рейтинг карьеры, лучший сезон, ярус и полосы по сезонам. */
 function SeasonPointsBlock({ data, seasons }: { data: PlayerPoints; seasons: PlayerSeasonStats[] }) {
   const bySeason = new Map(data.seasons.map((p) => [p.season_id, p]));
   // По порядку сезонов карьеры и только сезоны, где игрок выходил на поле
@@ -224,14 +228,14 @@ function SeasonPointsBlock({ data, seasons }: { data: PlayerPoints; seasons: Pla
   const best = played.reduce((a, b) => (b.points > a.points ? b : a));
   const tier = tierName(data.career.tier);
   const tiles: Tile[] = [
-    { value: formatInt(Math.round(data.career.value)), label: `ценность за карьеру — ${data.career.career_rank}-е место в истории` },
+    { value: formatInt(Math.round(data.career.value)), label: `рейтинг карьеры — ${data.career.career_rank}-е место в истории` },
     { value: formatInt(Math.round(best.points)), label: `лучший сезон — ${best.season_label}, ${best.overall_rank}-й в истории` },
   ];
-  if (tier) tiles.push({ value: <a href={pyramidHref}>{tier}</a>, label: 'ярус пирамиды' });
+  if (tier) tiles.push({ value: <a href={pyramidHref}>{tier}</a>, label: 'ярус Амкаровской пирамиды' });
 
   return (
     <>
-      <Tiles tiles={tiles} label="Пирамида" />
+      <Tiles tiles={tiles} label="Амкаровская пирамида" />
       <Card title="Очки по сезонам">
         <div className="points-bars">
           {played.map((p) => (
@@ -252,7 +256,7 @@ function SeasonPointsBlock({ data, seasons }: { data: PlayerPoints; seasons: Pla
           ))}
         </div>
         <p className="note">
-          Очки — <a href={pyramidHref}>по формуле пирамиды</a>. Шкала полос общая для всех игроков: полная полоса — лучший сезон в
+          Очки — <a href={pyramidHref}>по формуле Амкаровской пирамиды</a>. Шкала полос общая для всех игроков: полная полоса — лучший сезон в
           истории.
         </p>
       </Card>
@@ -260,10 +264,20 @@ function SeasonPointsBlock({ data, seasons }: { data: PlayerPoints; seasons: Pla
   );
 }
 
+/** Сезоны карьеры только по чемпионату: сезоны без матчей чемпионата не показываются. */
+function leagueSeasons(seasons: PlayerSeasonStats[], league: LeagueStats[]): PlayerSeasonStats[] {
+  const by = new Map(league.map((l) => [l.season_id, l]));
+  return seasons.flatMap((s) => {
+    const l = by.get(s.season_id);
+    if (!l || l.games_league === 0) return [];
+    return [{ ...s, games: l.games_league, minutes: l.minutes_league, goals: l.goals_league, assists: l.assists_league, goals_conceded: l.goals_conceded_league }];
+  });
+}
+
 /** Неизвестное значение — тире. */
 const orDash = (n: number | null) => (n == null ? <span className="muted">—</span> : formatInt(n));
 
-function CareerTable({ seasons }: { seasons: PlayerSeasonStats[] }) {
+function CareerTable({ seasons, leagueOnly }: { seasons: PlayerSeasonStats[]; leagueOnly: boolean }) {
   const hasConceded = seasons.some((s) => s.goals_conceded != null);
   const total = (key: 'goals' | 'assists' | 'goals_conceded') => sumKnown(seasons.map((s) => s[key]));
   // Передачи в старых сезонах не учитывались: итог по ним неполный
@@ -332,7 +346,8 @@ function CareerTable({ seasons }: { seasons: PlayerSeasonStats[] }) {
         </table>
       </div>
       <p className="note">
-        Матчи и голы — все турниры, без товарищеских.{assistsPartial && ' * Передачи в старых сезонах не учитывались.'}
+        {leagueOnly ? 'Только матчи чемпионата.' : 'Матчи и голы — все турниры, без товарищеских.'}
+        {assistsPartial && ' * Передачи в старых сезонах не учитывались.'}
       </p>
     </>
   );

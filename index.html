@@ -4,6 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Амкар — история в цифрах</title>
+    <script>
+      // До отрисовки, чтобы не мигало: тема (выбор посетителя, иначе — как в системе) и логотип клуба.
+      // Логотип — 50 на 50 старый или новый, он же иконка вкладки. Картинки — по ссылке с Википедии и fnl.pro.
+      (function () {
+        var root = document.documentElement;
+        var theme = null;
+        try {
+          theme = localStorage.getItem('theme');
+        } catch (e) {}
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        root.dataset.theme = theme;
+        var logos = [
+          'https://upload.wikimedia.org/wikipedia/ru/thumb/c/c8/FC_Amkar_Perm_Logo.svg/500px-FC_Amkar_Perm_Logo.svg.png',
+          'https://s3.fnl.pro:9000/fnl/team/team-200-275',
+        ];
+        var logo = logos[Math.random() < 0.5 ? 0 : 1];
+        root.dataset.logo = logo;
+        var icon = document.createElement('link');
+        icon.rel = 'icon';
+        icon.href = logo;
+        document.head.appendChild(icon);
+      })();
+    </script>
     <!-- Шрифты макета «матч-программы»: Oswald — заголовки и цифры, IBM Plex Sans — текст. Оба с кириллицей -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
