@@ -18,7 +18,7 @@ import {
   newVideoKey,
 } from '../src/admin/match';
 import { isDirty, saveMatchCard } from '../src/admin/save';
-import type { Writer } from '../src/admin/writer';
+import type { Row, Writer } from '../src/admin/writer';
 import { STRANGER, migratedDb, pgliteWriter } from './db';
 
 let db: PGlite;
@@ -102,6 +102,20 @@ function newMatchDraft(base: CardBase): CardDraft {
     ],
     lineup,
     videos: [],
+  };
+}
+
+
+/** Писатель, у которого вставка доходит до базы, а ответ теряется — по разу на каждую таблицу из lost. */
+function lossyWriter(real: Writer, tables: string[]): Writer {
+  const lost = new Set(tables);
+  return {
+    ...real,
+    insert: (async (table: string, rows: Row[], keys?: string[]) => {
+      const out = await real.insert(table, rows, keys);
+      if (lost.delete(table)) throw new TypeError('Failed to fetch');
+      return out;
+    }) as Writer['insert'],
   };
 }
 
@@ -203,7 +217,7 @@ describe('сохранение карточки матча', () => {
         table === 'appearance' ? Promise.reject(new TypeError('Failed to fetch')) : real.upsert(table, rows, onConflict),
     };
     const failed = await saveMatchCard(flaky, base, next);
-    expect(dbErrorMessage(failed.error)).toBe('Нет связи с базой. Проверьте интернет и попробуйте ещё раз.');
+    expect(dbErrorMessage(failed.error)).toBe('Нет связи с базой: неизвестно, успело ли записаться. Проверьте интернет и нажмите «Сохранить» ещё раз — записанное не задвоится.');
     expect(failed.draft.goals.every((g) => g.id != null)).toBe(true);
 
     const retry = await saveMatchCard(real, failed.base, failed.draft);
@@ -254,5 +268,34 @@ describe('сохранение карточки матча', () => {
     const created = await saveMatchCard(pgliteWriter(db, STRANGER), await loadBase(null), newMatchDraft(await loadBase(null)));
     expect(dbErrorMessage(created.error)).toBe('Нет прав на запись. Войдите заново под аккаунтом админа.');
     expect((await loadBase(matchId)).match!.notes).toBe('Перенесён');
+    // удаление без прав RLS не отвергает, а молча ничего не удаляет — это ошибка, а не «сохранено»
+    await expect(pgliteWriter(db, STRANGER).remove('goal', { match_id: matchId })).rejects.toThrow(/не удалилась/);
+    // а повтор удаления, когда строк уже нет, — не ошибка
+    await pgliteWriter(db).remove('goal', { match_id: matchId }, ['id', [999]]);
+  });
+
+  it('ответ на запись потерялся: повтор не заводит матч и голы второй раз', async () => {
+    const real = pgliteWriter(db);
+    const lossy = lossyWriter(real, ['match', 'goal']);
+    const base = await loadBase(null);
+    const draft = newMatchDraft(base);
+    const card: CardDraft = { ...draft, header: { ...draft.header, seq: '7' }, key: 'test-lost-match' };
+
+    // матч записан, а карточка об этом не знает
+    const first = await saveMatchCard(lossy, base, card);
+    expect(dbErrorMessage(first.error)).toMatch(/записанное не задвоится/);
+    expect(first.base.match).toBeNull();
+    // повтор: матч — тот же, теперь теряется ответ на голы
+    const second = await saveMatchCard(lossy, first.base, first.draft);
+    expect(dbErrorMessage(second.error)).toMatch(/записанное не задвоится/);
+    expect(second.draft.goals.every((g) => g.id == null)).toBe(true);
+    // ещё повтор: голы — те же
+    const third = await saveMatchCard(lossy, second.base, second.draft);
+    expect(third.error).toBeNull();
+    const { rows } = await db.query<{ n: number }>('select count(*)::int n from match where season_id = 1 and seq = 7');
+    expect(rows).toEqual([{ n: 1 }]);
+    const saved = await loadBase(third.base.match!.id);
+    expect(saved.goals).toHaveLength(3);
+    expect(isDirty(saved, cardDraft(saved, competitions))).toBe(false);
   });
 });

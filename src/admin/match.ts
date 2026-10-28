@@ -197,7 +197,11 @@ export interface CardDraft {
   goals: GoalDraft[];
   lineup: Lineup;
   videos: VideoDraft[];
+  /** Ключ новой карточки: повтор сохранения после потерянного ответа не заведёт матч второй раз. */
+  key?: string;
 }
+
+let cardKey = 0;
 
 export const EMPTY_ROW: LineupRow = {
   status: '',
@@ -637,7 +641,13 @@ export function validateGoals(goals: GoalDraft[], h: HeaderDraft, lineup: Lineup
 // ===========================================================================
 
 export function cardDraft(base: CardBase, competitions: Competition[]): CardDraft {
-  return { header: headerDraft(base, competitions), goals: goalsDraft(base), lineup: lineupDraft(base), videos: videosDraft(base) };
+  return {
+    header: headerDraft(base, competitions),
+    goals: goalsDraft(base),
+    lineup: lineupDraft(base),
+    videos: videosDraft(base),
+    key: base.match ? `id-${base.match.id}` : `new-match-${++cardKey}`,
+  };
 }
 
 // ===========================================================================

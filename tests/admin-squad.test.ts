@@ -11,7 +11,7 @@ import {
   type SquadPlayerInfo,
   type SquadRecord,
 } from '../src/admin/squad';
-import type { Writer } from '../src/admin/writer';
+import type { Row, Writer } from '../src/admin/writer';
 import { migratedDb, pgliteWriter } from './db';
 
 let db: PGlite;
@@ -76,7 +76,7 @@ describe('заявка сезона', () => {
     const real = pgliteWriter(db);
     const flaky: Writer = { ...real, remove: () => Promise.reject(new TypeError('Failed to fetch')) };
     const failed = await saveSquad(flaky, base, draft);
-    expect(dbErrorMessage(failed.error)).toBe('Нет связи с базой. Проверьте интернет и попробуйте ещё раз.');
+    expect(dbErrorMessage(failed.error)).toBe('Нет связи с базой: неизвестно, успело ли записаться. Проверьте интернет и нажмите «Сохранить» ещё раз — записанное не задвоится.');
     expect(failed.draft.every((r) => !r.newPlayer && r.player_id > 0)).toBe(true);
 
     const retry = await saveSquad(real, failed.base, failed.draft);
@@ -95,6 +95,34 @@ describe('заявка сезона', () => {
     expect(players[0].n).toBe(1);
     const after = await loadBase();
     expect(isSquadDirty(squadDraft(after), after)).toBe(false);
+  });
+
+  it('ответ на запись нового игрока потерялся: повтор не заводит его второй раз', async () => {
+    const base = await loadBase();
+    const draft = [
+      ...squadDraft(base),
+      { player_id: newTempId(), shirt_number: '44', position: 'DF' as const, squad_group: 'main' as const, on_loan: false, newPlayer: { last_name: 'Сидоров', first_name: '', display_name: '' } },
+    ];
+    const real = pgliteWriter(db);
+    let lost = true;
+    const lossy: Writer = {
+      ...real,
+      insert: (async (table: string, rows: Row[], keys?: string[]) => {
+        const out = await real.insert(table, rows, keys);
+        if (table === 'player' && lost) {
+          lost = false;
+          throw new TypeError('Failed to fetch');
+        }
+        return out;
+      }) as Writer['insert'],
+    };
+    const failed = await saveSquad(lossy, base, draft);
+    expect(failed.error).not.toBeNull();
+    // строка всё ещё «новый игрок»: карточка не узнала его id
+    expect(failed.draft.some((r) => r.newPlayer)).toBe(true);
+    const retry = await saveSquad(lossy, failed.base, failed.draft);
+    expect(retry.error).toBeNull();
+    expect((await db.query<{ n: number }>(`select count(*)::int n from player where last_name = 'Сидоров'`)).rows[0].n).toBe(1);
   });
 
   it('итоги сезона из Excel не дают убрать игрока — понятной ошибкой', async () => {

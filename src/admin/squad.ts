@@ -136,9 +136,11 @@ export async function saveSquad(w: Writer, base0: SquadBase, draft0: SquadRowDra
       const p = r.newPlayer!;
       const last = p.last_name.trim();
       const first = p.first_name.trim() || null;
-      const [created] = await w.insert<{ id: number }>('player', [
-        { display_name: p.display_name.trim() || last, last_name: last, first_name: first },
-      ]);
+      const [created] = await w.insert<{ id: number }>(
+        'player',
+        [{ display_name: p.display_name.trim() || last, last_name: last, first_name: first }],
+        [`new-${r.player_id}`],
+      );
       base.players.set(created.id, {
         id: created.id,
         display_name: p.display_name.trim() || last,

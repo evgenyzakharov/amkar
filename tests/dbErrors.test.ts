@@ -74,6 +74,6 @@ describe('ошибки базы по-русски', () => {
       'Нет прав на запись. Войдите заново под аккаунтом админа.',
     );
     expect(dbErrorMessage({ code: 'PGRST301', message: 'JWT expired' })).toBe('Сессия истекла — войдите заново.');
-    expect(dbErrorMessage(new TypeError('Failed to fetch'))).toBe('Нет связи с базой. Проверьте интернет и попробуйте ещё раз.');
+    expect(dbErrorMessage(new TypeError('Failed to fetch'))).toBe('Нет связи с базой: неизвестно, успело ли записаться. Проверьте интернет и нажмите «Сохранить» ещё раз — записанное не задвоится.');
   });
 });

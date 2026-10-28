@@ -174,7 +174,11 @@ export async function saveTransfers(w: Writer, base0: TransferBase, draft0: Tran
     }
     const added = values.filter((v) => v.id == null);
     if (added.length > 0) {
-      const inserted = await w.insert<TransferRecord>('transfer', added as unknown as Record<string, unknown>[]);
+      const inserted = await w.insert<TransferRecord>(
+        'transfer',
+        added as unknown as Record<string, unknown>[],
+        draft.filter((d) => d.id == null).map((d) => d.key),
+      );
       let i = 0;
       draft = draft.map((d) => (d.id == null ? { ...d, id: inserted[i++].id, key: d.key } : d));
       const pick = (t: TransferRecord): TransferRecord => ({

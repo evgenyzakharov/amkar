@@ -165,6 +165,17 @@ export const CONSTRAINT_MESSAGES: Record<string, string> = {
   player_season_adjustment_comment_check: 'У поправки нужен комментарий: за что она.',
   player_season_adjustment_season_id_player_id_fkey: 'Игрока нет в заявке этого сезона.',
 
+  // ключи повтора сохранения: совпасть могут только у той же строки формы — значит, она уже записана
+  match_client_key_key: 'Эта запись уже сохранена — обновите страницу.',
+  goal_client_key_key: 'Эта запись уже сохранена — обновите страницу.',
+  match_video_client_key_key: 'Эта запись уже сохранена — обновите страницу.',
+  team_client_key_key: 'Эта запись уже сохранена — обновите страницу.',
+  coach_client_key_key: 'Эта запись уже сохранена — обновите страницу.',
+  player_client_key_key: 'Эта запись уже сохранена — обновите страницу.',
+  transfer_client_key_key: 'Эта запись уже сохранена — обновите страницу.',
+  team_name_client_key_key: 'Эта запись уже сохранена — обновите страницу.',
+  coach_tenure_client_key_key: 'Эта запись уже сохранена — обновите страницу.',
+
   // проверка данных: «так и есть»
   data_check_ok_pkey: 'Этот случай уже отмечен как верный.',
   data_check_ok_check_key_check: 'Не указана проверка.',
@@ -211,8 +222,9 @@ export function dbErrorMessage(e: unknown): string {
   if (code === 'PGRST301' || code === 'PGRST303' || /JWT expired/i.test(message)) {
     return 'Сессия истекла — войдите заново.';
   }
-  if (/failed to fetch|networkerror|load failed/i.test(message)) {
-    return 'Нет связи с базой. Проверьте интернет и попробуйте ещё раз.';
+  // Запрос ушёл, ответа нет: могло и записаться. Повтор безопасен — новые строки идут с ключом client_key
+  if (/failed to fetch|networkerror|load failed|timed out|timeout|aborted/i.test(message)) {
+    return 'Нет связи с базой: неизвестно, успело ли записаться. Проверьте интернет и нажмите «Сохранить» ещё раз — записанное не задвоится.';
   }
 
   const constraint = /constraint "([^"]+)"/.exec(message)?.[1];

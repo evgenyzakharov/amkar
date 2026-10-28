@@ -94,7 +94,7 @@ describe('трансферы сезона', () => {
     // связь оборвалась на изменении: удаление уже прошло
     const flaky: Writer = { ...real, upsert: () => Promise.reject(new TypeError('Failed to fetch')) };
     const failed = await saveTransfers(flaky, base, draft);
-    expect(dbErrorMessage(failed.error)).toBe('Нет связи с базой. Проверьте интернет и попробуйте ещё раз.');
+    expect(dbErrorMessage(failed.error)).toBe('Нет связи с базой: неизвестно, успело ли записаться. Проверьте интернет и нажмите «Сохранить» ещё раз — записанное не задвоится.');
     const retry = await saveTransfers(real, failed.base, failed.draft);
     expect(retry.error).toBeNull();
 

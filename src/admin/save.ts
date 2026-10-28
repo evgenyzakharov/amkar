@@ -18,7 +18,7 @@ import {
   type VideoRecord,
   videoValues,
 } from './match';
-import type { Row, Writer } from './writer';
+import { nameKey, type Row, type Writer } from './writer';
 
 const MATCH_FIELDS = [
   'id', 'season_id', 'competition_id', 'seq', 'round', 'match_date', 'venue', 'opponent_id', 'opponent_raw',
@@ -59,18 +59,18 @@ export async function saveMatchCard(w: Writer, base0: CardBase, draft0: CardDraf
     const header = headerValues(draft.header, base);
     let values: MatchValues = header.values;
     if (header.newTeam) {
-      const [team] = await w.insert<Team>('team', [{ name: header.newTeam }]);
+      const [team] = await w.insert<Team>('team', [{ name: header.newTeam }], [nameKey(header.newTeam)]);
       base = { ...base, teams: [...base.teams, { id: team.id, name: team.name }] };
       values = { ...values, opponent_id: team.id };
     }
     if (header.newCoach) {
-      const [coach] = await w.insert<Coach>('coach', [{ short_name: header.newCoach, full_name: header.newCoach }]);
+      const [coach] = await w.insert<Coach>('coach', [{ short_name: header.newCoach, full_name: header.newCoach }], [nameKey(header.newCoach)]);
       base = { ...base, coaches: [...base.coaches, pick<Coach>(coach, ['id', 'short_name', 'full_name'])] };
       values = { ...values, coach_id: coach.id };
     }
     let match = base.match;
     if (!match) {
-      const [created] = await w.insert<MatchRecord>('match', [values as unknown as Row]);
+      const [created] = await w.insert<MatchRecord>('match', [values as unknown as Row], [draft.key ?? `season-${values.season_id}-seq-${values.seq}`]);
       match = pick<MatchRecord>(created, MATCH_FIELDS);
     } else if (!same(match, values, MATCH_FIELDS)) {
       await w.update('match', values as unknown as Row, { id: match.id });
@@ -99,6 +99,7 @@ export async function saveMatchCard(w: Writer, base0: CardBase, draft0: CardDraf
       const inserted = await w.insert<GoalRecord>(
         'goal',
         newGoals.map((g) => pick<Row>(g, GOAL_FIELDS.filter((f) => f !== 'id'))),
+        draft.goals.filter((g) => g.id == null).map((g) => g.key),
       );
       let i = 0;
       draft = { ...draft, goals: draft.goals.map((g) => (g.id == null ? { ...g, id: inserted[i++].id } : g)) };
@@ -167,7 +168,11 @@ export async function saveMatchCard(w: Writer, base0: CardBase, draft0: CardDraf
     }
     const newVideos = videos.filter((v) => v.id == null);
     if (newVideos.length > 0) {
-      const inserted = await w.insert<VideoRecord>('match_video', newVideos as unknown as Row[]);
+      const inserted = await w.insert<VideoRecord>(
+        'match_video',
+        newVideos as unknown as Row[],
+        draft.videos.filter((v) => v.id == null).map((v) => v.key),
+      );
       let i = 0;
       draft = { ...draft, videos: draft.videos.map((v) => (v.id == null ? { ...v, id: inserted[i++].id } : v)) };
       base = { ...base, videos: [...base.videos, ...inserted.map((v) => pick<VideoRecord>(v, VIDEO_FIELDS))] };

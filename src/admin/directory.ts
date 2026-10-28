@@ -1,7 +1,7 @@
 // Справочники соперников (team) и тренеров (coach): список записей с текстовыми полями.
 // Плюс привязка соперников, записанных текстом из Excel (match.opponent_raw), к клубам справочника.
 import { findTeam, type Team } from './match';
-import type { Writer } from './writer';
+import { nameKey, type Writer } from './writer';
 
 export interface DirField {
   key: string;
@@ -133,7 +133,11 @@ export async function saveDir(w: Writer, config: DirConfig, records0: DirRecord[
     }
     const added = draft.filter((d) => d.id == null);
     if (added.length > 0) {
-      const inserted = await w.insert<DirRecord>(config.table, added.map((d) => dirValues(d, config)));
+      const inserted = await w.insert<DirRecord>(
+        config.table,
+        added.map((d) => dirValues(d, config)),
+        added.map((d) => d.key),
+      );
       let i = 0;
       draft = draft.map((d) => (d.id == null ? { ...d, id: inserted[i++].id } : d));
       records = [...records, ...inserted];
@@ -179,7 +183,7 @@ export async function ensureTeam(w: Writer, teams: Team[], teamName: string): Pr
   const name = teamName.trim().replace(/\s+/g, ' ');
   const found = findTeam(teams, name);
   if (found) return { team: found, created: false };
-  const [row] = await w.insert<Team>('team', [{ name }]);
+  const [row] = await w.insert<Team>('team', [{ name }], [nameKey(name)]);
   return { team: { id: row.id, name: row.name }, created: true };
 }
 
@@ -306,7 +310,11 @@ export async function saveTeamNames(w: Writer, teamId: number, records0: TeamNam
     }
     const added = values.filter((_, i) => draft[i].id == null).map(({ name, from_year, to_year }) => ({ team_id: teamId, name, from_year, to_year }));
     if (added.length > 0) {
-      const inserted = await w.insert<TeamNameRecord>('team_name', added);
+      const inserted = await w.insert<TeamNameRecord>(
+        'team_name',
+        added,
+        draft.filter((d) => d.id == null).map((d) => d.key),
+      );
       let i = 0;
       draft = draft.map((d) => (d.id == null ? { ...d, id: inserted[i++].id } : d));
       records = [...records, ...inserted];
@@ -433,7 +441,11 @@ export async function saveTenures(w: Writer, coachId: number, records0: TenureRe
     }
     const added = draft.filter((d) => d.id == null).map((d) => ({ coach_id: coachId, ...tenureValues(d) }));
     if (added.length > 0) {
-      const inserted = await w.insert<TenureRecord>('coach_tenure', added);
+      const inserted = await w.insert<TenureRecord>(
+        'coach_tenure',
+        added,
+        draft.filter((d) => d.id == null).map((d) => d.key),
+      );
       let i = 0;
       draft = draft.map((d) => (d.id == null ? { ...d, id: inserted[i++].id, key: `id-${inserted[i - 1].id}` } : d));
       records = [...records, ...inserted];

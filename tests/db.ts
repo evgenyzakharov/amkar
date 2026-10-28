@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { DbError } from '../src/admin/dbErrors';
-import type { Filter, Row, Writer } from '../src/admin/writer';
+import { clientKey, inKeyOrder, type Filter, type Row, type Writer } from '../src/admin/writer';
 
 const MIGRATIONS_DIR = fileURLToPath(new URL('../supabase/migrations', import.meta.url));
 
@@ -106,15 +106,20 @@ export function pgliteWriter(conn: PGlite, userId: string | null = ADMIN): Write
     }
   };
   return {
-    async insert<T>(table: string, rows: Row[]) {
+    async insert<T>(table: string, rows: Row[], keys?: string[]) {
       if (rows.length === 0) return [];
-      const cols = Object.keys(rows[0]).map(ident).join(', ');
+      // с ключами — как в приложении: upsert по client_key, повтор возвращает уже записанные строки
+      const keyed = keys ? rows.map((r, i) => ({ ...r, client_key: clientKey(table, keys[i]) })) : rows;
+      const names = Object.keys(keyed[0]).map(ident);
+      const cols = names.join(', ');
+      const conflict = keys ? ` on conflict (client_key) do update set ${names.filter((c) => c !== 'client_key').map((c) => `${c} = excluded.${c}`).join(', ')}` : '';
       const res = await call(
-        `insert into ${ident(table)} as t (${cols}) select ${cols} from json_populate_recordset(null::${table}, $1::json)
+        `insert into ${ident(table)} as t (${cols}) select ${cols} from json_populate_recordset(null::${table}, $1::json)${conflict}
          returning to_json(t) as j`,
-        [JSON.stringify(rows)],
+        [JSON.stringify(keyed)],
       );
-      return res.rows.map((r) => r.j as T);
+      const out = res.rows.map((r) => r.j as T);
+      return keys ? inKeyOrder(out, keyed) : out;
     },
     async update(table, values, match) {
       const cols = Object.keys(values).map(ident);
@@ -147,6 +152,9 @@ export function pgliteWriter(conn: PGlite, userId: string | null = ADMIN): Write
         sql += ` and ${ident(inList[0])}::text = any($${params.length}::text[])`;
       }
       await call(sql, params);
+      // как в приложении: строки остались — нет прав
+      const left = await call(sql.replace(/^delete from (\S+) where/, 'select 1 from $1 where') + ' limit 1', params);
+      if (left.rows.length > 0) throw new DbError({ code: 'app', message: 'Запись не удалилась: нет прав на запись.' });
     },
   };
 }
