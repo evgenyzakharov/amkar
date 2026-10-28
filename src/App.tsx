@@ -103,11 +103,45 @@ function ClubLogo() {
 }
 
 /** Переключатель темы: солнце — включить светлую, луна — тёмную. */
+// Футболка схематично: туловище, рукава, вырез горловины
+const SHIRT = 'M8 2.5 3.5 4.6 1 9.3l3.2 1.6L6 9.2v12.3h12V9.2l1.8 1.7 3.2-1.6-2.5-4.7L16 2.5c-.8 1.6-2.2 2.5-4 2.5s-3.2-.9-4-2.5Z';
+const COLLAR = 'M8 2.5c.8 1.6 2.2 2.5 4 2.5s3.2-.9 4-2.5';
+
+/** Форма «Амкара»: домашняя — красно-чёрная в полоску (тёмная тема), гостевая — белая с красным (светлая). */
+function Shirt({ home }: { home: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+      <defs>
+        <clipPath id="theme-shirt">
+          <path d={SHIRT} />
+        </clipPath>
+      </defs>
+      {home ? (
+        <g clipPath="url(#theme-shirt)">
+          <rect width="24" height="24" fill="#c8102e" />
+          {[3.6, 8, 12.4, 16.8].map((x) => (
+            <rect key={x} x={x} width="2.2" height="24" fill="#111" />
+          ))}
+        </g>
+      ) : (
+        <>
+          <path d={SHIRT} fill="#fff" />
+          <path d="M6.3 12v9M17.7 12v9" stroke="#c8102e" strokeWidth="0.9" />
+        </>
+      )}
+      <path d={COLLAR} fill="none" stroke="#c8102e" strokeWidth="1.5" />
+      {/* светлая кайма: чёрные полосы не сливаются с чёрной шапкой */}
+      <path d={SHIRT} fill="none" stroke="#bdbdbd" strokeWidth="0.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function ThemeToggle() {
   const [theme, setState] = useState<Theme>(currentTheme);
   useEffect(() => followSystem(setState), []);
   const next: Theme = theme === 'dark' ? 'light' : 'dark';
-  const label = next === 'dark' ? 'Тёмная тема' : 'Светлая тема';
+  // как раньше луна и солнце, кнопка показывает, на что переключит: тёмная — домашняя форма, светлая — гостевая
+  const label = next === 'dark' ? 'Тёмная тема — домашняя форма' : 'Светлая тема — гостевая форма';
   return (
     <button
       type="button"
@@ -119,7 +153,7 @@ function ThemeToggle() {
         setState(next);
       }}
     >
-      {next === 'dark' ? '☾' : '☀'}
+      <Shirt home={next === 'dark'} />
     </button>
   );
 }
