@@ -262,6 +262,9 @@ export function formatDate(iso: string): string {
 }
 
 /** Пустая ячейка для неизвестного значения, иначе число. */
+/** «Сыграл»: есть минуты или вышел в старте или на замену — то же правило, что official_appearance.played в базе. */
+export const isPlayed = (a: { minutes: number | null; role: string | null }) => (a.minutes ?? 0) > 0 || a.role === 'start' || a.role === 'sub';
+
 /** Число в ячейке таблицы; данных нет — «—», как во всех таблицах сайта. */
 export const num = (n: number | null | undefined) => (n == null ? '—' : String(n));
 

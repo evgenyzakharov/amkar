@@ -4,6 +4,7 @@ import { currentTheme, followSystem, logoSrc, setTheme, type Theme } from './the
 import { AuthProvider } from './components/AuthProvider';
 import { NotFound } from './components/common';
 import { PageErrorBoundary } from './components/PageErrorBoundary';
+import { SiteSearch } from './components/SiteSearch';
 import { confirmLeave } from './leaveGuard';
 import { restoreScroll } from './scrollMemory';
 import { MatchPage } from './pages/MatchPage';
@@ -26,6 +27,8 @@ const OpponentsPage = lazy(() => import('./pages/OpponentsPage').then((m) => ({ 
 const OpponentPage = lazy(() => import('./pages/OpponentsPage').then((m) => ({ default: m.OpponentPage })));
 const AcademyPage = lazy(() => import('./pages/AcademyPage').then((m) => ({ default: m.AcademyPage })));
 const PyramidPage = lazy(() => import('./pages/PyramidPage').then((m) => ({ default: m.PyramidPage })));
+// Сравнение — тоже по запросу
+const ComparePage = lazy(() => import('./pages/ComparePage').then((m) => ({ default: m.ComparePage })));
 
 function Page({ route }: { route: Route }) {
   switch (route.page) {
@@ -83,6 +86,12 @@ function Page({ route }: { route: Route }) {
           <PyramidPage />
         </Suspense>
       );
+    case 'compare':
+      return (
+        <Suspense fallback={<p className="muted">Загрузка…</p>}>
+          <ComparePage route={route.compare} />
+        </Suspense>
+      );
     case 'admin':
       return (
         <Suspense fallback={<p className="muted">Загрузка…</p>}>
@@ -102,7 +111,6 @@ function ClubLogo() {
   return <img className="site-logo-img" src={src} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
 }
 
-/** Переключатель темы: солнце — включить светлую, луна — тёмную. */
 // Футболка схематично: туловище, рукава, вырез горловины
 const SHIRT = 'M8 2.5 3.5 4.6 1 9.3l3.2 1.6L6 9.2v12.3h12V9.2l1.8 1.7 3.2-1.6-2.5-4.7L16 2.5c-.8 1.6-2.2 2.5-4 2.5s-3.2-.9-4-2.5Z';
 const COLLAR = 'M8 2.5c.8 1.6 2.2 2.5 4 2.5s3.2-.9 4-2.5';
@@ -246,6 +254,7 @@ function App() {
               Пирамида
             </a>
           </nav>
+          <SiteSearch />
           <ThemeToggle />
           <AdminLinks />
         </div>

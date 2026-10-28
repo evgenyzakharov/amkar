@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Card, ExternalLinks, ScopeSwitch, Tiles, type Tile } from '../components/cards';
 import { EditLink, LoadStatus, Tag } from '../components/common';
+import { PlayerLinks } from '../components/PlayerLinks';
 import { loadPlayer, type PlayerPoints } from '../db/queries';
 import type { LeagueStats, Player, PlayerSeasonStats, Transfer } from '../db/types';
 import {
@@ -17,7 +18,7 @@ import {
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { tierName } from '../pyramid';
-import { adminPlayerHref, opponentHref, playerHref, playersHref, pyramidHref, seasonHref, type LeadersScope } from '../router';
+import { adminPlayerHref, compareHref, opponentHref, playerHref, playersHref, pyramidHref, seasonHref, type LeadersScope } from '../router';
 
 export function PlayerPage({ id, scope }: { id: number; scope: LeadersScope }) {
   const state = useLoad(id, loadPlayer);
@@ -32,8 +33,13 @@ export function PlayerPage({ id, scope }: { id: number; scope: LeadersScope }) {
 
   return (
     <div className="card-page">
-      <nav className="crumbs" aria-label="Путь">
-        <a href={playersHref}>Игроки</a> / {player.display_name} <EditLink href={adminPlayerHref(player.id)} />
+      <nav className="crumbs crumbs-split" aria-label="Путь">
+        <span>
+          <a href={playersHref}>Игроки</a> / {player.display_name} <EditLink href={adminPlayerHref(player.id)} />
+        </span>
+        <span className="crumbs-siblings">
+          <a href={compareHref({ mode: 'players', a: player.id, b: null })}>Сравнить с…</a>
+        </span>
       </nav>
 
       <PlayerHero player={player} photoUrl={photoUrl} seasons={seasons} current={current}>
@@ -50,6 +56,7 @@ export function PlayerPage({ id, scope }: { id: number; scope: LeadersScope }) {
           <Card title="Карьера в клубе" aside={scopeSwitch}>
             <CareerTable seasons={leagueOnly ? leagueSeasons(seasons, league) : seasons} leagueOnly={leagueOnly} />
           </Card>
+          <PlayerLinks id={player.id} />
         </>
       ) : (
         <p className="muted">В заявках «Амкара» не числился — известен только по трансферам.</p>

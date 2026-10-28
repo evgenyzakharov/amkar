@@ -25,7 +25,7 @@ import {
   plural,
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { adminSeasonHref, coachHref, matchHref, opponentHref, playerHref, pyramidHref, seasonHref, type LeadersScope } from '../router';
+import { adminSeasonHref, coachHref, compareHref, matchHref, opponentHref, playerHref, pyramidHref, seasonHref, type LeadersScope } from '../router';
 import { usePageState } from '../pageState';
 
 export function SeasonPage({ label, scope }: { label: string; scope: LeadersScope }) {
@@ -93,6 +93,7 @@ function SeasonCard({ data, scope }: { data: SeasonPageData; scope: LeadersScope
         <span className="crumbs-siblings">
           {prev && <a href={seasonHref(prev.label)}>‹ {prev.label}</a>}
           {next && <a href={seasonHref(next.label)}>{next.label} ›</a>}
+          <a href={compareHref({ mode: 'seasons', s: season.label, t: null })}>Сравнить с…</a>
         </span>
       </nav>
 

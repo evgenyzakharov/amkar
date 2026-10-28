@@ -19,6 +19,7 @@ export type Route =
   | { page: 'pyramid' }
   | { page: 'match'; id: number }
   | { page: 'player'; id: number; scope: LeadersScope }
+  | { page: 'compare'; compare: CompareRoute }
   | { page: 'admin'; admin: AdminRoute }
   | { page: 'not-found' };
 
@@ -68,6 +69,28 @@ export const coachHref = (id: number) => `#/coach/${id}`;
 export const opponentsHref = (scope: LeadersScope = 'all') => `#/opponents${scope === 'league' ? '?scope=league' : ''}`;
 export const opponentHref = (id: number) => `#/opponent/${id}`;
 export const academyHref = '#/academy';
+
+/** Сравнение: двух игроков (?a=27&b=33) или двух сезонов (?s=2008&t=2024). Ссылкой можно поделиться. */
+export type CompareRoute =
+  | { mode: 'players'; a: number | null; b: number | null }
+  | { mode: 'seasons'; s: string | null; t: string | null };
+export const compareHref = (c: CompareRoute) => {
+  const q =
+    c.mode === 'players'
+      ? [c.a != null && `a=${c.a}`, c.b != null && `b=${c.b}`]
+      : ['mode=seasons', c.s && `s=${labelPart(c.s)}`, c.t && `t=${labelPart(c.t)}`];
+  const query = q.filter(Boolean).join('&');
+  return `#/compare${query ? `?${query}` : ''}`;
+};
+function compareOf(query: string): CompareRoute {
+  const p = new URLSearchParams(query);
+  const id = (k: string) => (/^\d+$/.test(p.get(k) ?? '') ? Number(p.get(k)) : null);
+  if (p.get('mode') === 'seasons' || p.has('s') || p.has('t')) {
+    const label = (k: string) => (p.get(k) ? labelFromPart(p.get(k)!) : null);
+    return { mode: 'seasons', s: label('s'), t: label('t') };
+  }
+  return { mode: 'players', a: id('a'), b: id('b') };
+}
 export const pyramidHref = '#/pyramid';
 
 export const adminHref = '#/admin';
@@ -118,6 +141,7 @@ export function parseRoute(hash: string): Route {
   if (parts.length === 1 && parts[0] === 'opponents') return { page: 'opponents', scope: scopeOf(query) };
   if (parts.length === 1 && parts[0] === 'academy') return { page: 'academy' };
   if (parts.length === 1 && parts[0] === 'pyramid') return { page: 'pyramid' };
+  if (parts.length === 1 && parts[0] === 'compare') return { page: 'compare', compare: compareOf(query) };
   if (parts.length === 1 && parts[0] === 'leaders') {
     return { page: 'leaders', scope: scopeOf(query), tab: new URLSearchParams(query).get('tab') === 'clubs' ? 'clubs' : 'tables' };
   }

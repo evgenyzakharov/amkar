@@ -9,6 +9,7 @@ import {
   pyramidHref,
   coachHref,
   coachesHref,
+  compareHref,
   academyHref,
   opponentHref,
   opponentsHref,
@@ -27,6 +28,11 @@ describe('маршруты', () => {
     expect(parseRoute(seasonHref('2011/12', 'league'))).toEqual({ page: 'season', label: '2011/12', scope: 'league' });
     expect(parseRoute(playerHref(27, 'league'))).toEqual({ page: 'player', id: 27, scope: 'league' });
     expect(parseRoute(playerHref(27))).toEqual({ page: 'player', id: 27, scope: 'all' });
+    // сравнение: двое игроков или два сезона — ссылкой можно поделиться
+    expect(parseRoute(compareHref({ mode: 'players', a: 27, b: 33 }))).toEqual({ page: 'compare', compare: { mode: 'players', a: 27, b: 33 } });
+    expect(parseRoute('#/compare?a=27')).toEqual({ page: 'compare', compare: { mode: 'players', a: 27, b: null } });
+    expect(compareHref({ mode: 'seasons', s: '2011/12', t: '2024' })).toBe('#/compare?mode=seasons&s=2011-12&t=2024');
+    expect(parseRoute('#/compare?mode=seasons&s=2011-12&t=2024')).toEqual({ page: 'compare', compare: { mode: 'seasons', s: '2011/12', t: '2024' } });
     expect(parseRoute('#/match/12')).toEqual({ page: 'match', id: 12 });
     expect(parseRoute('#/player/x')).toEqual({ page: 'not-found' });
     expect(parseRoute('#/players')).toEqual({ page: 'players' });

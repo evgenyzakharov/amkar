@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react';
 import { Card } from '../components/cards';
 import { LoadStatus } from '../components/common';
 import { loadHome, type AnyMatch, type HomeData } from '../db/queries';
 import type { CareerStats, Season } from '../db/types';
 import { RESULT_LABEL, RESULT_TITLE, SEASON_EPOCHS, VENUE_LABEL, formatDate, formatScore, opponentCodes, opponentName, plural } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { matchHref, opponentHref, playerHref, seasonHref } from '../router';
+import { coachHref, matchHref, opponentHref, playerHref, seasonHref } from '../router';
 
 // Ключ один: главная не зависит от адреса
 const ALL = 'all';
@@ -33,9 +34,7 @@ function Home({ data }: { data: HomeData }) {
   const near = nearMilestones(data.current);
   const today = new Date();
   const day = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const onThisDay = official
-    .filter((m) => m.match_date?.slice(5) === day && m.match_date < today.toISOString().slice(0, 10))
-    .sort((a, b) => a.match_date!.localeCompare(b.match_date!));
+  const onThisDay = thisDay(data, official, day, today);
   return (
     <>
       <div className="home-cards">
@@ -43,9 +42,9 @@ function Home({ data }: { data: HomeData }) {
         {onThisDay.length > 0 && (
           <Card title={`В этот день · ${today.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`}>
             <ul className="home-list">
-              {onThisDay.map((m) => (
-                <li key={m.id}>
-                  <b>{m.match_date!.slice(0, 4)}</b> <MatchLine m={m} />
+              {onThisDay.map((e) => (
+                <li key={e.key}>
+                  <b>{e.year}</b> {e.text}
                 </li>
               ))}
             </ul>
@@ -128,6 +127,47 @@ function CurrentSeason({ season, matches }: { season: Season; matches: AnyMatch[
       )}
     </Card>
   );
+}
+
+/** «В этот день»: матчи, дни рождения игроков и тренеров, трансферы с той же датой — по годам. */
+function thisDay(data: HomeData, official: AnyMatch[], day: string, today: Date): { key: string; year: number; text: ReactNode }[] {
+  const year = today.getFullYear();
+  const iso = today.toISOString().slice(0, 10);
+  const events = [
+    ...official
+      .filter((m) => m.match_date?.slice(5) === day && m.match_date < iso)
+      .map((m) => ({ key: `m${m.id}`, year: Number(m.match_date!.slice(0, 4)), text: <MatchLine m={m} /> })),
+    ...data.birthdays
+      .filter((b) => b.birth_date.slice(5) === day)
+      .map((b) => {
+        const age = year - Number(b.birth_date.slice(0, 4));
+        return {
+          key: `b${b.kind}${b.id}`,
+          year: Number(b.birth_date.slice(0, 4)),
+          text: (
+            <>
+              <span aria-hidden="true">🎂</span> родился {b.kind === 'coach' ? 'тренер ' : ''}
+              <a href={b.kind === 'coach' ? coachHref(b.id) : playerHref(b.id)}>{b.name}</a>
+              <span className="muted"> — сегодня {age} {plural(age, ['год', 'года', 'лет'])}</span>
+            </>
+          ),
+        };
+      }),
+    ...data.transfers
+      .filter((t) => t.transfer_date.slice(5) === day && t.transfer_date < iso)
+      .map((t) => ({
+        key: `t${t.id}`,
+        year: Number(t.transfer_date.slice(0, 4)),
+        text: (
+          <>
+            <a href={playerHref(t.player.id)}>{t.player.display_name}</a> {t.direction === 'in' ? 'пришёл' : 'ушёл'}
+            {t.club && ` ${t.direction === 'in' ? 'из' : 'в'} «${t.club}»`}
+            {t.kind === 'loan' && <span className="muted"> · аренда</span>}
+          </>
+        ),
+      })),
+  ];
+  return events.sort((a, b) => a.year - b.year);
 }
 
 /** «Салют 5:1, дома» — соперник ссылкой, счёт — на матч. */
