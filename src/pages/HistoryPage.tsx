@@ -44,7 +44,7 @@ export function HistoryPage({ scope }: { scope: LeadersScope }) {
           {state.data.cup.length > 0 && (
             <Card title="Кубок России" aside={<a href={cupHref}>все розыгрыши →</a>}>
               <CupChart data={state.data} />
-              <p className="note">Высота столбика — стадия, до которой дошли в розыгрыше: от «пути регионов» до финала.</p>
+              <p className="note">Высота столбика — стадия, до которой дошли в розыгрыше: от 1/256 до финала.</p>
             </Card>
           )}
           <Card title="Сезон за сезоном" aside={<WdlLegend />}>
@@ -173,7 +173,7 @@ function TierChart({ seasons }: { seasons: SeasonSummary[] }) {
   );
 }
 
-/** Кубок по розыгрышам: стадия — 1/10 высоты, «путь регионов» — самый низ. */
+/** Кубок по розыгрышам: стадия — 1/10 высоты, неузнанный раунд — самый низ. */
 function CupChart({ data }: { data: HistoryPageData }) {
   const editions = cupEditions(data.cup, new Map(data.seasons.map((s) => [s.season_id, s.start_year])));
   return (

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Card, Tiles, type Tile } from '../components/cards';
 import { LoadStatus, PageNav, ResultBadge } from '../components/common';
-import { CUP_STAGES, FINAL, SEMI, biggestWins, cupEditions, editionResult, shootouts, shortScore, stageName, type CupEdition, type CupTie } from '../cup';
+import { CUP_STAGES, FINAL, SEMI, biggestWins, cupEditions, editionResult, roundText, shootouts, shortScore, stageName, type CupEdition, type CupTie } from '../cup';
 import { loadCup, type CupPageData } from '../db/queries';
 import { totals } from '../coaches';
 import type { MatchRow } from '../db/types';
@@ -83,7 +83,7 @@ function cupTiles(editions: CupEdition[]): Tile[] {
   return tiles;
 }
 
-/** Стадии в таблице — от самой ранней, до которой есть матчи, до финала; «путь регионов» — отдельным столбцом. */
+/** Стадии в таблице — от самой ранней, до которой есть матчи, до финала; неузнанные раунды — отдельным столбцом «Отбор». */
 function stagesOf(editions: CupEdition[]) {
   const stages = new Set(editions.flatMap((e) => e.ties.map((t) => t.stage)));
   const from = Math.min(...[...stages].filter((s) => s >= 0), FINAL);
@@ -91,7 +91,7 @@ function stagesOf(editions: CupEdition[]) {
 }
 
 const tieTitle = (t: CupTie) =>
-  t.matches.map((m) => `${m.round ?? stageName(t.stage)}${m.match_date ? `, ${formatDate(m.match_date)}` : ''}: ${t.opponent} ${formatScore(m) || (m.result ? RESULT_LABEL[m.result] : '—')}`).join('; ');
+  t.matches.map((m) => `${m.round ? roundText(m.round) : stageName(t.stage)}${m.match_date ? `, ${formatDate(m.match_date)}` : ''}: ${t.opponent} ${formatScore(m) || (m.result ? RESULT_LABEL[m.result] : '—')}`).join('; ');
 
 /** Клетка «лестницы»: соперник, на ком вылетели — со счётом; ссылка — на решающий матч. */
 function TieChip({ tie }: { tie: CupTie }) {
@@ -116,7 +116,7 @@ function Ladder({ editions }: { editions: CupEdition[] }) {
             <th scope="col">Розыгрыш</th>
             {stages.map((s) => (
               <th scope="col" key={s}>
-                {s < 0 ? 'Путь регионов' : CUP_STAGES[s]}
+                {s < 0 ? 'Отбор' : CUP_STAGES[s]}
               </th>
             ))}
             <th scope="col">Итог</th>
@@ -199,7 +199,7 @@ function BiggestWins({ data }: { data: CupPageData }) {
             <a href={matchHref(m.id)}>{shortScore(m)}</a> — <OpponentLink m={m} />
             <span className="muted">
               {' '}
-              · {m.round}
+              · {roundText(m.round)}
               {m.match_date && `, ${formatDate(m.match_date)}`}
             </span>
           </li>
@@ -318,7 +318,7 @@ function AllMatches({ editions }: { editions: CupEdition[] }) {
               </tr>
               {e.matches.map((m) => (
                 <tr key={m.id}>
-                  <td>{m.round ?? '—'}</td>
+                  <td>{roundText(m.round)}</td>
                   <td>{m.match_date ? formatDate(m.match_date) : '—'}</td>
                   <td>
                     <OpponentLink m={m} />

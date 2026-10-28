@@ -6,7 +6,7 @@ export interface CupMatch extends MatchRow {
   season_id: number;
 }
 
-/** Стадии по порядку. Всё, что раньше 1/256 (раунды «пути регионов»), — стадия −1. */
+/** Стадии по порядку. Раунд, который не узнали по названию, — стадия −1, раньше 1/256. */
 export const CUP_STAGES = ['1/256', '1/128', '1/64', '1/32', '1/16', '1/8', '1/4', '1/2', 'Финал'] as const;
 export const FINAL = CUP_STAGES.length - 1;
 export const SEMI = FINAL - 1;
@@ -14,8 +14,32 @@ const STAGE_NAMES = ['1/256 финала', '1/128 финала', '1/64 фина�
 /** С 1/8 финала весенний матч — окончание розыгрыша, начатого прошлым летом. */
 const LATE = CUP_STAGES.indexOf('1/8');
 
-/** Стадия по названию раунда: «1/8 финала, второй матч» — 1/8; раунды «пути регионов» и неизвестные — −1. */
-export const stageOf = (round: string | null) => CUP_STAGES.findIndex((s) => (round ?? '').startsWith(s));
+/**
+ * Раунды «пути регионов» — те же стадии от 1/256 до 1/8: раундов шесть, первый — 1/256 финала (Википедия,
+ * розыгрыши 2024/25–2026/27). В базе 2024/25 записан стадиями 1/128…1/8 — это раунды 2–6, а с 2025/26 — раундами.
+ */
+const PATH_ROUNDS = ['перв', 'втор', 'трет', 'четв', 'пят', 'шест'];
+
+function pathRound(round: string): number {
+  const m = /^(?:(\d)-й|(\S+)) раунд/i.exec(round);
+  if (!m) return -1;
+  const n = m[1] ? Number(m[1]) : PATH_ROUNDS.findIndex((w) => m[2].toLowerCase().startsWith(w)) + 1;
+  return n >= 1 && n <= PATH_ROUNDS.length ? n - 1 : -1;
+}
+
+/** Стадия по названию раунда: «1/8 финала, второй матч» — 1/8, «Второй раунд пути регионов» — 1/128; неизвестный — −1. */
+export function stageOf(round: string | null): number {
+  const r = (round ?? '').trim();
+  const i = CUP_STAGES.findIndex((s) => r.startsWith(s));
+  return i >= 0 ? i : pathRound(r);
+}
+
+/** Название раунда из протокола; у раунда «пути регионов» — и стадия: «Второй раунд пути регионов (1/128)». */
+export function roundText(round: string | null): string {
+  if (!round) return '—';
+  const stage = pathRound(round.trim());
+  return stage >= 0 ? `${round} (${CUP_STAGES[stage]})` : round;
+}
 
 /**
  * Год начала розыгрыша. Розыгрыш идёт с лета до весны; первые раунды в 1990-х играли и весной — это уже следующий
@@ -44,7 +68,7 @@ export interface CupEdition {
   /** Матчи по порядку. */
   matches: CupMatch[];
   ties: CupTie[];
-  /** Самая дальняя стадия; −1 — только «путь регионов». */
+  /** Самая дальняя стадия; −1 — только неизвестные раунды. */
   best: number;
   /** Выиграли финал. */
   won: boolean;
@@ -79,14 +103,13 @@ export function cupEditions(matches: CupMatch[], seasonStart: Map<number, number
   });
 }
 
-/** Итог розыгрыша: «обладатель», «финал», «1/8 финала», «путь регионов»; идущий — «в игре: …». */
+export const stageName = (stage: number) => (stage < 0 ? 'отбор' : STAGE_NAMES[stage]);
+
+/** Итог розыгрыша: «обладатель», «финал», «1/8 финала»; идущий — «в игре: …». */
 export function editionResult(e: CupEdition): string {
   if (e.won) return 'обладатель';
-  const stage = e.best < 0 ? 'путь регионов' : STAGE_NAMES[e.best];
-  return e.alive ? `в игре: ${stage}` : stage;
+  return e.alive ? `в игре: ${stageName(e.best)}` : stageName(e.best);
 }
-
-export const stageName = (stage: number) => (stage < 0 ? 'путь регионов' : STAGE_NAMES[stage]);
 
 /** Счёт коротко: «2:2, пен. 1:4»; без счёта — пусто. */
 export function shortScore(m: Pick<MatchRow, 'goals_for' | 'goals_against' | 'pens_for' | 'pens_against'>): string {

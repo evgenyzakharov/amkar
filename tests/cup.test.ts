@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { biggestWins, cupEditions, editionResult, editionStart, shootouts, shortScore, stageOf, type CupMatch } from '../src/cup';
+import { biggestWins, cupEditions, editionResult, editionStart, roundText, shootouts, shortScore, stageOf, type CupMatch } from '../src/cup';
 import type { Result } from '../src/db/types';
 
 let id = 0;
@@ -38,8 +38,19 @@ describe('stageOf', () => {
     expect(stageOf('Финал')).toBe(8);
   });
 
-  it('puts regional-path rounds and unknown rounds before 1/256', () => {
-    expect(stageOf('Третий раунд пути регионов')).toBe(-1);
+  it('treats the regional-path rounds as 1/256…1/8', () => {
+    expect(stageOf('Первый раунд пути регионов')).toBe(0);
+    expect(stageOf('Второй раунд пути регионов')).toBe(1);
+    expect(stageOf('Третий раунд пути регионов')).toBe(2);
+    expect(stageOf('Четвёртый раунд пути регионов')).toBe(3);
+    expect(stageOf('6-й раунд')).toBe(5);
+    expect(roundText('Второй раунд пути регионов')).toBe('Второй раунд пути регионов (1/128)');
+    expect(roundText('1/8 финала, второй матч')).toBe('1/8 финала, второй матч');
+  });
+
+  it('puts unknown rounds before 1/256', () => {
+    expect(stageOf('Седьмой раунд пути регионов')).toBe(-1);
+    expect(stageOf('Квалификация')).toBe(-1);
     expect(stageOf(null)).toBe(-1);
   });
 });
@@ -95,7 +106,7 @@ describe('cupEditions', () => {
     const won = run([match('2026-08-25', 'Второй раунд пути регионов', 'Победа НН', '2:0')]);
     expect(won[0].alive).toBe(true);
     expect(won[0].exit).toBeNull();
-    expect(editionResult(won[0])).toBe('в игре: путь регионов');
+    expect(editionResult(won[0])).toBe('в игре: 1/128 финала');
 
     const leg = run([match('2026-09-20', '1/8 финала, первый матч', 'Урал', '0:1')]);
     expect(leg[0].alive).toBe(true);
