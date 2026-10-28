@@ -1429,7 +1429,8 @@ h3 {
 }
 
 /* Главная: нынешний сезон, «в этот день», близко к рубежу — над списком сезонов */
-.home-cards {
+.home-cards,
+.cup-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   align-items: start;
@@ -1446,6 +1447,7 @@ h3 {
 }
 
 .home-list,
+.cup-lines,
 .milestone-near {
   margin: 0;
   padding: 0;
@@ -1721,7 +1723,8 @@ h3 {
 
 .sc-axis {
   position: relative;
-  flex: 0 0 32px;
+  /* шире «1/256» и «финал» у кубка */
+  flex: 0 0 38px;
   height: 150px;
   font-size: 12px;
   color: var(--muted);
@@ -3599,5 +3602,142 @@ button.mirror-col {
 
   .compare-table .num {
     font-size: 18px;
+  }
+}
+
+/* Кубок России: «лестница» розыгрышей — строка на розыгрыш, столбец на стадию; на телефоне вместо неё список */
+.cup-ladder th,
+.cup-ladder td {
+  padding: 3px 3px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* «Путь регионов» в шапке — в две строки: столбцы уже, таблица помещается в карточку */
+.cup-ladder thead th {
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.cup-ladder tbody th {
+  text-align: left;
+}
+
+.cup-ladder th:last-child,
+.cup-ladder td:last-child {
+  padding-left: 10px;
+  text-align: left;
+}
+
+.cup-tie {
+  display: block;
+  min-width: 70px;
+  margin: 2px 0;
+  padding: 3px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.25;
+  white-space: normal;
+  color: #fff;
+  text-decoration: none;
+}
+
+.cup-tie small {
+  display: block;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.cup-tie-won {
+  background: var(--win-bg);
+}
+
+.cup-tie-lost {
+  background: var(--loss-bg);
+}
+
+/* Розыгрыш идёт, матч ещё не сыгран */
+.cup-tie-ahead {
+  background: var(--bar);
+  color: var(--text);
+}
+
+.cup-tie-final {
+  outline: 2px solid var(--gold-border);
+  outline-offset: 1px;
+}
+
+.cup-tie:hover,
+.cup-tie:focus-visible {
+  filter: brightness(1.15);
+}
+
+.cup-list {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cup-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cup-list-head {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.cup-list-head .muted {
+  font-size: 13px;
+  text-align: right;
+}
+
+/* Полоса стадий: девять клеток от 1/256 до финала, закрашено до той, где вылетели */
+.cup-bar {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 2px;
+}
+
+.cup-bar i {
+  height: 8px;
+  border-radius: 2px;
+  background: var(--bar);
+}
+
+.cup-bar i.on {
+  background: var(--win-bg);
+}
+
+.cup-bar i.lost {
+  background: var(--loss-bg);
+}
+
+.cup-list-opps {
+  margin-top: 3px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.cup-list-opps > span > a {
+  color: inherit;
+}
+
+.cup-list-opps b {
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .cup-ladder {
+    display: none;
+  }
+
+  .cup-list {
+    display: block;
   }
 }

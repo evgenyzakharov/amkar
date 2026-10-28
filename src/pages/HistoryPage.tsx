@@ -2,12 +2,13 @@ import { Fragment, useState, type ReactNode } from 'react';
 import { Card, Tiles, type Tile } from '../components/cards';
 import { LoadStatus } from '../components/common';
 import { Streaks } from '../components/Streaks';
+import { FINAL, cupEditions, editionResult, shortScore } from '../cup';
 import { loadHistory, type HistoryPageData } from '../db/queries';
 import type { CareerStats, GoalMinute, SeasonSummary } from '../db/types';
 import { NEW_CLUB_FROM, SEASON_EPOCHS, formatAge, formatAgeExact, formatDate, formatInt, formatRatio, plural } from '../format';
 import { ageRecords, bucketColumns, minuteColumns, seasonAges, type AgeRecord, type MinuteColumn } from '../historyStats';
 import { useDocumentTitle, useLoad } from '../load';
-import { academyHref, matchHref, playerHref, seasonHref, type LeadersScope } from '../router';
+import { academyHref, cupHref, matchHref, playerHref, seasonHref, type LeadersScope } from '../router';
 import { usePageState } from '../pageState';
 
 // Ключ один: история не зависит от адреса
@@ -22,7 +23,7 @@ const placeText = (s: SeasonSummary) =>
 
 /** Подпись столбика — год начала сезона: «95», «11». У второго сезона того же года (2025 и 2025/26) подписи нет,
     полное название — в подсказке и в ленте ниже. */
-const shortLabel = (seasons: SeasonSummary[], i: number) =>
+const shortLabel = (seasons: { start_year: number }[], i: number) =>
   i > 0 && seasons[i - 1].start_year === seasons[i].start_year ? '' : String(seasons[i].start_year).slice(2);
 
 export function HistoryPage({ scope }: { scope: LeadersScope }) {
@@ -40,6 +41,12 @@ export function HistoryPage({ scope }: { scope: LeadersScope }) {
           <Card title="Уровень лиги" aside="1 — Премьер-лига; выше столбик — выше место">
             <TierChart seasons={state.data.seasons} />
           </Card>
+          {state.data.cup.length > 0 && (
+            <Card title="Кубок России" aside={<a href={cupHref}>все розыгрыши →</a>}>
+              <CupChart data={state.data} />
+              <p className="note">Высота столбика — стадия, до которой дошли в розыгрыше: от «пути регионов» до финала.</p>
+            </Card>
+          )}
           <Card title="Сезон за сезоном" aside={<WdlLegend />}>
             <SeasonRibbon seasons={state.data.seasons} />
             <p className="note">
@@ -89,16 +96,18 @@ interface Column {
 
 /**
  * Столбики по сезонам с линиями шкалы каждые 1/5 высоты. Перерыв 2018–2021 — пустым промежутком.
- * Клик по столбику ведёт на карточку сезона.
+ * Клик по столбику ведёт на карточку сезона; у розыгрышей кубка — на страницу кубка (href).
  */
-function SeasonColumns({
+function SeasonColumns<S extends { label: string; start_year: number }>({
   seasons,
   axis,
   column,
+  href = (s) => seasonHref(s.label),
 }: {
-  seasons: SeasonSummary[];
+  seasons: S[];
   axis: string[];
-  column: (s: SeasonSummary) => Column;
+  column: (s: S) => Column;
+  href?: (s: S) => string;
 }) {
   return (
     <div className="chart-scroll">
@@ -115,13 +124,13 @@ function SeasonColumns({
             const restart = i > 0 && s.start_year >= NEW_CLUB_FROM && seasons[i - 1].start_year < NEW_CLUB_FROM;
             const c = column(s);
             return (
-              <Fragment key={s.season_id}>
+              <Fragment key={s.label}>
                 {restart && (
                   <div className="sc-break" title="2018–2021: перерыв, с 2021 — новый клуб">
                     <span>перерыв</span>
                   </div>
                 )}
-                <a className="sc-col" href={seasonHref(s.label)} title={c.title} aria-label={c.title}>
+                <a className="sc-col" href={href(s)} title={c.title} aria-label={c.title}>
                   <span className="sc-slot">
                     {c.value != null && (
                       <span className="sc-bar" style={{ height: `${Math.min(1, c.value) * 100}%` }}>
@@ -160,6 +169,26 @@ function TierChart({ seasons }: { seasons: SeasonSummary[] }) {
         value: tierHeight(s),
         title: [s.label, s.division, s.tier && `уровень ${s.tier}`, placeText(s)].filter(Boolean).join(' · '),
       })}
+    />
+  );
+}
+
+/** Кубок по розыгрышам: стадия — 1/10 высоты, «путь регионов» — самый низ. */
+function CupChart({ data }: { data: HistoryPageData }) {
+  const editions = cupEditions(data.cup, new Map(data.seasons.map((s) => [s.season_id, s.start_year])));
+  return (
+    <SeasonColumns
+      seasons={editions}
+      axis={['1/256', '1/64', '1/16', '1/4', 'финал']}
+      href={() => cupHref}
+      column={(e) => {
+        const exit = e.exit && [e.exit.opponent, e.exit.matches.map(shortScore).filter(Boolean).join(' / ')].filter(Boolean).join(' ');
+        return {
+          value: (e.best + 2) / (FINAL + 2),
+          title: [e.label, editionResult(e), exit].filter(Boolean).join(' · '),
+          mark: e.best === FINAL ? (e.won ? 'кубок' : 'финал') : undefined,
+        };
+      }}
     />
   );
 }

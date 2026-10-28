@@ -16,6 +16,7 @@ export type Route =
   | { page: 'opponents'; scope: LeadersScope }
   | { page: 'opponent'; id: number }
   | { page: 'academy' }
+  | { page: 'cup' }
   | { page: 'pyramid' }
   | { page: 'match'; id: number }
   | { page: 'player'; id: number; scope: LeadersScope }
@@ -69,6 +70,7 @@ export const coachHref = (id: number) => `#/coach/${id}`;
 export const opponentsHref = (scope: LeadersScope = 'all') => `#/opponents${scope === 'league' ? '?scope=league' : ''}`;
 export const opponentHref = (id: number) => `#/opponent/${id}`;
 export const academyHref = '#/academy';
+export const cupHref = '#/cup';
 
 /** Сравнение: двух игроков (?a=27&b=33) или двух сезонов (?s=2008&t=2024). Ссылкой можно поделиться. */
 export type CompareRoute =
@@ -140,6 +142,7 @@ export function parseRoute(hash: string): Route {
   if (parts.length === 1 && parts[0] === 'coaches') return { page: 'coaches', scope: scopeOf(query) };
   if (parts.length === 1 && parts[0] === 'opponents') return { page: 'opponents', scope: scopeOf(query) };
   if (parts.length === 1 && parts[0] === 'academy') return { page: 'academy' };
+  if (parts.length === 1 && parts[0] === 'cup') return { page: 'cup' };
   if (parts.length === 1 && parts[0] === 'pyramid') return { page: 'pyramid' };
   if (parts.length === 1 && parts[0] === 'compare') return { page: 'compare', compare: compareOf(query) };
   if (parts.length === 1 && parts[0] === 'leaders') {

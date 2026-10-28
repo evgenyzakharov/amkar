@@ -484,6 +484,8 @@ export interface HistoryPageData {
   /** Дебюты и первые голы — для рекордов возраста. */
   debuts: Debut[];
   firstGoals: FirstGoal[];
+  /** Кубковые матчи — для карточки «Кубок России»; не загрузились — карточки нет. */
+  cup: AnyMatch[];
 }
 
 const loadAges = () =>
@@ -524,7 +526,7 @@ export async function loadHistory(): Promise<HistoryPageData> {
 }
 
 async function loadHistoryData(): Promise<HistoryPageData> {
-  const [seasons, graduates, minutes, ages, debuts, firstGoals] = await Promise.all([
+  const [seasons, graduates, minutes, ages, debuts, firstGoals, cup] = await Promise.all([
     rows<SeasonSummary[]>(
       db()
         .from('season_summary')
@@ -548,6 +550,7 @@ async function loadHistoryData(): Promise<HistoryPageData> {
       ),
     ),
     optional(rows<FirstGoal[]>(db().from('player_first_goal').select('player_id, match_id, match_date, season_label, opponent, minute'))),
+    optional(loadAllMatches()).then((all) => all.filter((m) => m.competition.kind === 'cup')),
   ]);
   const academy =
     graduates.length === 0
@@ -565,7 +568,7 @@ async function loadHistoryData(): Promise<HistoryPageData> {
             .order('last_name')
             .limit(10),
         );
-  return { seasons, academy, minutes, ages, debuts, firstGoals };
+  return { seasons, academy, minutes, ages, debuts, firstGoals, cup };
 }
 
 /** Серии: пять самых длинных за историю и лучшие в каждом сезоне, для всех турниров и только чемпионата. */
@@ -718,25 +721,45 @@ export async function loadOpponent(id: number): Promise<OpponentPageData> {
   const team = teams[0];
   if (!team) throw new NotFoundError(`Клуба №${id} в справочнике нет.`);
   const official = matches.filter((m) => m.competition.kind !== 'friendly').map((m) => m.id);
-  const goals =
-    official.length === 0
-      ? []
-      : await rows<{ scorer_id: number; player: { display_name: string } }[]>(
-          db()
-            .from('goal')
-            .select('scorer_id, player:scorer_id(display_name)')
-            .in('match_id', official)
-            .eq('side', 'amkar')
-            .neq('kind', 'own_goal')
-            .not('scorer_id', 'is', null),
-        );
+  return { team, seasons, matches, scorers: await scorersOf(official) };
+}
+
+/** Бомбардиры «Амкара» в этих матчах: голы без автоголов соперника. */
+async function scorersOf(matchIds: number[]): Promise<OpponentScorer[]> {
+  if (matchIds.length === 0) return [];
+  const goals = await rows<{ scorer_id: number; player: { display_name: string } }[]>(
+    db()
+      .from('goal')
+      .select('scorer_id, player:scorer_id(display_name)')
+      .in('match_id', matchIds)
+      .eq('side', 'amkar')
+      .neq('kind', 'own_goal')
+      .not('scorer_id', 'is', null),
+  );
   const by = new Map<number, OpponentScorer>();
   for (const g of goals) {
     const s = by.get(g.scorer_id) ?? { player_id: g.scorer_id, display_name: g.player.display_name, goals: 0 };
     s.goals++;
     by.set(g.scorer_id, s);
   }
-  return { team, seasons, matches, scorers: [...by.values()] };
+  return [...by.values()];
+}
+
+// ===========================================================================
+// Кубок России
+// ===========================================================================
+
+export interface CupPageData {
+  matches: AnyMatch[];
+  seasons: Season[];
+  scorers: OpponentScorer[];
+}
+
+/** Кубковые матчи — из всех матчей клуба (общий кэш с главной, тренерами и «Историей»), бомбардиры — по их голам. */
+export async function loadCup(): Promise<CupPageData> {
+  const [all, seasons] = await Promise.all([loadAllMatches(), loadSeasons()]);
+  const matches = all.filter((m) => m.competition.kind === 'cup');
+  return { matches, seasons, scorers: await scorersOf(matches.map((m) => m.id)) };
 }
 
 // ===========================================================================

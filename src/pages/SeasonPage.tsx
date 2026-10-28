@@ -25,7 +25,7 @@ import {
   plural,
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { adminSeasonHref, coachHref, compareHref, matchHref, opponentHref, playerHref, pyramidHref, seasonHref, type LeadersScope } from '../router';
+import { adminSeasonHref, coachHref, compareHref, cupHref, matchHref, opponentHref, playerHref, pyramidHref, seasonHref, type LeadersScope } from '../router';
 import { usePageState } from '../pageState';
 
 export function SeasonPage({ label, scope }: { label: string; scope: LeadersScope }) {
@@ -240,7 +240,7 @@ function seasonTiles(official: SeasonMatch[]): Tile[] {
     }
   }
 
-  // Кубок, еврокубок, стыковые — по плитке на турнир
+  // Кубок, еврокубок, стыковые — по плитке на турнир; у кубка — ссылка на все его розыгрыши
   const others = new Map<string, SeasonMatch[]>();
   for (const m of official) {
     if (m.competition.kind === 'league') continue;
@@ -248,7 +248,8 @@ function seasonTiles(official: SeasonMatch[]): Tile[] {
   }
   for (const [name, list] of others) {
     const r = wdl(list);
-    if (list.length > r.unknown) tiles.push({ value: `${r.w}–${r.d}–${r.l}`, label: `${name}: ${WDL}` });
+    const value = `${r.w}–${r.d}–${r.l}`;
+    if (list.length > r.unknown) tiles.push({ value: list[0].competition.kind === 'cup' ? <a href={cupHref}>{value}</a> : value, label: `${name}: ${WDL}` });
   }
   return tiles;
 }
