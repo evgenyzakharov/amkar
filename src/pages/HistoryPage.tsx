@@ -1,4 +1,4 @@
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, useState, type CSSProperties, type ReactNode } from 'react';
 import { Card, Tiles, type Tile } from '../components/cards';
 import { LoadStatus } from '../components/common';
 import { Streaks } from '../components/Streaks';
@@ -114,7 +114,8 @@ function SeasonColumns<S extends { label: string; start_year: number }>({
 }) {
   return (
     <div className="chart-scroll">
-      <div className="sc-chart">
+      {/* линии шкалы — на каждой подписи */}
+      <div className="sc-chart" style={{ '--sc-step': `${150 / axis.length}px` } as CSSProperties}>
         <div className="sc-axis" aria-hidden="true">
           {axis.map((label, k) => (
             <span key={label} style={{ bottom: `${((k + 1) / axis.length) * 100}%` }}>
@@ -152,25 +153,36 @@ function SeasonColumns<S extends { label: string; start_year: number }>({
   );
 }
 
+/** Уровней лиги: 1 — Премьер-лига … 4 — третья лига и вторая «Б». */
+const TIERS = 4;
+/** Вторая лига «А» — одна таблица на 20 мест: «Золото» — места 1–10, «Серебро» — 11–20. */
+const GROUP_PLACES = 20;
+
+/** Место во второй лиге «А» по сквозной таблице «Золото» + «Серебро»; не «А» или места нет — null. */
+const groupPlace = (s: SeasonSummary) => (s.league_group && s.final_place ? s.final_place + (s.league_group === 'silver' ? 10 : 0) : null);
+
 /**
- * Высота столбика: полоса уровня лиги (1/5 шкалы на уровень), внутри неё — по итоговому месту: первое место — верх
- * полосы, последнее — низ. Места нет — середина полосы.
+ * Высота столбика: полоса уровня лиги (1/4 шкалы на уровень), внутри неё — по итоговому месту: первое место — верх
+ * полосы, последнее — низ; у второй лиги «А» — место из 20. Места нет — середина полосы.
  */
 function tierHeight(s: SeasonSummary): number | null {
   if (!s.tier) return null;
-  const within = s.final_place && s.teams_count && s.teams_count > 1 ? 1 - (s.final_place - 1) / (s.teams_count - 1) : 0.5;
-  return (5 - s.tier) / 5 + 0.04 + 0.16 * within;
+  const [place, teams] = groupPlace(s) != null ? [Math.min(groupPlace(s)!, GROUP_PLACES), GROUP_PLACES] : [s.final_place, s.teams_count];
+  const within = place && teams && teams > 1 ? 1 - (place - 1) / (teams - 1) : 0.5;
+  return (TIERS - s.tier) / TIERS + 0.05 + 0.2 * within;
 }
 
-/** Уровень лиги по сезонам: чем выше лига, тем выше столбик; шкала — 5 (снизу) … 1 (сверху). */
+/** Уровень лиги по сезонам: чем выше лига, тем выше столбик; шкала — 4 (снизу) … 1 (сверху). */
 function TierChart({ seasons }: { seasons: SeasonSummary[] }) {
   return (
     <SeasonColumns
       seasons={seasons}
-      axis={['5', '4', '3', '2', '1']}
+      axis={['4', '3', '2', '1']}
       column={(s) => ({
         value: tierHeight(s),
-        title: [s.label, s.division, s.tier && `уровень ${s.tier}`, placeText(s)].filter(Boolean).join(' · '),
+        title: [s.label, s.division, s.tier && `уровень ${s.tier}`, placeText(s), groupPlace(s) && `${groupPlace(s)}-е из ${GROUP_PLACES} во второй лиге «А»`]
+          .filter(Boolean)
+          .join(' · '),
       })}
     />
   );

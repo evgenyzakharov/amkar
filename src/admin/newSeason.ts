@@ -56,7 +56,7 @@ export function validateNewSeason(d: NewSeasonDraft, seasons: Season[]): string[
     const expected = start === end ? String(start) : `${start}/${String(end).slice(2)}`;
     if (label !== expected) errors.push(`По годам метка — «${expected}».`);
   }
-  if (d.tier.trim() && (int(d.tier) == null || int(d.tier)! < 1 || int(d.tier)! > 5)) errors.push('Уровень — от 1 до 5.');
+  if (d.tier.trim() && (int(d.tier) == null || int(d.tier)! < 1 || int(d.tier)! > 4)) errors.push('Уровень — от 1 до 4.');
   if (d.teams_count.trim() && (int(d.teams_count) == null || int(d.teams_count)! < 1)) errors.push('Команд — целое число больше нуля.');
   return errors;
 }

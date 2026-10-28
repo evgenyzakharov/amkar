@@ -1752,14 +1752,14 @@ h3 {
   text-decoration: none;
 }
 
-/* Линии уровней: каждые 30 px от основания, верхняя — уровень 1 */
+/* Линии шкалы: на каждой подписи от основания (--sc-step задаёт график по числу подписей), верхняя — у самой верхней */
 .sc-slot {
   display: flex;
   align-items: flex-end;
   justify-content: center;
   height: 150px;
   border-top: 1px solid var(--border);
-  background: repeating-linear-gradient(to top, var(--border) 0 1px, transparent 1px 30px);
+  background: repeating-linear-gradient(to top, var(--border) 0 1px, transparent 1px var(--sc-step, 30px));
 }
 
 .sc-bar {

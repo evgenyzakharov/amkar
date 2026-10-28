@@ -246,10 +246,13 @@ describe('сезон: сведения и ссылки', () => {
       teams_count: '16',
       links: { transfermarkt: '', championat: 'https://www.championat.com/football/_russiapl/tournament/1/', wikipedia: 'https://ru.wikipedia.org/wiki/2008' },
     };
-    expect(validateSeason({ ...next, final_place: '17', tier: '6' }, label)).toEqual([
-      'Уровень лиги — от 1 до 5 (1 — высший дивизион).',
+    expect(validateSeason({ ...next, final_place: '17', tier: '5' }, label)).toEqual([
+      'Уровень лиги — от 1 до 4 (1 — высший дивизион).',
       'Место не может быть больше числа команд.',
     ]);
+    // «Золото» и «Серебро» — только у второй лиги
+    expect(validateSeason({ ...next, league_group: 'silver' }, label)).toEqual(['«Золото» и «Серебро» — только у второй лиги, уровень 3.']);
+    expect(validateSeason({ ...next, tier: '3', league_group: 'silver' }, label)).toEqual([]);
     await saveSeason(pgliteWriter(db), s, links, next);
     const after = await load();
     expect(after.s).toMatchObject({ division: 'Премьер-лига', tier: 1, final_place: 8, teams_count: 16 });

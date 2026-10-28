@@ -224,7 +224,7 @@ function AchievementIcons({ c }: { c: CoachStats }) {
 }
 
 function TierTable({ stats }: { stats: CoachStats[] }) {
-  const levels = [1, 2, 3, 4, 5].filter((l) => stats.some((c) => c.byTier[l]));
+  const levels = [1, 2, 3, 4].filter((l) => stats.some((c) => c.byTier[l]));
   const values = stats.flatMap((c) => levels.map((l) => c.byTier[l]?.ppm).filter((v): v is number => v != null));
   const lo = Math.min(...values);
   const hi = Math.max(...values);

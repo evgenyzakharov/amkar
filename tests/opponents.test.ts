@@ -3,8 +3,8 @@ import type { CompetitionKind, Result, Season } from '../src/db/types';
 import { allOpponents, type OpponentMatch } from '../src/opponents';
 
 const seasons: Season[] = [
-  { id: 1, label: '2001', start_year: 2001, end_year: 2001, division: null, tier: 2, final_place: null, teams_count: null, best_xi_formation: null },
-  { id: 2, label: '2004', start_year: 2004, end_year: 2004, division: null, tier: 1, final_place: null, teams_count: null, best_xi_formation: null },
+  { id: 1, label: '2001', start_year: 2001, end_year: 2001, division: null, tier: 2, final_place: null, teams_count: null, league_group: null, best_xi_formation: null },
+  { id: 2, label: '2004', start_year: 2004, end_year: 2004, division: null, tier: 1, final_place: null, teams_count: null, league_group: null, best_xi_formation: null },
 ];
 
 let id = 0;
@@ -60,7 +60,7 @@ describe('соперники', () => {
   });
 
   it('серия против клуба не тянется через перерыв 2018–2021', () => {
-    const withNew: Season[] = [...seasons, { id: 3, label: '2021/22', start_year: 2021, end_year: 2022, division: null, tier: 3, final_place: null, teams_count: null, best_xi_formation: null }];
+    const withNew: Season[] = [...seasons, { id: 3, label: '2021/22', start_year: 2021, end_year: 2022, division: null, tier: 3, final_place: null, teams_count: null, league_group: null, best_xi_formation: null }];
     const [o] = allOpponents([{ id: 9, name: 'Тюмень', city: null }], [match(2, 9, '1:0'), match(2, 9, '2:0'), match(3, 9, '1:0')], withNew);
     expect(o.streaks.win.n).toBe(2);
   });

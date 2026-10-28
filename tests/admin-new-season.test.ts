@@ -13,6 +13,7 @@ const season = (label: string, start: number, end: number): Season => ({
   tier: 4,
   final_place: 2,
   teams_count: 7,
+  league_group: null,
   best_xi_formation: null,
 });
 
@@ -36,7 +37,7 @@ describe('новый сезон', () => {
     expect(validateNewSeason({ ...ok, label: '2026/27', start_year: '2026', end_year: '2027' }, seasons)).toEqual(['Сезон «2026/27» уже есть.']);
     expect(validateNewSeason({ ...ok, label: '2027' }, seasons)).toEqual(['По годам метка — «2027/28».']);
     expect(validateNewSeason({ ...ok, end_year: '2029' }, seasons)).toContain('Год окончания — год начала или следующий.');
-    expect(validateNewSeason({ ...ok, tier: '7' }, seasons)).toEqual(['Уровень — от 1 до 5.']);
+    expect(validateNewSeason({ ...ok, tier: '7' }, seasons)).toEqual(['Уровень — от 1 до 4.']);
   });
 
   it('переносится заявка без ушедших', () => {

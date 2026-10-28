@@ -1,5 +1,5 @@
 // Сборная сезона по местам схемы и карточка игрока (ФИО, дата рождения, позиция, воспитанник, ссылки).
-import type { LinkSite, Position } from '../db/types';
+import type { LeagueGroup, LinkSite, Position } from '../db/types';
 import { formationOf } from '../format';
 import { decimalText, parseDecimal } from './points';
 import type { Writer } from './writer';
@@ -305,19 +305,22 @@ export interface SeasonRecord {
   tier: number | null;
   final_place: number | null;
   teams_count: number | null;
+  league_group: LeagueGroup | null;
   notes: string | null;
   /** Ожидаемое место для очков сезона; undefined — столбца в базе ещё нет (миграция 20261020200000). */
   expected_place?: number | null;
 }
 
 export const SEASON_RECORD_COLUMNS =
-  'id, label, start_year, end_year, division, tier, final_place, teams_count, notes';
+  'id, label, start_year, end_year, division, tier, final_place, teams_count, league_group, notes';
 
 export interface SeasonDraft {
   division: string;
   tier: string;
   final_place: string;
   teams_count: string;
+  /** '' — без группы. */
+  league_group: '' | LeagueGroup;
   /** null — поля нет: столбец в базе ещё не создан. */
   expected_place: string | null;
   notes: string;
@@ -332,6 +335,7 @@ export function seasonDraft(s: SeasonRecord, links: { site: LinkSite; url: strin
     tier: numText(s.tier),
     final_place: numText(s.final_place),
     teams_count: numText(s.teams_count),
+    league_group: s.league_group ?? '',
     expected_place: s.expected_place === undefined ? null : decimalText(s.expected_place),
     notes: s.notes ?? '',
     links: linksDraft(links),
@@ -355,6 +359,7 @@ function seasonValues(d: SeasonDraft) {
     tier: num(d.tier),
     final_place: num(d.final_place),
     teams_count: num(d.teams_count),
+    league_group: d.league_group || null,
     // без столбца в базе поле не пишем вовсе
     ...(d.expected_place === null ? {} : { expected_place: expected == null || Number.isNaN(expected) ? null : expected }),
     notes: d.notes.trim() || null,
@@ -364,7 +369,8 @@ function seasonValues(d: SeasonDraft) {
 export function validateSeason(d: SeasonDraft, siteLabel: (s: LinkSite) => string) {
   const errors: string[] = [];
   const [tier, place, teams] = [intOrNull(d.tier), intOrNull(d.final_place), intOrNull(d.teams_count)];
-  if (tier != null && (Number.isNaN(tier) || tier < 1 || tier > 5)) errors.push('Уровень лиги — от 1 до 5 (1 — высший дивизион).');
+  if (tier != null && (Number.isNaN(tier) || tier < 1 || tier > 4)) errors.push('Уровень лиги — от 1 до 4 (1 — высший дивизион).');
+  if (d.league_group && tier !== 3) errors.push('«Золото» и «Серебро» — только у второй лиги, уровень 3.');
   if (place != null && (Number.isNaN(place) || place < 1)) errors.push('Место — целое число больше нуля.');
   if (teams != null && (Number.isNaN(teams) || teams < 1)) errors.push('Число команд — целое число больше нуля.');
   if (place != null && teams != null && !Number.isNaN(place) && !Number.isNaN(teams) && place > teams) {

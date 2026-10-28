@@ -11,6 +11,7 @@ const season = (id: number, label: string, tier: number, final_place: number | n
   tier,
   final_place,
   teams_count: 18,
+  league_group: null,
   best_xi_formation: null,
 });
 
@@ -152,6 +153,22 @@ describe('тренеры', () => {
     // На третьем уровне работал один Оборин — рекордов там нет; в высшей лиге — оба, у Оборина там 1 матч
     expect(records('Оборин')).toEqual([]);
     expect(records('Рахимов')).toEqual([]);
+  });
+});
+
+describe('повышение в классе', () => {
+  const titles = (seasons: Season[]) =>
+    coachStats({ coaches, tenures: [], seasons, matches: seasons.map((s) => match(s.id, 1, '1:0')), debuts: [] })
+      .find((c) => c.coach.id === 1)!
+      .achievements.filter((a) => a.kind === 'promotion')
+      .map((a) => a.title);
+  const group = (s: Season, g: Season['league_group']): Season => ({ ...s, league_group: g });
+
+  it('из второй лиги «Б» в «А» и из «Серебра» в «Золото»; из «Золота» в «Серебро» — нет', () => {
+    expect(titles([season(1, '2025', 4), group(season(2, '2026', 3), 'silver')])).toEqual(['Повышение в классе: 2025']);
+    expect(titles([group(season(1, '2025', 3), 'silver'), group(season(2, '2026', 3), 'gold')])).toEqual(['Повышение в классе: 2025']);
+    expect(titles([group(season(1, '2025', 3), 'gold'), group(season(2, '2026', 3), 'silver')])).toEqual([]);
+    expect(titles([group(season(1, '2025', 3), 'silver'), group(season(2, '2026', 3), 'silver')])).toEqual([]);
   });
 });
 

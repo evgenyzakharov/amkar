@@ -47,7 +47,8 @@ export async function rows<T>(query: PromiseLike<{ data: unknown; error: { messa
   return data as T;
 }
 
-const SEASON_COLUMNS = 'id, label, start_year, end_year, division, tier, final_place, teams_count, best_xi_formation, matches:match(count)';
+const SEASON_COLUMNS =
+  'id, label, start_year, end_year, division, tier, final_place, teams_count, league_group, best_xi_formation, matches:match(count)';
 
 /** Сезон с матчами: заведённый заранее пустой сезон посетители не видят, пока в нём не появится матч. */
 export const hasMatches = (s: Season) => (s.matches?.[0]?.count ?? 0) > 0;
@@ -531,7 +532,7 @@ async function loadHistoryData(): Promise<HistoryPageData> {
       db()
         .from('season_summary')
         .select(
-          'season_id, label, start_year, end_year, division, tier, final_place, teams_count, league_played, league_wins, ' +
+          'season_id, label, start_year, end_year, division, tier, final_place, teams_count, league_group, league_played, league_wins, ' +
             'league_draws, league_losses, league_unknown, league_points, minutes, academy_minutes',
         )
         .order('start_year')
@@ -1043,7 +1044,7 @@ export async function loadCompareSeasons(key: string): Promise<[CompareSeason, C
       db()
         .from('season_summary')
         .select(
-          'season_id, label, start_year, end_year, division, tier, final_place, teams_count, league_played, league_wins, ' +
+          'season_id, label, start_year, end_year, division, tier, final_place, teams_count, league_group, league_played, league_wins, ' +
             'league_draws, league_losses, league_unknown, league_points, minutes, academy_minutes',
         )
         .in('season_id', ids),

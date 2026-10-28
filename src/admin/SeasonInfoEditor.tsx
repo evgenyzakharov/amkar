@@ -65,6 +65,15 @@ function SeasonInfo({ initial }: { initial: SeasonInfoData }) {
           <span className="field-note">1 — высший дивизион</span>
         </label>
         <label>
+          Группа
+          <select value={draft.league_group} onChange={(e) => set('league_group', e.target.value as SeasonDraft['league_group'])}>
+            <option value="">—</option>
+            <option value="gold">«Золото»</option>
+            <option value="silver">«Серебро»</option>
+          </select>
+          <span className="field-note">вторая лига «А»: «Золото» — места 1–10, «Серебро» — 11–20</span>
+        </label>
+        <label>
           Место
           <input className="w-num" inputMode="numeric" value={draft.final_place} onChange={(e) => set('final_place', e.target.value)} />
         </label>

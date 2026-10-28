@@ -5,6 +5,8 @@ export type Result = 'W' | 'D' | 'L';
 export type Position = 'GK' | 'DF' | 'MF' | 'FW';
 export type CompetitionKind = 'league' | 'cup' | 'europe' | 'playoff' | 'friendly';
 export type AbsenceReason = 'injury' | 'suspension' | 'national_team';
+/** Группа дивизиона «А» второй лиги: «Золото» — места 1–10, «Серебро» — 11–20. */
+export type LeagueGroup = 'gold' | 'silver';
 
 export interface Season {
   id: number;
@@ -15,6 +17,8 @@ export interface Season {
   tier: number | null;
   final_place: number | null;
   teams_count: number | null;
+  /** «Золото» или «Серебро» — у сезонов во второй лиге «А», где закончили сезон. */
+  league_group: LeagueGroup | null;
   /** Схема сборной сезона, пусто — 13 мест как в Excel. */
   best_xi_formation: string | null;
   /** Сколько матчей записано (match(count)): сезон без матчей посетителям не показываем. */
@@ -248,6 +252,7 @@ export interface SeasonSummary {
   tier: number | null;
   final_place: number | null;
   teams_count: number | null;
+  league_group: LeagueGroup | null;
   league_played: number;
   league_wins: number;
   league_draws: number;

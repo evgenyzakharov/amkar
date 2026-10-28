@@ -120,16 +120,14 @@ export const DEBUTS_FROM = 1995;
 export const TIER_LABEL: Record<number, string> = {
   1: 'Премьер-лига',
   2: 'Первая',
-  3: 'Вторая',
-  4: 'Третья / «А» Серебро',
-  5: 'Вторая «Б»',
+  3: 'Вторая / «А»',
+  4: 'Третья / «Б»',
 };
 const TIER_IN: Record<number, string> = {
   1: 'в Премьер-лиге',
   2: 'в первой лиге',
   3: 'во второй лиге',
-  4: 'в третьей лиге и «А» Серебро',
-  5: 'во второй лиге «Б»',
+  4: 'в третьей лиге и второй «Б»',
 };
 
 const POINTS: Record<Result, number> = { W: 3, D: 1, L: 0 };
@@ -293,7 +291,9 @@ function achievements(c: CoachStats, seasonsSorted: Season[]): Achievement[] {
   for (const s of led) {
     if (s.final_place === 1) out.push({ kind: 'title', icon: '🏆', title: `Победитель: ${s.division ?? 'чемпионат'}, ${s.label}` });
     const next = seasonsSorted[seasonsSorted.indexOf(s) + 1];
-    if (next && newClub(next) === newClub(s) && next.tier != null && s.tier != null && next.tier < s.tier) {
+    // выше классом — лига выше или из «Серебра» второй лиги «А» в «Золото»
+    const up = next && next.tier != null && s.tier != null && (next.tier < s.tier || (next.tier === s.tier && s.league_group === 'silver' && next.league_group === 'gold'));
+    if (next && up && newClub(next) === newClub(s)) {
       out.push({ kind: 'promotion', icon: '⬆', title: next.tier === 1 ? `Вывел в Премьер-лигу: ${s.label}` : `Повышение в классе: ${s.label}` });
     }
   }

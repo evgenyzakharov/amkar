@@ -13,7 +13,7 @@ const TIER_KEYS = ['tier_1_from', 'tier_2_from', 'tier_3_from', 'tier_4_from', '
 export const POINTS_NUMBER_KEYS = [
   'per_90', 'per_start', 'goal_gk', 'goal_df', 'goal_mf', 'goal_fw', 'per_assist',
   'clean_gk', 'clean_df', 'clean_mf', 'clean_fw', 'per_win', 'per_draw',
-  'absolute_share', 'tier_rate_1', 'tier_rate_2', 'tier_rate_3', 'tier_rate_4', 'tier_rate_5', 'short_season_power',
+  'absolute_share', 'tier_rate_1', 'tier_rate_2', 'tier_rate_3', 'tier_rate_4', 'short_season_power',
   'place_last', 'place_first', 'expect_range',
   'peak_seasons', 'peak_weight',
   'tier_1_from', 'tier_2_from', 'tier_3_from', 'tier_4_from', 'tier_5_from',
@@ -56,10 +56,9 @@ export const POINTS_FIELDS: Record<PointsNumberKey, FieldSpec> = {
   per_draw: weight('Ничья'),
   absolute_share: share('Доля абсолютных очков', '0,7 — 70 % абсолютных, остальное — «лучший в сезоне = 100»'),
   tier_rate_1: tierRate('Премьер-лига'),
-  tier_rate_2: tierRate('Первый дивизион'),
-  tier_rate_3: tierRate('Вторая лига'),
-  tier_rate_4: tierRate('Третья лига, «Серебро»'),
-  tier_rate_5: tierRate('Вторая лига «Б»'),
+  tier_rate_2: tierRate('Первая лига'),
+  tier_rate_3: tierRate('Вторая лига и её «А»'),
+  tier_rate_4: tierRate('Третья лига и вторая «Б»'),
   short_season_power: share('Короткий сезон тянуть к 30 турам', '0 — не тянуть, 1 — полностью (12 туров ×2,5), 0,5 — наполовину'),
   place_last: { label: 'За последнее место', min: 0, max: 3, digits: 3, above: true },
   place_first: { label: 'За первое место', min: 0, max: 3, digits: 3, above: true },
@@ -83,7 +82,7 @@ export const POINTS_GROUPS: { title: string; note: string; keys: PointsNumberKey
   {
     title: 'Шкала сезона',
     note: 'Абсолютные очки: средний лидер сезона = 100. Курс уровня лиги — только для абсолютной части.',
-    keys: ['absolute_share', 'tier_rate_1', 'tier_rate_2', 'tier_rate_3', 'tier_rate_4', 'tier_rate_5', 'short_season_power'],
+    keys: ['absolute_share', 'tier_rate_1', 'tier_rate_2', 'tier_rate_3', 'tier_rate_4', 'short_season_power'],
   },
   {
     title: 'Множитель команды',
