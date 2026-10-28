@@ -414,7 +414,7 @@ describe('голы за сезон по матчам (season.goals_from_matches)
     ]);
   });
 
-  it('гол на минуте замены вратаря — ушедшему, а не обоим', async () => {
+  it('замена вратаря в перерыве: голы 45-й минуты — ушедшему, второго тайма — вышедшему', async () => {
     await gm.exec(`
       insert into match (id, season_id, competition_id, seq, opponent_raw) values (3, 1, 1, 3, 'Ротор');
       insert into appearance (match_id, player_id, role, minutes, minute_on, minute_off, replaced_player_id) values
@@ -425,8 +425,20 @@ describe('голы за сезон по матчам (season.goals_from_matches)
         (3, 'opponent', 46, null, 'open_play', null, 'Петров', null);
     `);
     const conceded = (await stats()).filter((r) => r.player_id === 3 || r.player_id === 4).map((r) => r.goals_conceded);
-    // замена в перерыве (45-я): 45 и 45+2 — на ушедшего, 46 — на вышедшего; вместе — все голы соперника, 3 + 3
+    // вместе — все голы соперника: 3 в первом матче и 3 в этом
     expect(conceded).toEqual([4, 2]);
+  });
+
+  it('вратаря удалили, сменщик вышел позже и пропустил на минуте выхода — гол у сменщика', async () => {
+    await gm.exec(`
+      insert into match (id, season_id, competition_id, seq, opponent_raw) values (4, 1, 1, 4, 'Волга НН');
+      insert into appearance (match_id, player_id, role, minutes, minute_on, minute_off, replaced_player_id, sent_off) values
+        (4, 3, 'start', 11, null, 11, null, true), (4, 1, 'start', 13, null, 13, null, false), (4, 4, 'sub', 77, 13, null, 1, false);
+      insert into goal (match_id, side, minute, added_time, kind, scorer_id, scorer_name, assist_id) values
+        (4, 'opponent', 13, null, 'penalty', null, 'Бибилов', null);
+    `);
+    const conceded = (await stats()).filter((r) => r.player_id === 3 || r.player_id === 4).map((r) => r.goals_conceded);
+    expect(conceded).toEqual([4, 3]);
   });
 });
 
