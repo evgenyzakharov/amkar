@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Card, ExternalLinks, Tiles, type Tile } from '../components/cards';
+import { Card, ExternalLinks, ScopeSwitch, Tiles, type Tile } from '../components/cards';
 import { EditLink, LoadStatus, Tag } from '../components/common';
 import { loadPlayer, type PlayerPoints } from '../db/queries';
 import type { LeagueStats, Player, PlayerSeasonStats, Transfer } from '../db/types';
@@ -17,26 +17,18 @@ import {
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { tierName } from '../pyramid';
-import { adminPlayerHref, playersHref, pyramidHref, seasonHref } from '../router';
+import { adminPlayerHref, opponentHref, playerHref, playersHref, pyramidHref, seasonHref, type LeadersScope } from '../router';
 
-export function PlayerPage({ id }: { id: number }) {
+export function PlayerPage({ id, scope }: { id: number; scope: LeadersScope }) {
   const state = useLoad(id, loadPlayer);
   useDocumentTitle(state.status === 'ready' ? state.data.player.display_name : `Игрок №${id}`);
-  const [leagueOnly, setLeagueOnly] = useState(false);
   if (state.status !== 'ready') return <LoadStatus state={state} />;
 
   const { player, photoUrl, links, career, transfers, points, league, current } = state.data;
   const seasons = 'data' in career ? career.data : [];
-  const scopeSwitch = league.length > 0 && (
-    <span className="segmented" role="group" aria-label="Турниры">
-      <button type="button" className={leagueOnly ? undefined : 'active'} aria-pressed={!leagueOnly} onClick={() => setLeagueOnly(false)}>
-        Все турниры
-      </button>
-      <button type="button" className={leagueOnly ? 'active' : undefined} aria-pressed={leagueOnly} onClick={() => setLeagueOnly(true)}>
-        Только чемпионат
-      </button>
-    </span>
-  );
+  // «Только чемпионат» — в адресе, как у лидеров; меняет только таблицу карьеры
+  const leagueOnly = scope === 'league';
+  const scopeSwitch = league.length > 0 && <ScopeSwitch scope={scope} href={(s) => playerHref(player.id, s)} />;
 
   return (
     <div className="card-page">
@@ -353,6 +345,12 @@ function CareerTable({ seasons, leagueOnly }: { seasons: PlayerSeasonStats[]; le
   );
 }
 
+/** Клуб трансфера: из справочника — ссылкой на страницу соперника. */
+function clubOf(t: Transfer) {
+  const name = t.other_team_name ?? t.team?.name ?? t.other_team_raw;
+  return name && t.other_team_id ? <a href={opponentHref(t.other_team_id)}>{name}</a> : name;
+}
+
 function TransfersTable({ transfers }: { transfers: Transfer[] }) {
   const hasDates = transfers.some((t) => t.transfer_date);
   const hasClubs = transfers.some((t) => t.other_team_name || t.team || t.other_team_raw);
@@ -379,7 +377,7 @@ function TransfersTable({ transfers }: { transfers: Transfer[] }) {
               <td>{t.transfer_window ? WINDOW_LABEL[t.transfer_window] : ''}</td>
               {hasDates && <td>{t.transfer_date ? formatDate(t.transfer_date) : ''}</td>}
               <td className={`direction-${t.direction}`}>{DIRECTION_LABEL[t.direction]}</td>
-              {hasClubs && <td>{t.other_team_name ?? t.team?.name ?? t.other_team_raw}</td>}
+              {hasClubs && <td>{clubOf(t)}</td>}
               {/* Примечание автора точнее типа: «выкуп», «из аренды» */}
               {hasNotes && <td>{t.notes ?? (t.kind && TRANSFER_KIND_LABEL[t.kind])}</td>}
             </tr>

@@ -55,7 +55,7 @@ export function LeadersPage({ scope, tab }: { scope: LeadersScope; tab: LeadersT
       </div>
       <nav className="page-tabs" aria-label="Разделы лидеров">
         <a href={leadersHref(scope)} className={tab === 'tables' ? 'active' : undefined}>
-          Игры и голы
+          Матчи и голы
         </a>
         <a href={leadersHref('all', 'clubs')} className={tab === 'clubs' ? 'active' : undefined}>
           Клубы 100, 200, 300
@@ -78,7 +78,7 @@ export function LeadersPage({ scope, tab }: { scope: LeadersScope; tab: LeadersT
             <LeaderTable
               key={`games-${scope}-${onlyCurrent}`}
               title="По играм"
-              column="Игры"
+              column="Матчи"
               current={state.data.current}
               rows={only(rank(state.data.careers, (p) => (league ? p.games_league : p.games)), onlyCurrent && state.data.current)}
             />

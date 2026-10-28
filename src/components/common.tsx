@@ -17,11 +17,34 @@ export function NotFound({ message }: { message: string }) {
   );
 }
 
-/** Состояние загрузки страницы, пока данных нет. */
+/** Сеть или таймаут — а не ошибка в самой базе. */
+const isNetworkError = (message: string) => /failed to fetch|networkerror|load failed|timed out|timeout|aborted/i.test(message);
+
+/** Состояние загрузки страницы, пока данных нет: «Загрузка…», «не найдено» или ошибка с кнопкой «Повторить». */
 export function LoadStatus({ state }: { state: Exclude<Loaded<unknown>, { status: 'ready' }> }) {
   if (state.status === 'loading') return <p className="muted">Загрузка…</p>;
   if (state.notFound) return <NotFound message={state.message} />;
-  return <p className="error">Не удалось загрузить данные: {state.message}</p>;
+  return (
+    <div className="load-error" role="alert">
+      <h2>Не удалось загрузить страницу</h2>
+      <p>
+        {isNetworkError(state.message)
+          ? 'Нет связи с базой данных. Проверьте интернет и попробуйте ещё раз.'
+          : 'База данных ответила ошибкой. Попробуйте ещё раз чуть позже.'}
+      </p>
+      {state.retry && (
+        <p>
+          <button type="button" className="primary" onClick={state.retry}>
+            Повторить
+          </button>
+        </p>
+      )}
+      <details>
+        <summary>Подробности</summary>
+        <code>{state.message}</code>
+      </details>
+    </div>
+  );
 }
 
 export function ResultBadge({ result }: { result: Result | null }) {

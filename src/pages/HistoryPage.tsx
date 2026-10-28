@@ -203,7 +203,7 @@ function AcademyLeaders({ players }: { players: CareerStats[] }) {
             </th>
             <th scope="col">Игрок</th>
             <th scope="col" className="num">
-              Игры
+              Матчи
             </th>
             <th scope="col">В клубе</th>
           </tr>
@@ -412,6 +412,8 @@ const MINUTE_TICKS = new Set(['1', '15', '30', '45+', '60', '75', '90+']);
 /** Забитые — вверх, пропущенные — вниз: по 15-минуткам или по каждой минуте. */
 function GoalMinutesCard({ rows }: { rows: GoalMinute[] }) {
   const [view, setView] = useState<'buckets' | 'minutes'>('buckets');
+  // По минутам чисел на столбиках нет: нажатый столбик показывает их строкой — на телефоне подсказки при наведении нет
+  const [picked, setPicked] = useState<string | null>(null);
   const buckets = bucketColumns(rows);
   const cols = view === 'buckets' ? buckets : minuteColumns(rows);
   const max = Math.max(1, ...cols.flatMap((c) => [c.scored, c.conceded]));
@@ -421,12 +423,21 @@ function GoalMinutesCard({ rows }: { rows: GoalMinute[] }) {
   const share = (n: number, of: number) => `${Math.round((100 * n) / (of || 1))}%`;
   // По минутам столбик дополнительного времени — последний и без подписи: под ним нет места рядом с «90+»
   const extraUnlabeled = view === 'minutes' && cols.some((c) => c.label === 'Доп. время');
+  const pickedCol = view === 'minutes' ? cols.find((c) => c.label === picked) : undefined;
   const switcher: ReactNode = (
     <span className="segmented" role="group" aria-label="Как показывать">
       <button type="button" className={view === 'buckets' ? 'active' : undefined} aria-pressed={view === 'buckets'} onClick={() => setView('buckets')}>
         По 15 минут
       </button>
-      <button type="button" className={view === 'minutes' ? 'active' : undefined} aria-pressed={view === 'minutes'} onClick={() => setView('minutes')}>
+      <button
+        type="button"
+        className={view === 'minutes' ? 'active' : undefined}
+        aria-pressed={view === 'minutes'}
+        onClick={() => {
+          setView('minutes');
+          setPicked(null);
+        }}
+      >
         По минутам
       </button>
     </span>
@@ -444,10 +455,30 @@ function GoalMinutesCard({ rows }: { rows: GoalMinute[] }) {
           пропущенные — {formatInt(conceded)}
         </span>
       </p>
+      {view === 'minutes' && (
+        <p className="mirror-picked" aria-live="polite">
+          {pickedCol ? (
+            <>
+              <b>{pickedCol.label === 'Доп. время' ? 'Дополнительное время' : `${pickedCol.label}-я минута`}</b> · забили {pickedCol.scored}, пропустили{' '}
+              {pickedCol.conceded}
+            </>
+          ) : (
+            <span className="muted">Нажмите на столбик — покажем числа минуты.</span>
+          )}
+        </p>
+      )}
       <div className="chart-scroll">
         <div className={`mirror mirror-${view}`}>
           {cols.map((c) => (
-            <MirrorColumn key={c.label} c={c} max={max} numbers={view === 'buckets'} tick={view === 'buckets' || MINUTE_TICKS.has(c.label)} />
+            <MirrorColumn
+              key={c.label}
+              c={c}
+              max={max}
+              numbers={view === 'buckets'}
+              tick={view === 'buckets' || MINUTE_TICKS.has(c.label)}
+              picked={view === 'minutes' && picked === c.label}
+              onPick={view === 'minutes' ? () => setPicked((p) => (p === c.label ? null : c.label)) : undefined}
+            />
           ))}
         </div>
       </div>
@@ -460,9 +491,29 @@ function GoalMinutesCard({ rows }: { rows: GoalMinute[] }) {
   );
 }
 
-function MirrorColumn({ c, max, numbers, tick }: { c: MinuteColumn; max: number; numbers: boolean; tick: boolean }) {
+function MirrorColumn({
+  c,
+  max,
+  numbers,
+  tick,
+  picked,
+  onPick,
+}: {
+  c: MinuteColumn;
+  max: number;
+  numbers: boolean;
+  tick: boolean;
+  picked: boolean;
+  onPick?: () => void;
+}) {
+  const title = `${c.label}: забито ${c.scored}, пропущено ${c.conceded}`;
+  const Root = onPick ? 'button' : 'div';
   return (
-    <div className="mirror-col" title={`${c.label}: забито ${c.scored}, пропущено ${c.conceded}`}>
+    <Root
+      className={`mirror-col${picked ? ' picked' : ''}`}
+      title={title}
+      {...(onPick ? { type: 'button' as const, onClick: onPick, 'aria-label': title, 'aria-pressed': picked } : {})}
+    >
       <span className="mirror-half mirror-up">
         {numbers && c.scored > 0 && <b>{c.scored}</b>}
         <span className="mirror-bar mirror-scored" style={{ height: `${(c.scored / max) * 100}%` }} />
@@ -472,6 +523,6 @@ function MirrorColumn({ c, max, numbers, tick }: { c: MinuteColumn; max: number;
         <span className="mirror-bar mirror-conceded" style={{ height: `${(c.conceded / max) * 100}%` }} />
         {numbers && c.conceded > 0 && <b>{c.conceded}</b>}
       </span>
-    </div>
+    </Root>
   );
 }

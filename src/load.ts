@@ -5,7 +5,7 @@ export class NotFoundError extends Error {}
 
 export type Loaded<T> =
   | { status: 'loading' }
-  | { status: 'error'; message: string; notFound: boolean }
+  | { status: 'error'; message: string; notFound: boolean; retry?: () => void }
   | { status: 'ready'; data: T };
 
 /** Часть страницы, которая может не загрузиться, не роняя остальное. */
@@ -29,27 +29,30 @@ export async function part<T>(promise: Promise<T>): Promise<Part<T>> {
  * load должна быть стабильной — функция модуля, а не замыкание в компоненте.
  */
 export function useLoad<K, T>(key: K, load: (key: K) => Promise<T>): Loaded<T> {
-  const [result, setResult] = useState<{ key: K; state: Loaded<T> }>();
+  const [result, setResult] = useState<{ key: K; attempt: number; state: Loaded<T> }>();
+  // «Повторить» после ошибки — та же загрузка ещё раз
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let current = true;
     load(key).then(
       (data) => {
-        if (current) setResult({ key, state: { status: 'ready', data } });
+        if (current) setResult({ key, attempt, state: { status: 'ready', data } });
       },
       (e: unknown) => {
         if (current) {
-          setResult({ key, state: { status: 'error', message: errorMessage(e), notFound: e instanceof NotFoundError } });
+          const state: Loaded<T> = { status: 'error', message: errorMessage(e), notFound: e instanceof NotFoundError, retry: () => setAttempt((a) => a + 1) };
+          setResult({ key, attempt, state });
         }
       },
     );
     return () => {
       current = false;
     };
-  }, [key, load]);
+  }, [key, load, attempt]);
 
-  // Пока грузится новый ключ, старые данные не показываем
-  return result && result.key === key ? result.state : { status: 'loading' };
+  // Пока грузится новый ключ (или повтор), старые данные не показываем
+  return result && result.key === key && result.attempt === attempt ? result.state : { status: 'loading' };
 }
 
 /** Заголовок вкладки браузера. */

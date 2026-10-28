@@ -20,6 +20,8 @@ import { TRANSFER_COLUMNS, type TransferBase, type TransferRecord } from './tran
 import { rawOpponents, type DirRecord, type RawOpponent, type TeamNameRecord, type TenureRecord } from './directory';
 import { PLAYER_COLUMNS, SEASON_RECORD_COLUMNS, type BestXiRecord, type PlayerRecord, type SeasonRecord } from './people';
 import type { CheckGoal, CheckMatch, CheckTotal } from './goalsCheck';
+import type { CheckData } from './checks';
+import { squadToCopy, type SquadCopyRow } from './newSeason';
 import { POINTS_SETTINGS_COLUMNS, type AdjustmentRecord, type PlayerSeasonPoints, type PointsSettings } from './points';
 import { opponentName } from '../format';
 
@@ -620,4 +622,54 @@ export async function loadGoalsCheck(seasonId: number): Promise<GoalsCheckData> 
     totals: totals.map((t) => ({ player_id: t.player_id, goals: t.goals, assists: t.assists, friendly: t.competition.kind === 'friendly' })),
     names: new Map(squad.map((s) => [s.player_id, s.player.display_name])),
   };
+}
+
+// ===========================================================================
+// Проверка данных и новый сезон
+// ===========================================================================
+
+/** Всё для «Проверки данных»: матчи, составы (около 20 тысяч строк), голы, заявки — страницами по 1000. */
+export async function loadDataChecks(): Promise<CheckData> {
+  const [seasons, matches, appearances, absences, goals, squad, players, tenures, conceded, ok] = await Promise.all([
+    loadSeasons(),
+    allRows<CheckData['matches'][number]>((from, to) =>
+      db()
+        .from('match')
+        .select('id, season_id, seq, match_date, goals_for, goals_against, awarded, coach_id, opponent_name, competition(kind)')
+        .order('id')
+        .range(from, to),
+    ),
+    allRows<CheckData['appearances'][number]>((from, to) =>
+      db().from('appearance').select('match_id, player_id, role, minutes, replaced_player_id').order('match_id').order('player_id').range(from, to),
+    ),
+    allRows<CheckData['absences'][number]>((from, to) =>
+      db().from('absence').select('match_id, player_id, reason').order('match_id').order('player_id').range(from, to),
+    ),
+    allRows<CheckData['goals'][number]>((from, to) => db().from('goal').select('match_id, side, minute').order('id').range(from, to)),
+    allRows<CheckData['squad'][number]>((from, to) =>
+      db().from('squad_member').select('season_id, player_id').order('season_id').order('player_id').range(from, to),
+    ),
+    allRows<CheckData['players'][number]>((from, to) => db().from('player').select('id, display_name, birth_date').order('id').range(from, to)),
+    rows<CheckData['tenures']>(db().from('coach_tenure').select('coach_id, from_date, to_date')),
+    allRows<CheckData['conceded'][number]>((from, to) =>
+      db().from('player_season_stats').select('season_id, goals_conceded').order('season_id').order('player_id').range(from, to),
+    ),
+    // отметки «так и есть» — из миграции 20261028150000: до неё проверка работает и без них
+    rows<CheckData['ok']>(db().from('data_check_ok').select('check_key, item_key')).catch(() => []),
+  ]);
+  return { seasons, matches, appearances, absences, goals, squad, players, tenures, conceded, ok };
+}
+
+/** Заявка сезона для переноса в новый: без тех, у кого в этом сезоне трансфер «ушёл». */
+export async function loadSquadToCopy(seasonId: number): Promise<SquadCopyRow[]> {
+  const [squad, outs] = await Promise.all([
+    rows<SquadCopyRow[]>(
+      db().from('squad_member').select('player_id, shirt_number, position, squad_group, on_loan, sort_order').eq('season_id', seasonId).order('sort_order'),
+    ),
+    rows<{ player_id: number }[]>(db().from('transfer').select('player_id').eq('season_id', seasonId).eq('direction', 'out')),
+  ]);
+  return squadToCopy(
+    squad,
+    outs.map((t) => t.player_id),
+  );
 }

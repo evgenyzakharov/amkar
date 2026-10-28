@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react';
+import { Card } from '../components/cards';
 import { EditLink, LoadStatus, PageNav, ResultBadge, Tag } from '../components/common';
 import { loadMatch } from '../db/queries';
 import type { Absence, AbsenceReason, Appearance, Goal, SquadEntry } from '../db/types';
@@ -32,9 +33,8 @@ export function MatchPage({ id }: { id: number }) {
   const opponent = m.opponent_id ? <a href={opponentHref(m.opponent_id)}>{opponentName(m)}</a> : opponentName(m);
   const [left, right] = away ? [opponent, 'Амкар'] : ['Амкар', opponent];
   const score = formatHomeScore(m);
+  const kicker = [m.competition.name, m.round && (/^\d+$/.test(m.round) ? `${m.round}-й тур` : m.round)].filter(Boolean).join(' · ');
   const details: ReactNode[] = [
-    m.competition.name,
-    m.round && (/^\d+$/.test(m.round) ? `${m.round}-й тур` : m.round),
     m.match_date && formatDate(m.match_date),
     m.venue && VENUE_LABEL[m.venue],
     m.coach && (
@@ -47,7 +47,7 @@ export function MatchPage({ id }: { id: number }) {
   ].filter(Boolean);
 
   return (
-    <>
+    <div className="card-page">
       <PageNav
         up={
           <a href={seasonHref(m.season.label)}>
@@ -57,50 +57,55 @@ export function MatchPage({ id }: { id: number }) {
         prev={prevId && <a href={matchHref(prevId)}>‹ предыдущий</a>}
         next={nextId && <a href={matchHref(nextId)}>следующий ›</a>}
       />
-      <h2>
-        {left} — {right} <EditLink href={adminMatchHref(m.id)} />
-      </h2>
-      <p className="match-score">
-        <ResultBadge result={m.result} />
-        {score && <span className="score">{score}</span>}
-        {!m.result && <span className="muted">результат неизвестен</span>}
-      </p>
-      {details.length > 0 && (
-        <p className="muted">
-          {details.map((d, k) => (
-            <Fragment key={k}>
-              {k > 0 && ' · '}
-              {d}
-            </Fragment>
-          ))}
-        </p>
-      )}
-      {m.awarded && (
-        <p className="note">
-          Результат присуждён без игры{m.result && `: ${AWARDED_LABEL[m.result]}`}.
-        </p>
-      )}
-      {m.notes && <p>{m.notes}</p>}
+
+      <section className="season-hero match-hero" aria-label="Матч">
+        <div className="season-hero-main">
+          {kicker && <div className="season-kicker">{kicker}</div>}
+          <h1 className="match-title">
+            {left} <span className="match-title-score">{score ?? '—'}</span> {right}
+          </h1>
+          <p className="match-meta">
+            <ResultBadge result={m.result} />
+            {!m.result && <span> результат неизвестен</span>}
+            {details.map((d, k) => (
+              <Fragment key={k}>
+                {k > 0 ? ' · ' : ' '}
+                {d}
+              </Fragment>
+            ))}
+          </p>
+          {m.awarded && <p className="match-meta">Результат присуждён без игры{m.result && `: ${AWARDED_LABEL[m.result]}`}.</p>}
+          {m.notes && <p className="match-notes">{m.notes}</p>}
+        </div>
+        <div className="season-hero-side">
+          <EditLink href={adminMatchHref(m.id)} />
+        </div>
+      </section>
 
       {videos.status === 'ready' && videos.data.length > 0 && <Videos videos={videos.data} />}
 
       {goals.length > 0 && <Goals goals={goals} opponent={opponentName(m)} amkarRight={away} />}
 
       {lineup.length > 0 ? (
-        <Lineup lineup={lineup} squad={squad} />
+        <Lineup lineup={lineup} squad={squad} absences={absences} />
       ) : (
-        !m.awarded && <p className="muted">Состав на матч не записан.</p>
+        <>
+          {!m.awarded && <p className="muted">Состав на матч не записан.</p>}
+          {absences.length > 0 && (
+            <Card title="Пропустили матч">
+              <Absences absences={absences} />
+            </Card>
+          )}
+        </>
       )}
-      <Absences absences={absences} />
-    </>
+    </div>
   );
 }
 
 /** Видео матча — ссылками в новой вкладке, без встроенных плееров и их трекеров. */
 function Videos({ videos }: { videos: MatchVideo[] }) {
   return (
-    <section>
-      <h3>Видео</h3>
+    <Card title="Видео">
       <ul className="inline-list">
         {videos.map((v) => (
           <li key={v.id}>
@@ -111,11 +116,11 @@ function Videos({ videos }: { videos: MatchVideo[] }) {
           </li>
         ))}
       </ul>
-    </section>
+    </Card>
   );
 }
 
-function Lineup({ lineup, squad }: { lineup: Appearance[]; squad: SquadEntry[] }) {
+function Lineup({ lineup, squad, absences }: { lineup: Appearance[]; squad: SquadEntry[]; absences: Absence[] }) {
   const squadById = new Map(squad.map((s) => [s.player_id, s]));
   // Порядок как в заявке: вратари, защитники, полузащитники, нападающие, дальше — строки Excel
   const bySquad = (a: Appearance, b: Appearance) => {
@@ -190,19 +195,23 @@ function Lineup({ lineup, squad }: { lineup: Appearance[]; squad: SquadEntry[] }
             <th className="num" title="минуты на поле">
               Мин
             </th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((a) => (
-            <tr key={a.player_id}>
-              {withMinuteOn && <td className="num">{a.minute_on ? `${a.minute_on}'` : ''}</td>}
-              <td className="num">{number(a)}</td>
-              <td>{playerLink(a.player_id)}</td>
-              <td className="num">{num(a.minutes)}</td>
-              <td>{events(a)}</td>
-            </tr>
-          ))}
+          {rows.map((a) => {
+            const list = events(a);
+            return (
+              <tr key={a.player_id}>
+                {withMinuteOn && <td className="num">{a.minute_on ? `${a.minute_on}'` : '—'}</td>}
+                <td className="num muted">{number(a)}</td>
+                <td>
+                  {playerLink(a.player_id)}
+                  {list.length > 0 && <div className="lineup-events">{list}</div>}
+                </td>
+                <td className="num">{num(a.minutes)}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -212,45 +221,52 @@ function Lineup({ lineup, squad }: { lineup: Appearance[]; squad: SquadEntry[] }
     <ul className="inline-list">
       {rows.map((a) => (
         <li key={a.player_id}>
-          {number(a) && <span className="muted">{number(a)} </span>}
+          {number(a) !== '—' && <span className="muted">{number(a)} </span>}
           {playerLink(a.player_id)}
         </li>
       ))}
     </ul>
   );
+  const played = starters.length + unpaired.length + playedUnknown.length;
 
   return (
     <>
-      {starters.length > 0 && (
-        <section>
-          <h3>Стартовый состав ({starters.length})</h3>
-          {table(starters, false)}
-        </section>
+      {played > 0 && (
+        <Card title={starters.length > 0 ? 'Состав' : 'Играли'} aside={starters.length > 0 ? `в старте ${starters.length}` : undefined}>
+          {starters.length > 0 && table(starters, false)}
+          {unpaired.length > 0 && (
+            <>
+              <h3 className="lineup-subtitle">Ещё выходили на замену ({unpaired.length})</h3>
+              {table(unpaired, true)}
+            </>
+          )}
+          {playedUnknown.length > 0 && (
+            <>
+              {starters.length > 0 && <h3 className="lineup-subtitle">Ещё играли ({playedUnknown.length})</h3>}
+              <p className="note">Кто вышел в старте, а кто на замену, не записано — известны только минуты.</p>
+              {table(playedUnknown, false)}
+            </>
+          )}
+        </Card>
       )}
-      {unpaired.length > 0 && (
-        <section>
-          <h3>Ещё выходили на замену ({unpaired.length})</h3>
-          {table(unpaired, true)}
-        </section>
-      )}
-      {playedUnknown.length > 0 && (
-        <section>
-          <h3>{starters.length > 0 ? 'Ещё играли' : 'Играли'} ({playedUnknown.length})</h3>
-          <p className="note">Кто вышел в старте, а кто на замену, не записано — известны только минуты.</p>
-          {table(playedUnknown, false)}
-        </section>
-      )}
-      {bench.length > 0 && (
-        <section>
-          <h3>Остались в запасе ({bench.length})</h3>
-          {names(bench)}
-        </section>
-      )}
-      {minutesUnknown.length > 0 && (
-        <section>
-          <h3>В заявке, минуты неизвестны</h3>
-          {names(minutesUnknown)}
-        </section>
+      {(bench.length > 0 || minutesUnknown.length > 0 || absences.length > 0) && (
+        <Card title="Запас и пропуски">
+          <dl className="absences">
+            {bench.length > 0 && (
+              <div>
+                <dt>Остались в запасе</dt>
+                <dd>{names(bench)}</dd>
+              </div>
+            )}
+            {minutesUnknown.length > 0 && (
+              <div>
+                <dt>В заявке, минуты неизвестны</dt>
+                <dd>{names(minutesUnknown)}</dd>
+              </div>
+            )}
+          </dl>
+          <Absences absences={absences} />
+        </Card>
       )}
     </>
   );
@@ -287,8 +303,7 @@ function Goals({ goals, opponent, amkarRight }: { goals: Goal[]; opponent: strin
     );
   };
   return (
-    <section>
-      <h3>Голы</h3>
+    <Card title="Голы">
       <div className="table-wrap">
         <table className="data-table goals-table">
           <thead>
@@ -311,18 +326,17 @@ function Goals({ goals, opponent, amkarRight }: { goals: Goal[]; opponent: strin
           </tbody>
         </table>
       </div>
-    </section>
+    </Card>
   );
 }
 
 const ABSENCE_ORDER: AbsenceReason[] = ['injury', 'suspension', 'national_team'];
 
+/** Пропустили матч: по причинам — травма, дисквалификация, сборная. */
 function Absences({ absences }: { absences: Absence[] }) {
   if (absences.length === 0) return null;
   return (
-    <section>
-      <h3>Пропустили матч</h3>
-      <dl className="absences">
+    <dl className="absences">
         {ABSENCE_ORDER.map((reason) => {
           const players = absences
             .filter((a) => a.reason === reason)
@@ -341,9 +355,8 @@ function Absences({ absences }: { absences: Absence[] }) {
                 </ul>
               </dd>
             </div>
-          );
-        })}
-      </dl>
-    </section>
+        );
+      })}
+    </dl>
   );
 }

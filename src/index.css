@@ -17,6 +17,13 @@
   --win: #1f7a45;
   --draw: #8a6a0c;
   --loss: #b3242f;
+  /* Фон значков с белой буквой и цветной текст — отдельно: в тёмной теме у них разные оттенки */
+  --win-bg: var(--win);
+  --draw-bg: var(--draw);
+  --loss-bg: var(--loss);
+  --win-text: var(--win);
+  --draw-text: var(--draw);
+  --loss-text: var(--loss);
   --pitch: #e9f1ea;
   /* Пантеон пирамиды */
   --gold: #fff4d6;
@@ -46,6 +53,13 @@
   --win: #2f8f57;
   --draw: #9a7a16;
   --loss: #c4303b;
+  /* Белое на значке — не меньше 4,5:1, цветной текст на тёмном фоне — тоже */
+  --win-bg: #1f7a45;
+  --draw-bg: #8a6a0c;
+  --loss-bg: #c4303b;
+  --win-text: #45a86d;
+  --draw-text: #b38f20;
+  --loss-text: #e0545e;
   --pitch: #14211a;
   --gold: #2e2610;
   --gold-border: #7a6420;
@@ -154,6 +168,49 @@ body {
   color: var(--band-muted);
 }
 
+/* Телефон: шапка в две строки — логотип и тема, под ними меню одной строкой с прокруткой вбок */
+@media (max-width: 640px) {
+  .site-header-inner {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0 12px;
+    padding-bottom: 0;
+  }
+
+  .site-logo {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .theme-toggle {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .site-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-wrap: nowrap;
+    gap: 0 20px;
+    margin: 0 -16px;
+    padding: 0 40px 0 16px;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+    /* затухание справа — подсказка, что меню листается */
+    mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  }
+
+  .site-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .site-header .admin-links {
+    grid-column: 1 / -1;
+    padding-bottom: 6px;
+  }
+}
+
 .site-main {
   max-width: 1120px;
   margin: 0 auto;
@@ -174,6 +231,28 @@ h3 {
 
 .error {
   color: var(--amkar-red);
+}
+
+/* Страница не загрузилась: понятный текст, «Повторить», технические подробности — свёрнуты */
+.load-error {
+  max-width: 560px;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.load-error h2 {
+  margin: 0 0 6px;
+}
+
+.load-error p {
+  margin: 0 0 12px;
+}
+
+.load-error details {
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .season-list {
@@ -230,6 +309,28 @@ h3 {
 /* Таблицы: на узком экране прокручиваются внутри, а не всей страницей */
 .table-wrap {
   overflow-x: auto;
+}
+
+/* Таблица шире экрана (tableScroll.ts): справа затухание, над ней — «листайте →», пока не долистали до конца */
+.table-wrap[data-scroll='start'],
+.table-wrap[data-scroll='middle'] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+
+.table-wrap[data-scroll]::before {
+  content: 'листайте →';
+  position: sticky;
+  left: 0;
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+}
+
+/* строка подсказки остаётся и после прокрутки — таблица не прыгает вверх */
+.table-wrap[data-scroll='middle']::before,
+.table-wrap[data-scroll='end']::before {
+  visibility: hidden;
 }
 
 .data-table {
@@ -290,15 +391,15 @@ h3 {
 }
 
 .result-W {
-  background: var(--win);
+  background: var(--win-bg);
 }
 
 .result-D {
-  background: var(--draw);
+  background: var(--draw-bg);
 }
 
 .result-L {
-  background: var(--loss);
+  background: var(--loss-bg);
 }
 
 .result-unknown {
@@ -360,11 +461,11 @@ h3 {
 }
 
 .direction-in {
-  color: var(--win);
+  color: var(--win-text);
 }
 
 .direction-out {
-  color: var(--loss);
+  color: var(--loss-text);
 }
 
 /* Сборная сезона: линии от нападения к вратарю */
@@ -850,6 +951,62 @@ h3 {
   color: var(--band-muted);
 }
 
+/* Матч: тёмный блок со счётом, как у сезона и игрока */
+.match-title {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  font-size: clamp(28px, 6vw, 40px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.match-title-score {
+  font-size: 1.35em;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-hero a {
+  color: var(--band-text);
+  text-decoration-color: var(--accent);
+}
+
+.match-meta {
+  margin: 0;
+  color: var(--band-muted);
+}
+
+.match-meta .result {
+  margin-right: 4px;
+}
+
+.match-notes {
+  margin: 0;
+}
+
+/* Замена, удаление, травма — второй строкой под фамилией: на телефоне отдельный столбец обрезался */
+.lineup-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 10px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: normal;
+}
+
+/* события переносятся целиком: «🔄 45' Колесниченко» — одним куском */
+.lineup-events .event + .event,
+.lineup-events .sub-swap + .sub-swap {
+  margin-left: 0;
+}
+
+.lineup-subtitle {
+  margin: 20px 0 6px;
+  font-size: 17px;
+}
+
 /* Результаты по ходу сезона: квадраты В/Н/П */
 .result-strip {
   display: flex;
@@ -884,15 +1041,15 @@ h3 {
 }
 
 .tone-W {
-  background: var(--win);
+  background: var(--win-bg);
 }
 
 .tone-D {
-  background: var(--draw);
+  background: var(--draw-bg);
 }
 
 .tone-L {
-  background: var(--loss);
+  background: var(--loss-bg);
 }
 
 .form-square.tone-unknown {
@@ -910,7 +1067,6 @@ h3 {
 .form-sub {
   font-size: 10px;
   line-height: 1.2;
-  opacity: 0.85;
   font-variant-numeric: tabular-nums;
 }
 
@@ -993,6 +1149,70 @@ h3 {
 
 .squad-details[open] summary {
   margin-bottom: 16px;
+}
+
+/* Матчи сезона текстом — свёрнуты, как заявка; в заголовке — сколько каких */
+.season-matches summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  cursor: pointer;
+}
+
+.season-matches[open] summary {
+  margin-bottom: 12px;
+}
+
+.season-matches .result {
+  margin-right: 6px;
+}
+
+.match-result-link {
+  white-space: nowrap;
+}
+
+/* Переключатель «Все турниры / Только чемпионат» — один над парой карточек */
+.scope-row {
+  display: flex;
+  margin-bottom: -8px;
+}
+
+/* Трансферы сезона: пришли и ушли рядом, на телефоне — друг под другом */
+.season-transfers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 8px 32px;
+}
+
+.season-transfers h3 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.season-transfers h4 {
+  margin: 10px 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.season-transfers ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  line-height: 1.8;
+}
+
+.points-cell {
+  white-space: nowrap;
 }
 
 /* Список игроков */
@@ -1088,6 +1308,49 @@ h3 {
 
 .epochs .season-list li:last-child {
   border-bottom: 0;
+}
+
+/* Главная: нынешний сезон, «в этот день», близко к рубежу — над списком сезонов */
+.home-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  align-items: start;
+  gap: 24px;
+}
+
+.home-division,
+.home-facts {
+  margin: 0 0 6px;
+}
+
+.home-cards .result-strip {
+  margin-top: 10px;
+}
+
+.home-list,
+.milestone-near {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  line-height: 1.9;
+}
+
+.milestone-near b {
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+
+.milestone-bar {
+  height: 6px;
+  margin: 2px 0 8px;
+  border-radius: 3px;
+  background: var(--bar);
+  overflow: hidden;
+}
+
+.milestone-bar div {
+  height: 100%;
+  background: var(--accent);
 }
 
 /* Лидеры по играм и голам */
@@ -1762,7 +2025,7 @@ button.primary {
 button.danger {
   border-color: var(--loss);
   background: none;
-  color: var(--loss);
+  color: var(--loss-text);
 }
 
 .link-button {
@@ -1956,7 +2219,7 @@ input.w-short {
 }
 
 .save-bar .warnings {
-  color: var(--draw);
+  color: var(--draw-text);
 }
 
 .save-bar p {
@@ -1995,11 +2258,11 @@ input.w-short {
 }
 
 .formation-change .warnings {
-  color: var(--draw);
+  color: var(--draw-text);
 }
 
 .ok {
-  color: var(--win);
+  color: var(--win-text);
 }
 
 .danger-zone {
@@ -2533,15 +2796,15 @@ input.w-year {
 }
 
 .result-word-W {
-  color: var(--win);
+  color: var(--win-text);
 }
 
 .result-word-D {
-  color: var(--draw);
+  color: var(--draw-text);
 }
 
 .result-word-L {
-  color: var(--loss);
+  color: var(--loss-text);
 }
 
 .coach-top {
@@ -2700,6 +2963,35 @@ input.w-year {
 
 .mirror-col:hover .mirror-bar {
   opacity: 0.8;
+}
+
+/* Столбик «по минутам» — кнопка: нажали — числа строкой над графиком */
+button.mirror-col {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+}
+
+.mirror-col.picked .mirror-label,
+.mirror-col.picked {
+  background: var(--highlight);
+}
+
+.mirror-picked {
+  min-height: 1.5em;
+  margin: 0 0 6px;
+}
+
+/* Значки достижений тренеров — расшифровкой под таблицей */
+.achievement-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .age-records {
@@ -2965,4 +3257,81 @@ input.w-year {
   .leaders-table .years {
     white-space: nowrap;
   }
+}
+
+/* Админка: «Проверка данных» — строка на проверку: значок, название, сколько случаев, случаи ссылками */
+.data-checks {
+  max-width: 980px;
+}
+
+.check {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 4px 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.check-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.check-ok .check-icon {
+  background: var(--win-bg);
+}
+
+.check-warn .check-icon {
+  background: #b06d08;
+}
+
+.check-info .check-icon {
+  background: #6b7280;
+}
+
+.check-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.check .note {
+  margin: 2px 0 0;
+}
+
+.check-items {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 14px;
+}
+
+.check-items .link-button {
+  margin-left: 8px;
+  font-size: 13px;
+}
+
+.check-items .accepted,
+.check-items .accepted a {
+  color: var(--muted);
+}
+
+/* Админка: новый сезон */
+.new-season {
+  max-width: 820px;
+  margin-bottom: 16px;
+}
+
+.new-season h4 {
+  margin: 0 0 12px;
+}
+
+.new-season-copy {
+  display: block;
+  margin: 12px 0 0;
 }

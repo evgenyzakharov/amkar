@@ -9,7 +9,8 @@ export const AWARDED_LABEL: Record<Result, string> = {
   L: 'техническое поражение',
 };
 
-export const POSITION_LABEL: Record<Position, string> = { GK: 'ВР', DF: 'ЗЩ', MF: 'ПЗ', FW: 'НП' };
+// «ПЗЩ», а не «ПЗ»: в сборной сезона «ПЗ» — правый защитник
+export const POSITION_LABEL: Record<Position, string> = { GK: 'ВР', DF: 'ЗЩ', MF: 'ПЗЩ', FW: 'НП' };
 export const POSITION_TITLE: Record<Position, string> = {
   GK: 'вратарь',
   DF: 'защитник',
@@ -261,7 +262,8 @@ export function formatDate(iso: string): string {
 }
 
 /** Пустая ячейка для неизвестного значения, иначе число. */
-export const num = (n: number | null | undefined) => (n == null ? '' : String(n));
+/** Число в ячейке таблицы; данных нет — «—», как во всех таблицах сайта. */
+export const num = (n: number | null | undefined) => (n == null ? '—' : String(n));
 
 /** Сумма известных значений; null, если неизвестны все. */
 export function sumKnown(values: (number | null)[]): number | null {

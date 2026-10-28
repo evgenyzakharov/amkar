@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Card, ExternalLinks, Tiles, type Tile } from '../components/cards';
+import { Card, ExternalLinks, ScopeSwitch, Tiles, type Tile } from '../components/cards';
 import { EditLink, LoadStatus, Tag } from '../components/common';
 import { SeasonHeatmap } from '../components/SeasonHeatmap';
 import { loadSeason, type SeasonPageData } from '../db/queries';
-import type { BestXiSlot, CompetitionKind, PlayerSeasonStats, SeasonMatch, SeasonPoints } from '../db/types';
+import type { BestXiSlot, CompetitionKind, PlayerSeasonStats, SeasonMatch, SeasonPoints, SeasonTransfer } from '../db/types';
 import {
   AWARDED_LABEL,
   bestXiLines,
@@ -15,23 +15,27 @@ import {
   RESULT_TITLE,
   SLOT_LABEL,
   SLOT_TITLE,
+  VENUE_LABEL,
+  WINDOW_LABEL,
+  formatDate,
+  formatScore,
   num,
   opponentCodes,
   opponentName,
   plural,
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { adminSeasonHref, coachHref, matchHref, playerHref, pyramidHref, seasonHref } from '../router';
+import { adminSeasonHref, coachHref, matchHref, opponentHref, playerHref, pyramidHref, seasonHref, type LeadersScope } from '../router';
 
-export function SeasonPage({ label }: { label: string }) {
+export function SeasonPage({ label, scope }: { label: string; scope: LeadersScope }) {
   useDocumentTitle(`Сезон ${label}`);
   const state = useLoad(label, loadSeason);
   if (state.status !== 'ready') return <LoadStatus state={state} />;
-  return <SeasonCard data={state.data} />;
+  return <SeasonCard data={state.data} scope={scope} />;
 }
 
-function SeasonCard({ data }: { data: SeasonPageData }) {
-  const { season, prev, next, matches, squad, bestXi, formation, links } = data;
+function SeasonCard({ data, scope }: { data: SeasonPageData; scope: LeadersScope }) {
+  const { season, prev, next, matches, squad, bestXi, formation, links, transfers } = data;
   // Очки сезона — отдельной частью: без миграции очков страница показывается без них
   const points = 'data' in data.points ? data.points.data : [];
   const pointsBy = new Map(points.map((p) => [p.player_id, p]));
@@ -41,8 +45,8 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
   const friendlies = matches.filter((m) => m.competition.kind === 'friendly');
   const codes = opponentCodes(matches.map(opponentName));
   const players = 'data' in squad ? squad.data : [];
-  // Бомбардиры и ассистенты: все турниры или только чемпионат — одним переключателем на обе карточки
-  const [leagueOnly, setLeagueOnly] = useState(false);
+  // Бомбардиры и ассистенты: все турниры или только чемпионат — один переключатель над парой, выбор — в адресе
+  const leagueOnly = scope === 'league';
   const leagueBy = new Map(data.league.map((l) => [l.player_id, l]));
   const coach = mainCoach(official);
   const facts = [
@@ -57,26 +61,16 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
   // Блок лидеров — только если есть кого показать: передачи в старых сезонах не учитывались (null)
   const hasGoals = players.some((p) => (p.goals ?? 0) > 0);
   const hasAssists = players.some((p) => (p.assists ?? 0) > 0);
-  const scopeSwitch = leagueBy.size > 0 && (
-    <span className="segmented" role="group" aria-label="Турниры">
-      <button type="button" className={leagueOnly ? undefined : 'active'} aria-pressed={!leagueOnly} onClick={() => setLeagueOnly(false)}>
-        Все турниры
-      </button>
-      <button type="button" className={leagueOnly ? 'active' : undefined} aria-pressed={leagueOnly} onClick={() => setLeagueOnly(true)}>
-        Только чемпионат
-      </button>
-    </span>
-  );
   const statOf = (stat: 'goals' | 'assists') => (p: PlayerSeasonStats) =>
     leagueOnly ? (leagueBy.get(p.player_id)?.[stat === 'goals' ? 'goals_league' : 'assists_league'] ?? 0) : (p[stat] ?? 0);
   const leaderCards = [
     hasGoals && (
-      <Card key="goals" title="Лучшие бомбардиры" aside={scopeSwitch}>
+      <Card key="goals" title="Лучшие бомбардиры">
         <TopList players={players} value={statOf('goals')} />
       </Card>
     ),
     hasAssists && (
-      <Card key="assists" title="Лучшие ассистенты" aside={scopeSwitch}>
+      <Card key="assists" title="Лучшие ассистенты">
         <TopList players={players} value={statOf('assists')} />
       </Card>
     ),
@@ -94,8 +88,8 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
           <a href="#/">Сезоны</a> / {season.label}
         </span>
         <span className="crumbs-siblings">
-          {prev && <a href={seasonHref(prev.label)}>← {prev.label}</a>}
-          {next && <a href={seasonHref(next.label)}>{next.label} →</a>}
+          {prev && <a href={seasonHref(prev.label)}>‹ {prev.label}</a>}
+          {next && <a href={seasonHref(next.label)}>{next.label} ›</a>}
         </span>
       </nav>
 
@@ -138,6 +132,13 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
         <p className="muted">Матчей нет.</p>
       )}
 
+      {matches.length > 0 && <MatchList matches={matches} />}
+
+      {leaderCards.length > 0 && leagueBy.size > 0 && (
+        <div className="scope-row">
+          <ScopeSwitch scope={scope} href={(s) => seasonHref(season.label, s)} />
+        </div>
+      )}
       {leaderCards.length === 2 ? (
         // Бомбардиры и ассистенты — парой, сборная сезона — под ними во всю ширину
         <>
@@ -152,6 +153,8 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
           </div>
         )
       )}
+
+      {transfers.length > 0 && <Transfers transfers={transfers} winterFirst={season.start_year === season.end_year} />}
 
       {players.length > 0 && matches.length > 0 && (
         <Card title="Минуты по матчам">
@@ -172,7 +175,7 @@ function SeasonCard({ data }: { data: SeasonPageData }) {
             {pointsBy.size > 0 && (
               <>
                 {' '}
-                Очки — <a href={pyramidHref}>по формуле Амкаровской пирамиды</a>, место в сезоне — во всплывающей подсказке; звёздочка — с поправкой.
+                Очки — <a href={pyramidHref}>по формуле Амкаровской пирамиды</a>, рядом — место в сезоне; звёздочка — с поправкой.
               </>
             )}
           </p>
@@ -369,10 +372,10 @@ function SquadTable({ squad, points }: { squad: PlayerSeasonStats[]; points: Map
             {head('number', '№')}
             {hasPositions && head('position', 'Поз.', 'позиция', false)}
             {head('name', 'Игрок', undefined, false)}
-            {head('games', 'И', 'игры')}
+            {head('games', 'М', 'матчи')}
             {head('minutes', 'Мин', 'минуты')}
             {head('goals', 'Г', 'голы')}
-            {head('assists', 'П', 'голевые передачи')}
+            {head('assists', 'Пас', 'голевые передачи')}
             {hasConceded && head('conceded', 'Проп.', 'пропущенные мячи (вратари)')}
             {hasPoints && head('points', 'Очки', 'очки сезона по формуле Амкаровской пирамиды')}
           </tr>
@@ -412,20 +415,133 @@ function SquadTable({ squad, points }: { squad: PlayerSeasonStats[]; points: Map
   );
 }
 
-/** Очки сезона в заявке: место в сезоне — подсказкой, поправка — звёздочкой. */
+/** Очки сезона в заявке: место в сезоне — рядом мелким, поправка — звёздочкой с комментарием в подсказке. */
 function PointsCell({ points }: { points: SeasonPoints | undefined }) {
-  if (!points) return <td className="num" />;
-  const title = [
-    `${points.season_rank}-е место в сезоне`,
-    points.adjustment ? `поправка ${points.adjustment > 0 ? '+' : '−'}${Math.abs(points.adjustment)}: ${points.adjustment_comment}` : '',
-  ]
-    .filter(Boolean)
-    .join('; ');
+  if (!points) return <td className="num">—</td>;
+  const title = points.adjustment
+    ? `поправка ${points.adjustment > 0 ? '+' : '−'}${Math.abs(points.adjustment)}: ${points.adjustment_comment}`
+    : undefined;
   return (
-    <td className="num" title={title}>
+    <td className="num points-cell" title={title}>
       {formatInt(Math.round(points.points))}
       {points.adjustment ? '*' : ''}
+      <span className="muted"> · {points.season_rank}-й</span>
     </td>
+  );
+}
+
+/** Все матчи сезона текстом — свёрнуто, как «Заявка»: соперник, дата и турнир без наведения на квадраты. */
+function MatchList({ matches }: { matches: SeasonMatch[] }) {
+  const official = matches.filter((m) => m.competition.kind !== 'friendly');
+  const count = (kind: CompetitionKind) => official.filter((m) => m.competition.kind === kind).length;
+  const byName = new Map<string, number>();
+  for (const m of official) if (m.competition.kind !== 'league') byName.set(m.competition.name, (byName.get(m.competition.name) ?? 0) + 1);
+  const summary = [
+    count('league') > 0 && `${count('league')} в чемпионате`,
+    ...[...byName].map(([name, n]) => `${n} — ${name}`),
+    matches.length > official.length && `${matches.length - official.length} товарищеских`,
+  ].filter(Boolean);
+  const where = (m: SeasonMatch) => (m.venue ? VENUE_LABEL[m.venue] : '');
+  const tournament = (m: SeasonMatch) =>
+    m.competition.kind === 'league' ? (m.round && /^\d+$/.test(m.round) ? `чемпионат, ${m.round}-й тур` : 'чемпионат') : [m.competition.name, m.round].filter(Boolean).join(', ');
+  return (
+    <details className="card season-matches">
+      <summary>
+        <span className="card-title">Матчи</span>
+        <span className="card-aside">{summary.join(' · ')}</span>
+      </summary>
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th className="num">№</th>
+              <th>Дата</th>
+              <th>Соперник</th>
+              <th>Турнир</th>
+              <th>Где</th>
+              <th>Счёт</th>
+            </tr>
+          </thead>
+          <tbody>
+            {matches.map((m) => (
+              <tr key={m.id}>
+                <td className="num">{m.seq}</td>
+                <td>{m.match_date ? formatDate(m.match_date) : '—'}</td>
+                <td>{m.opponent_id ? <a href={opponentHref(m.opponent_id)}>{opponentName(m)}</a> : opponentName(m)}</td>
+                <td>{tournament(m)}</td>
+                <td className="muted">{where(m) || '—'}</td>
+                <td>
+                  <a href={matchHref(m.id)} className="match-result-link">
+                    <ResultMini result={m.result} />
+                    {formatScore(m) || (m.result ? '' : 'результат неизвестен')}
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
+
+function ResultMini({ result }: { result: SeasonMatch['result'] }) {
+  if (!result) return null;
+  return (
+    <span className={`result result-${result}`} title={RESULT_TITLE[result]}>
+      {RESULT_LABEL[result]}
+    </span>
+  );
+}
+
+const IN_KIND = { permanent: '', loan: 'аренда', loan_end: 'из аренды' } as const;
+const OUT_KIND = { permanent: '', loan: 'в аренду', loan_end: 'конец аренды' } as const;
+
+/** Кто пришёл и ушёл за сезон — по окнам: в сезоне «весна — осень» сначала зима, в «осень — весна» — лето. */
+function Transfers({ transfers, winterFirst }: { transfers: SeasonTransfer[]; winterFirst: boolean }) {
+  const windows: (SeasonTransfer['transfer_window'])[] = winterFirst ? ['winter', 'summer', null] : ['summer', 'winter', null];
+  const column = (direction: 'in' | 'out') => {
+    const list = transfers.filter((t) => t.direction === direction);
+    return (
+      <div>
+        <h3>
+          {direction === 'in' ? 'Пришли' : 'Ушли'} <span className="muted">{list.length}</span>
+        </h3>
+        {windows.map((w) => {
+          const rows = list.filter((t) => t.transfer_window === w);
+          if (rows.length === 0) return null;
+          return (
+            <section key={w ?? 'none'}>
+              <h4>{w ? WINDOW_LABEL[w] : 'окно не указано'}</h4>
+              <ul>
+                {rows.map((t) => {
+                  const club = t.other_team_name ?? t.other_team_raw;
+                  const kind = t.notes ?? (t.kind ? (direction === 'in' ? IN_KIND : OUT_KIND)[t.kind] : '');
+                  return (
+                    <li key={t.id}>
+                      <a href={playerHref(t.player.id)}>{t.player.display_name}</a>
+                      <span className="muted"> {direction === 'in' ? '←' : '→'} </span>
+                      {club ? t.other_team_id ? <a href={opponentHref(t.other_team_id)}>{club}</a> : club : <span className="muted">—</span>}
+                      {kind && <span className="muted"> · {kind}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+    );
+  };
+  const n = (d: 'in' | 'out') => transfers.filter((t) => t.direction === d).length;
+  return (
+    <Card title="Трансферы" aside={`пришли ${n('in')} · ушли ${n('out')}`}>
+      <div className="season-transfers">
+        {column('in')}
+        {column('out')}
+      </div>
+      <p className="note">Стрелка — откуда пришёл или куда ушёл; «—» — клуб не указан.</p>
+    </Card>
   );
 }
 

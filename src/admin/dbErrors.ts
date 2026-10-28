@@ -164,6 +164,11 @@ export const CONSTRAINT_MESSAGES: Record<string, string> = {
   player_season_adjustment_points_check: 'Поправка — от −5 до +5 и не ноль.',
   player_season_adjustment_comment_check: 'У поправки нужен комментарий: за что она.',
   player_season_adjustment_season_id_player_id_fkey: 'Игрока нет в заявке этого сезона.',
+
+  // проверка данных: «так и есть»
+  data_check_ok_pkey: 'Этот случай уже отмечен как верный.',
+  data_check_ok_check_key_check: 'Не указана проверка.',
+  data_check_ok_item_key_check: 'Не указан случай проверки.',
 };
 
 /** Что за записи ссылаются на удаляемую — для «удалить нельзя». */

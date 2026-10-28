@@ -17,6 +17,8 @@ export interface Season {
   teams_count: number | null;
   /** Схема сборной сезона, пусто — 13 мест как в Excel. */
   best_xi_formation: string | null;
+  /** Сколько матчей записано (match(count)): сезон без матчей посетителям не показываем. */
+  matches?: { count: number }[];
 }
 
 /** Матч в списке сезона. */
@@ -36,6 +38,8 @@ export interface MatchRow {
   awarded: boolean;
   competition: { name: string; kind: CompetitionKind };
   team: { name: string } | null;
+  /** Соперник из справочника — ссылка на его страницу. */
+  opponent_id?: number | null;
   /** Соперник так, как он назывался в сезон матча (вычисляемый столбец opponent_name). */
   opponent_name?: string | null;
 }
@@ -172,6 +176,11 @@ export interface ExternalLink {
 }
 
 /** Матч в карточке сезона: с тренером, чтобы найти главного. */
+/** Трансфер на странице сезона: кто пришёл или ушёл. */
+export interface SeasonTransfer extends Omit<Transfer, 'season' | 'team'> {
+  player: { id: number; display_name: string };
+}
+
 export interface SeasonMatch extends MatchRow {
   coach: { id: number; full_name: string } | null;
 }
@@ -189,6 +198,8 @@ export interface Transfer {
   transfer_window: 'winter' | 'summer' | null;
   transfer_date: string | null;
   kind: 'permanent' | 'loan' | 'loan_end' | null;
+  /** Клуб из справочника — ссылка на страницу соперника. */
+  other_team_id: number | null;
   other_team_raw: string | null;
   notes: string | null;
   season: { label: string; start_year: number; end_year: number };

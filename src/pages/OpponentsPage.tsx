@@ -73,7 +73,7 @@ const COLUMNS: { key: SortKey; label: string; num?: boolean; value: (o: Opponent
   { key: 'wdl', label: WDL, value: (_, t) => (t.p ? t.w / t.p : 0) },
   { key: 'goals', label: 'Мячи', num: true, value: (_, t) => t.gf - t.ga },
   { key: 'ppm', label: 'Очки/м', num: true, value: (_, t) => t.ppm ?? -1 },
-  { key: 'years', label: 'Встречи', value: (o) => o.first?.match_date ?? '' },
+  { key: 'years', label: 'Годы', value: (o) => o.first?.match_date ?? '' },
 ];
 
 function OpponentTable({ stats, scope }: { stats: OpponentStats[]; scope: LeadersScope }) {

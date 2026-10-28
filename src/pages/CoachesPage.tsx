@@ -56,8 +56,8 @@ export function CoachesPage({ scope }: { scope: LeadersScope }) {
             <CoachTable stats={stats} scope={scope} />
             <p className="note">
               Официальные матчи, без товарищеских. Очки — 3 за победу, 1 за ничью, у технических результатов — тоже.
-              Наведите на значки — названия достижений.
             </p>
+            <AchievementLegend stats={stats} />
           </Card>
           <Card title="Очки за матч по уровню лиги" aside="чемпионат">
             <TierTable stats={stats} />
@@ -453,7 +453,7 @@ function TopPlayers({ players, stat }: { players: CoachPlayer[]; stat: 'games' |
         <li key={p.player_id}>
           <a href={playerHref(p.player_id)}>{p.display_name}</a>
           <b title={stat === 'games' ? `${formatInt(p.minutes)} минут` : undefined}>
-            {stat === 'games' ? `${p.games} м` : p.goals}
+            {stat === 'games' ? `${p.games} ${plural(p.games, ['матч', 'матча', 'матчей'])}` : p.goals}
           </b>
         </li>
       ))}
@@ -482,5 +482,36 @@ function Debutants({ c }: { c: CoachStats }) {
         </p>
       )}
     </>
+  );
+}
+
+/** Что значат значки достижений — на телефоне подсказки при наведении нет. Только значки, которые есть в таблице. */
+const ACHIEVEMENT_LEGEND: [string, string][] = [
+  ['👑', 'рекорд клуба'],
+  ['🏆', 'победа в лиге'],
+  ['⬆', 'повышение'],
+  ['⭐', 'место в Премьер-лиге'],
+  ['🥈', 'финал Кубка'],
+  ['🏟', 'полуфинал Кубка'],
+  ['🌍', 'еврокубки'],
+  ['🔥', 'серия побед'],
+  ['🛡', 'без поражений'],
+  ['🧱', '«сухие» подряд'],
+  ['🌱', 'дебюты воспитанников'],
+  ['⏳', '100+ матчей'],
+];
+
+function AchievementLegend({ stats }: { stats: CoachStats[] }) {
+  const used = new Set(stats.flatMap((c) => c.achievements.map((a) => a.icon)));
+  const shown = ACHIEVEMENT_LEGEND.filter(([icon]) => used.has(icon));
+  if (shown.length === 0) return null;
+  return (
+    <p className="achievement-legend">
+      {shown.map(([icon, text]) => (
+        <span key={icon}>
+          <span aria-hidden="true">{icon}</span> {text}
+        </span>
+      ))}
+    </p>
   );
 }

@@ -3,6 +3,7 @@ import type { AdminRoute } from '../router';
 import { AdminHome } from './AdminHome';
 import { AdminSeason } from './AdminSeason';
 import { LoginForm } from './LoginForm';
+import { DataChecksPage } from './DataChecksPage';
 import { CoachesPage, TeamsPage } from './DirectoryPages';
 import { MatchEditor, NewMatchEditor } from './MatchEditor';
 import { PlayerEditor, PlayersList } from './PlayerEditor';
@@ -50,5 +51,7 @@ export function AdminPage({ route }: { route: AdminRoute }) {
       return <PlayerEditor id={route.id} />;
     case 'points':
       return <PointsSettingsEditor />;
+    case 'checks':
+      return <DataChecksPage />;
   }
 }

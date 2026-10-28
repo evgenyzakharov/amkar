@@ -46,7 +46,9 @@ function Pyramid({ data }: { data: PyramidData }) {
                     <a className="tier-chip" key={c.player_id} href={playerHref(c.player_id)} title={`${c.career_rank}-е место за карьеру`}>
                       <b>{c.display_name}</b>
                       <span className="tier-years">{seasonSpan(c.first_season, c.last_season)}</span>
-                      <span className="tier-value">{formatInt(Math.round(c.value))}</span>
+                      <span className="tier-value">
+                        {formatInt(Math.round(c.value))} · {c.career_rank}-й за карьеру
+                      </span>
                     </a>
                   ))}
                 </div>

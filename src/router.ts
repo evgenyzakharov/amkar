@@ -6,7 +6,7 @@ import { rememberScroll } from './scrollMemory';
 
 export type Route =
   | { page: 'seasons' }
-  | { page: 'season'; label: string }
+  | { page: 'season'; label: string; scope: LeadersScope }
   | { page: 'players' }
   | { page: 'leaders'; scope: LeadersScope; tab: LeadersTab }
   | { page: 'history'; scope: LeadersScope }
@@ -17,7 +17,7 @@ export type Route =
   | { page: 'academy' }
   | { page: 'pyramid' }
   | { page: 'match'; id: number }
-  | { page: 'player'; id: number }
+  | { page: 'player'; id: number; scope: LeadersScope }
   | { page: 'admin'; admin: AdminRoute }
   | { page: 'not-found' };
 
@@ -31,7 +31,8 @@ export type AdminRoute =
   | { page: 'coaches' }
   | { page: 'players' }
   | { page: 'player'; id: number }
-  | { page: 'points' };
+  | { page: 'points' }
+  | { page: 'checks' };
 
 /** Вкладки сезона в админке: матчи, сетка «игроки × матчи», заявка, трансферы, сборная, сведения о сезоне. */
 export type SeasonTab = 'matches' | 'grid' | 'squad' | 'transfers' | 'best' | 'info';
@@ -40,9 +41,11 @@ export type SeasonTab = 'matches' | 'grid' | 'squad' | 'transfers' | 'best' | 'i
 const labelPart = (label: string) => label.replace('/', '-');
 const labelFromPart = (part: string) => part.replace('-', '/');
 
-export const seasonHref = (label: string) => `#/season/${labelPart(label)}`;
+/** Сезон и игрок: «только чемпионат» — в адресе (?scope=league), как у лидеров. */
+export const seasonHref = (label: string, scope: LeadersScope = 'all') =>
+  `#/season/${labelPart(label)}${scope === 'league' ? '?scope=league' : ''}`;
 export const matchHref = (id: number) => `#/match/${id}`;
-export const playerHref = (id: number) => `#/player/${id}`;
+export const playerHref = (id: number, scope: LeadersScope = 'all') => `#/player/${id}${scope === 'league' ? '?scope=league' : ''}`;
 export const playersHref = '#/players';
 
 /** Лидеры: все турниры или только чемпионат — в адресе, чтобы ссылкой можно было поделиться. */
@@ -76,6 +79,7 @@ export const adminCoachesHref = '#/admin/coaches';
 export const adminPlayersHref = '#/admin/players';
 export const adminPlayerHref = (id: number) => `#/admin/player/${id}`;
 export const adminPointsHref = '#/admin/points';
+export const adminChecksHref = '#/admin/checks';
 
 const isId = (s: string) => /^\d+$/.test(s);
 
@@ -83,7 +87,7 @@ function parseAdminRoute(parts: string[]): Route {
   const [page, param, extra] = parts;
   const admin = (r: AdminRoute): Route => ({ page: 'admin', admin: r });
   if (parts.length === 0) return admin({ page: 'home' });
-  if (parts.length === 1 && (page === 'teams' || page === 'coaches' || page === 'players' || page === 'points')) return admin({ page });
+  if (parts.length === 1 && (page === 'teams' || page === 'coaches' || page === 'players' || page === 'points' || page === 'checks')) return admin({ page });
   if (page === 'player' && parts.length === 2 && isId(param)) return admin({ page: 'player', id: Number(param) });
   if (page === 'season' && parts.length === 2) return admin({ page: 'season', label: labelFromPart(param), tab: 'matches' });
   if (page === 'season' && parts.length === 3 && extra === 'new') {
@@ -119,10 +123,10 @@ export function parseRoute(hash: string): Route {
   if (parts.length !== 2) return { page: 'not-found' };
 
   const [page, param] = parts;
-  if (page === 'season') return { page: 'season', label: labelFromPart(param) };
+  if (page === 'season') return { page: 'season', label: labelFromPart(param), scope: scopeOf(query) };
   if (!isId(param)) return { page: 'not-found' };
   if (page === 'match') return { page: 'match', id: Number(param) };
-  if (page === 'player') return { page: 'player', id: Number(param) };
+  if (page === 'player') return { page: 'player', id: Number(param), scope: scopeOf(query) };
   if (page === 'coach') return { page: 'coach', id: Number(param) };
   if (page === 'opponent') return { page: 'opponent', id: Number(param) };
   return { page: 'not-found' };

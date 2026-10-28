@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { signOut, useAuth } from './auth';
 import { currentTheme, followSystem, logoSrc, setTheme, type Theme } from './theme';
 import { AuthProvider } from './components/AuthProvider';
@@ -32,11 +32,11 @@ function Page({ route }: { route: Route }) {
     case 'seasons':
       return <SeasonsPage />;
     case 'season':
-      return <SeasonPage label={route.label} />;
+      return <SeasonPage label={route.label} scope={route.scope} />;
     case 'match':
       return <MatchPage id={route.id} />;
     case 'player':
-      return <PlayerPage id={route.id} />;
+      return <PlayerPage id={route.id} scope={route.scope} />;
     case 'players':
       return <PlayersPage />;
     case 'history':
@@ -171,6 +171,16 @@ function App() {
   const path = hash.split('?')[0];
   useEffect(() => restoreScroll(path), [path]);
 
+  // Телефон: меню листается вбок — раздел страницы должен быть виден
+  const nav = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = nav.current;
+    const link = el?.querySelector<HTMLElement>('a.active');
+    if (!el || !link) return;
+    const [box, item] = [el.getBoundingClientRect(), link.getBoundingClientRect()];
+    if (item.left < box.left || item.right > box.right - 40) el.scrollLeft += item.left - box.left - 16;
+  }, [section]);
+
   return (
     <AuthProvider>
       <header className="site-header">
@@ -179,27 +189,27 @@ function App() {
             <ClubLogo />
             Амкар
           </a>
-          <nav className="site-nav" aria-label="Разделы сайта">
-            <a href="#/" className={section === 'seasons' ? 'active' : undefined}>
+          <nav className="site-nav" aria-label="Разделы сайта" ref={nav}>
+            <a href="#/" className={section === 'seasons' ? 'active' : undefined} aria-current={section === 'seasons' ? 'page' : undefined}>
               Сезоны
             </a>
-            <a href={historyHref()} className={section === 'history' ? 'active' : undefined}>
+            <a href={historyHref()} className={section === 'history' ? 'active' : undefined} aria-current={section === 'history' ? 'page' : undefined}>
               История
             </a>
-            <a href={coachesHref()} className={section === 'coaches' ? 'active' : undefined}>
+            <a href={coachesHref()} className={section === 'coaches' ? 'active' : undefined} aria-current={section === 'coaches' ? 'page' : undefined}>
               Тренеры
             </a>
-            <a href={opponentsHref()} className={section === 'opponents' ? 'active' : undefined}>
+            <a href={opponentsHref()} className={section === 'opponents' ? 'active' : undefined} aria-current={section === 'opponents' ? 'page' : undefined}>
               Соперники
             </a>
-            <a href={playersHref} className={section === 'players' ? 'active' : undefined}>
+            <a href={playersHref} className={section === 'players' ? 'active' : undefined} aria-current={section === 'players' ? 'page' : undefined}>
               Игроки
             </a>
-            <a href={leadersHref()} className={section === 'leaders' ? 'active' : undefined}>
+            <a href={leadersHref()} className={section === 'leaders' ? 'active' : undefined} aria-current={section === 'leaders' ? 'page' : undefined}>
               Лидеры
             </a>
-            <a href={pyramidHref} className={section === 'pyramid' ? 'active' : undefined}>
-              Амкаровская пирамида
+            <a href={pyramidHref} className={section === 'pyramid' ? 'active' : undefined} aria-current={section === 'pyramid' ? 'page' : undefined}>
+              Пирамида
             </a>
           </nav>
           <ThemeToggle />

@@ -999,6 +999,24 @@ describe('очки сезона: настройки (points_settings), ожид�
   });
 });
 
+describe('проверка данных: отметки «так и есть» (data_check_ok)', () => {
+  let dc: PGlite;
+  beforeAll(async () => {
+    dc = await migratedDb(SUPABASE_STRICT);
+  }, 60_000);
+
+  it('видит и меняет только админ: посетителю и постороннему — ничего', async () => {
+    await asUserIn(dc, ADMIN, `insert into data_check_ok (check_key, item_key) values ('lineup-absence', '947:349')`);
+    expect((await asUserIn(dc, ADMIN, 'select check_key, item_key from data_check_ok')).rows).toEqual([{ check_key: 'lineup-absence', item_key: '947:349' }]);
+    await expect(asUserIn(dc, null, 'select * from data_check_ok')).rejects.toThrow(/permission denied/);
+    expect((await asUserIn(dc, STRANGER, 'select * from data_check_ok')).rows).toEqual([]);
+    await expect(asUserIn(dc, STRANGER, `insert into data_check_ok (check_key, item_key) values ('x', 'y')`)).rejects.toThrow(/row-level security/);
+    await expect(asUserIn(dc, ADMIN, `insert into data_check_ok (check_key, item_key) values ('lineup-absence', '947:349')`)).rejects.toThrow(/data_check_ok_pkey/);
+    await asUserIn(dc, ADMIN, 'delete from data_check_ok');
+    expect((await asUserIn(dc, ADMIN, 'select * from data_check_ok')).rows).toEqual([]);
+  });
+});
+
 describe('приёмка 1: чемпионат в итогах, последний матч, действующие, зрители', () => {
   let ar: PGlite;
   beforeAll(async () => {
