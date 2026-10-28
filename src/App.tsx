@@ -5,6 +5,7 @@ import { AuthProvider } from './components/AuthProvider';
 import { NotFound } from './components/common';
 import { PageErrorBoundary } from './components/PageErrorBoundary';
 import { confirmLeave } from './leaveGuard';
+import { restoreScroll } from './scrollMemory';
 import { MatchPage } from './pages/MatchPage';
 import { PlayerPage } from './pages/PlayerPage';
 import { LeadersPage } from './pages/LeadersPage';
@@ -165,12 +166,10 @@ function App() {
   const route = parseRoute(hash);
   const section = sectionOf(route);
 
-  // Переход по ссылке — новая страница: начинаем её сверху
+  // Переход по ссылке — новая страница: начинаем её сверху; «Назад» и «Вперёд» — туда, где её оставили (scrollMemory.ts)
   // Переключатели в адресе (?scope=…) страницу не меняют — прокрутку не трогаем
   const path = hash.split('?')[0];
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [path]);
+  useEffect(() => restoreScroll(path), [path]);
 
   return (
     <AuthProvider>

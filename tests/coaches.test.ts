@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coachStats, longestRun, totals, type CoachMatch, type CoachesData } from '../src/coaches';
+import { clubBreak, coachStats, longestRun, totals, type CoachMatch, type CoachesData } from '../src/coaches';
 import type { CompetitionKind, Result, Season } from '../src/db/types';
 
 const season = (id: number, label: string, tier: number, final_place: number | null = null, division = 'Лига'): Season => ({
@@ -11,6 +11,7 @@ const season = (id: number, label: string, tier: number, final_place: number | n
   tier,
   final_place,
   teams_count: 18,
+  best_xi_formation: null,
 });
 
 let id = 0;
@@ -60,6 +61,20 @@ describe('итоги и серии', () => {
     expect(run.n).toBe(3);
     expect(run.from?.id).toBe(ms[3].id);
     expect(run.to?.id).toBe(ms[5].id);
+  });
+
+  it('неизвестный результат: матч в счёт, но очки за матч и процент побед — по известным', () => {
+    const t = totals([match(1, 1, '2:0'), match(1, 1, '1:0'), { ...match(1, 1, '0:0'), result: null, goals_for: null, goals_against: null }]);
+    expect(t).toMatchObject({ p: 3, w: 2, points: 6, ppm: 3, winPct: 100 });
+  });
+
+  it('серия не тянется через перерыв 2018–2021: с 2021/22 — новый клуб', () => {
+    const seasons = [season(1, '2017', 1), season(2, '2021', 3)];
+    const ms = [match(1, 1, '1:0'), match(1, 1, '2:0'), match(2, 1, '3:0'), match(2, 1, '1:0'), match(2, 1, '2:1')];
+    expect(longestRun(ms, (m) => m.result === 'W').n).toBe(5);
+    const run = longestRun(ms, (m) => m.result === 'W', clubBreak(seasons));
+    expect(run.n).toBe(3);
+    expect(run.from?.id).toBe(ms[2].id);
   });
 });
 

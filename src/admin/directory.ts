@@ -39,6 +39,8 @@ export const COACH_CONFIG: DirConfig = {
     { key: 'birth_date', label: 'Дата рождения', type: 'date' },
     { key: 'notes', label: 'Заметки' },
   ],
+  // по короткому имени тренера находит карточка матча — оно должно быть одно
+  unique: 'short_name',
   nameOf: (v) => v.short_name || v.full_name || 'новый тренер',
 };
 

@@ -134,6 +134,7 @@ const TIER_IN: Record<number, string> = {
 
 const POINTS: Record<Result, number> = { W: 3, D: 1, L: 0 };
 
+/** Итоги матчей. Очки за матч и процент побед — по матчам с известным результатом: неизвестный не считается ни победой, ни поражением. */
 export function totals(matches: ScoredMatch[]): Totals {
   const t = { p: matches.length, w: 0, d: 0, l: 0, gf: 0, ga: 0, cleanSheets: 0, points: 0 };
   for (const m of matches) {
@@ -147,15 +148,17 @@ export function totals(matches: ScoredMatch[]): Totals {
       if (m.goals_against === 0) t.cleanSheets++;
     }
   }
-  return { ...t, ppm: t.p ? t.points / t.p : null, winPct: t.p ? Math.round((100 * t.w) / t.p) : null };
+  const known = t.w + t.d + t.l;
+  return { ...t, ppm: known ? t.points / known : null, winPct: known ? Math.round((100 * t.w) / known) : null };
 }
 
-/** Самая длинная серия подряд идущих матчей, где выполнено условие. */
-export function longestRun<M extends ScoredMatch>(matches: M[], ok: (m: M) => boolean): Run<M> {
+/** Самая длинная серия подряд идущих матчей, где выполнено условие; breaks — между этими матчами серия рвётся. */
+export function longestRun<M extends ScoredMatch>(matches: M[], ok: (m: M) => boolean, breaks?: (prev: M, m: M) => boolean): Run<M> {
   let best: Run<M> = { n: 0, from: null, to: null };
   let start = 0;
   let n = 0;
   matches.forEach((m, i) => {
+    if (i > 0 && breaks?.(matches[i - 1], m)) n = 0;
     if (!ok(m)) {
       n = 0;
       return;
@@ -172,6 +175,13 @@ const hasScore = (m: ScoredMatch) => m.goals_for != null && m.goals_against != n
 const cupStage = (m: CoachMatch) => (m.competition.kind === 'cup' ? (m.round ?? '').replace(/,.*$/, '').trim() : '');
 const year = (m: CoachMatch) => m.match_date?.slice(0, 4) ?? '';
 const newClub = (s: Season) => s.start_year >= NEW_CLUB_FROM;
+
+/** Между матчами перерыв 2018–2021: с сезона 2021/22 — новый клуб, серии через перерыв не тянутся (как team_streaks). */
+export function clubBreak(seasons: Season[]) {
+  const seasonOf = new Map(seasons.map((s) => [s.id, s]));
+  const isNew = (m: { season_id: number }) => (seasonOf.get(m.season_id)?.start_year ?? 0) >= NEW_CLUB_FROM;
+  return (prev: { season_id: number }, m: { season_id: number }) => isNew(prev) !== isNew(m);
+}
 
 /** Самая крупная победа: по разнице мячей, при равенстве — больше забитых. */
 export function biggest<M extends ScoredMatch>(matches: M[], sign: 1 | -1): M | null {
@@ -211,6 +221,7 @@ export function coachStats(data: CoachesData): CoachStats[] {
     if (best) leadOf.set(s.id, best[0]);
   }
   const seasonsSorted = [...data.seasons].sort((a, b) => a.start_year - b.start_year || a.end_year - b.end_year);
+  const breaks = clubBreak(data.seasons);
 
   const stats = data.coaches
     .map((coach): CoachStats => {
@@ -255,10 +266,10 @@ export function coachStats(data: CoachesData): CoachStats[] {
         byTier,
         seasons,
         streaks: {
-          win: longestRun(ms, (m) => m.result === 'W'),
-          unbeaten: longestRun(ms, (m) => m.result === 'W' || m.result === 'D'),
-          cleanSheets: longestRun(ms, (m) => m.goals_against === 0),
-          losses: longestRun(ms, (m) => m.result === 'L'),
+          win: longestRun(ms, (m) => m.result === 'W', breaks),
+          unbeaten: longestRun(ms, (m) => m.result === 'W' || m.result === 'D', breaks),
+          cleanSheets: longestRun(ms, (m) => m.goals_against === 0, breaks),
+          losses: longestRun(ms, (m) => m.result === 'L', breaks),
         },
         first: ms[0] ?? null,
         last: current ? null : (ms.at(-1) ?? null),
@@ -272,7 +283,7 @@ export function coachStats(data: CoachesData): CoachStats[] {
     .sort((a, b) => (a.periods[0]?.from ?? '').localeCompare(b.periods[0]?.from ?? ''));
 
   for (const c of stats) c.achievements = achievements(c, seasonsSorted);
-  addTierRecords(stats, seasonOf);
+  addTierRecords(stats, seasonOf, breaks);
   return stats;
 }
 
@@ -314,7 +325,7 @@ function achievements(c: CoachStats, seasonsSorted: Season[]): Achievement[] {
  * Рекорды клуба — отдельно по уровню лиги: среди тренеров, работавших на этом уровне (минимум двое),
  * у кого самая длинная серия или самая крупная победа. Считаются все официальные матчи сезонов этого уровня.
  */
-function addTierRecords(stats: CoachStats[], seasonOf: Map<number, Season>) {
+function addTierRecords(stats: CoachStats[], seasonOf: Map<number, Season>, breaks: (prev: CoachMatch, m: CoachMatch) => boolean) {
   const tiers = new Set(stats.flatMap((c) => c.matches.map((m) => seasonOf.get(m.season_id)?.tier)).filter((t): t is number => t != null));
   for (const tier of [...tiers].sort((a, b) => a - b)) {
     const at = stats
@@ -322,14 +333,14 @@ function addTierRecords(stats: CoachStats[], seasonOf: Map<number, Season>) {
       .filter((x) => x.ms.length > 0);
     if (at.length < 2) continue;
     const metrics: { value: (ms: CoachMatch[]) => number; title: (n: number) => string; min: number }[] = [
-      { value: (ms) => longestRun(ms, (m) => m.result === 'W').n, title: (n) => `${n} ${plural(n, ['победа', 'победы', 'побед'])} подряд`, min: 3 },
+      { value: (ms) => longestRun(ms, (m) => m.result === 'W', breaks).n, title: (n) => `${n} ${plural(n, ['победа', 'победы', 'побед'])} подряд`, min: 3 },
       {
-        value: (ms) => longestRun(ms, (m) => m.result === 'W' || m.result === 'D').n,
+        value: (ms) => longestRun(ms, (m) => m.result === 'W' || m.result === 'D', breaks).n,
         title: (n) => `${n} ${plural(n, ['матч', 'матча', 'матчей'])} без поражений`,
         min: 5,
       },
       {
-        value: (ms) => longestRun(ms, (m) => m.goals_against === 0).n,
+        value: (ms) => longestRun(ms, (m) => m.goals_against === 0, breaks).n,
         title: (n) => `${n} ${plural(n, ['«сухой» матч', '«сухих» матча', '«сухих» матчей'])} подряд`,
         min: 3,
       },

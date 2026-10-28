@@ -15,6 +15,8 @@ export interface Season {
   tier: number | null;
   final_place: number | null;
   teams_count: number | null;
+  /** Схема сборной сезона, пусто — 13 мест как в Excel. */
+  best_xi_formation: string | null;
 }
 
 /** Матч в списке сезона. */
@@ -200,6 +202,8 @@ export interface CareerStats {
   player_id: number;
   display_name: string;
   last_name: string;
+  /** Сезонов в заявке. */
+  seasons: number;
   first_year: number;
   last_year: number;
   games: number;

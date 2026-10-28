@@ -295,7 +295,10 @@ export function headerValues(h: HeaderDraft, base: CardBase): HeaderValues {
   const opponent = h.opponent.trim();
   const team = opponent ? findTeam(base.teams, opponent) : undefined;
   const coachName = h.coach.trim();
-  const coach = coachName ? findCoach(base.coaches, coachName) : undefined;
+  // Имя не меняли — тренер тот же, даже если у другого в справочнике такое же короткое имя
+  const saved = base.coaches.find((c) => c.id === base.match?.coach_id);
+  const sameAsSaved = saved && [saved.short_name, saved.full_name].some((n) => normName(n) === normName(coachName));
+  const coach = coachName ? (sameAsSaved ? saved : findCoach(base.coaches, coachName)) : undefined;
   return {
     values: {
       season_id: base.season.id,
@@ -488,7 +491,7 @@ export function lineupRecords(lineup: Lineup, matchId: number, end: number) {
   return { appearances, absences };
 }
 
-export function validateLineup(lineup: Lineup, nameOf: (id: number) => string) {
+export function validateLineup(lineup: Lineup, nameOf: (id: number) => string, end = 130) {
   const errors: string[] = [];
   const warnings: string[] = [];
   const inMatch = (id: number) => isAppearance(lineup[id]?.status ?? '');
@@ -505,6 +508,9 @@ export function validateLineup(lineup: Lineup, nameOf: (id: number) => string) {
     if (on != null && (Number.isNaN(on) || on < 1 || on > 130)) errors.push(`${name}: минута выхода — от 1 до 130.`);
     if (off != null && (Number.isNaN(off) || off < 1 || off > 130)) errors.push(`${name}: минута ухода — от 1 до 130.`);
     if (on != null && off != null && off < on) errors.push(`${name}: ушёл с поля раньше, чем вышел.`);
+    // минута после конца матча: опечатка или забыли отметить дополнительное время
+    if (on != null && !Number.isNaN(on) && on > end && on <= 130) warnings.push(`${name}: вышел на ${on}-й, а матч длился ${end} минут.`);
+    if (off != null && !Number.isNaN(off) && off > end && off <= 130) warnings.push(`${name}: ушёл на ${off}-й, а матч длился ${end} минут.`);
     if (r.minutes !== null && r.minutes.trim() !== '') {
       const m = parseInt0(r.minutes);
       if (m == null || Number.isNaN(m) || m > 130) errors.push(`${name}: минуты на поле — от 0 до 130.`);
@@ -582,9 +588,13 @@ export function goalValues(g: GoalDraft, matchId: number): GoalValues {
   };
 }
 
-export function validateGoals(goals: GoalDraft[], h: HeaderDraft) {
+export function validateGoals(goals: GoalDraft[], h: HeaderDraft, lineup: Lineup = {}) {
   const errors: string[] = [];
   const warnings: string[] = [];
+  const end = matchEnd(h);
+  // Автор и ассистент — из вышедших на поле; пока состав не внесён, не проверяем
+  const played = (id: string) => ['start', 'sub', 'unknown'].includes(lineup[Number(id)]?.status ?? '');
+  const lineupKnown = Object.values(lineup).some((r) => isAppearance(r.status));
   goals.forEach((g, i) => {
     const label = `Гол №${i + 1}`;
     const m = parseGoalMinute(g.minute);
@@ -595,6 +605,19 @@ export function validateGoals(goals: GoalDraft[], h: HeaderDraft) {
         if (![45, 90, 105, 120].includes(m.minute)) errors.push(`${label}: добавленное время бывает только после 45, 90, 105 или 120 минуты.`);
         if (m.added < 1 || m.added > 30) errors.push(`${label}: добавленное время — от 1 до 30 минут.`);
       }
+      if (m.added == null && m.minute > end && m.minute <= 130) {
+        warnings.push(
+          end === 90
+            ? `${label}: ${m.minute}-я минута, а дополнительного времени не было — может, 90+${m.minute - 90}?`
+            : `${label}: ${m.minute}-я минута — позже конца дополнительного времени.`,
+        );
+      }
+    }
+    if (lineupKnown && g.scorer_id && (g.side === 'amkar' ? g.kind !== 'own_goal' : g.kind === 'own_goal') && !played(g.scorer_id)) {
+      warnings.push(`${label}: автор не выходил на поле в этом матче.`);
+    }
+    if (lineupKnown && hasAssist(g.side, g.kind) && g.assist_id && !played(g.assist_id)) {
+      warnings.push(`${label}: ассистент не выходил на поле в этом матче.`);
     }
     if (hasAssist(g.side, g.kind) && g.assist_id && g.assist_id === g.scorer_id) {
       errors.push(`${label}: автор и ассистент — один и тот же игрок.`);
@@ -652,8 +675,8 @@ export function validateVideos(videos: VideoDraft[]) {
 export function validateCard(draft: CardDraft, base: CardBase, nameOf: (id: number) => string) {
   const parts = [
     validateHeader(draft.header, base),
-    validateGoals(draft.goals, draft.header),
-    validateLineup(draft.lineup, nameOf),
+    validateGoals(draft.goals, draft.header, draft.lineup),
+    validateLineup(draft.lineup, nameOf, matchEnd(draft.header)),
     validateVideos(draft.videos),
   ];
   return { errors: parts.flatMap((p) => p.errors), warnings: parts.flatMap((p) => p.warnings) };

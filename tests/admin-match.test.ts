@@ -196,4 +196,43 @@ describe('голы', () => {
     expect(errors).toEqual(['Гол №1: добавленное время бывает только после 45, 90, 105 или 120 минуты.']);
     expect(warnings).toEqual(['Голов «Амкара» в списке 1, а в счёте 2.']);
   });
+
+  it('минута после конца матча и автор, не выходивший на поле, — предупреждения', () => {
+    const goal = { key: 'k', id: null, side: 'amkar' as const, kind: 'open_play' as const, scorer_name: '', assist_id: '' };
+    let lineup = updateRow({}, 1, { status: 'start' });
+    lineup = updateRow(lineup, 2, { status: 'bench' });
+    lineup = updateRow(lineup, 3, { status: 'sub', minute_on: '95' });
+    const card = (extra_time: boolean) =>
+      validateCard(
+        {
+          header: header({ extra_time }),
+          goals: [{ ...goal, minute: '93', scorer_id: '1' }, { ...goal, minute: '20', scorer_id: '2', assist_id: '1' }],
+          lineup,
+          videos: [],
+        },
+        base(),
+        names,
+      ).warnings;
+    expect(card(false)).toEqual([
+      'Гол №1: 93-я минута, а дополнительного времени не было — может, 90+3?',
+      'Гол №2: автор не выходил на поле в этом матче.',
+      'Игрок 3: вышел на 95-й, а матч длился 90 минут.',
+      'В старте 1 игроков, а не 11.',
+    ]);
+    // с дополнительным временем 93-я и 95-я — обычные минуты
+    expect(card(true)).toEqual(['Гол №2: автор не выходил на поле в этом матче.', 'В старте 1 игроков, а не 11.']);
+  });
+});
+
+describe('тренер матча', () => {
+  it('у двух тренеров одно короткое имя — имя не меняли, тренер остаётся тем же', () => {
+    const coaches = [
+      { id: 3, short_name: 'Иванов', full_name: 'Иван Иванов' },
+      { id: 9, short_name: 'Иванов', full_name: 'Пётр Иванов' },
+    ];
+    const b = base({ coaches, match: { ...base().match!, coach_id: 9 } });
+    const h = cardDraft(b, competitions).header;
+    expect(headerValues(h, b).values.coach_id).toBe(9);
+    expect(headerValues({ ...h, coach: 'Иван Иванов' }, b).values.coach_id).toBe(3);
+  });
 });

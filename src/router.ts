@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { leaveAllowed } from './leaveGuard';
+import { rememberScroll } from './scrollMemory';
 
 // Маршруты на hash: сайт лежит на GitHub Pages в подпапке, а серверной маршрутизации там нет
 
@@ -139,6 +140,7 @@ function onHashChange() {
     window.history.pushState(null, '', window.location.pathname + window.location.search + (shown ?? ''));
     return;
   }
+  if (shown != null) rememberScroll(shown);
   shown = next;
   listeners.forEach((l) => l());
 }

@@ -1,5 +1,5 @@
 // Личные встречи с соперниками: всё считается из официальных матчей (без товарищеских).
-import { biggest, longestRun, totals, type Run, type Totals } from './coaches';
+import { biggest, clubBreak, longestRun, totals, type Run, type Totals } from './coaches';
 import type { CompetitionKind, MatchRow, Season } from './db/types';
 import { opponentName } from './format';
 
@@ -48,6 +48,7 @@ export function byMatchOrder(seasons: Season[]) {
 /** Статистика встреч с одним клубом. */
 export function opponentStats(team: OpponentTeam, matches: OpponentMatch[], seasons: Season[]): OpponentStats {
   const ms = matches.filter((m) => m.opponent_id === team.id && m.competition.kind !== 'friendly').sort(byMatchOrder(seasons));
+  const breaks = clubBreak(seasons);
   const byKind: OpponentStats['byKind'] = {};
   for (const k of KINDS) {
     const x = ms.filter((m) => m.competition.kind === k);
@@ -75,10 +76,10 @@ export function opponentStats(team: OpponentTeam, matches: OpponentMatch[], seas
     bigWin: biggest(ms, 1),
     bigLoss: biggest(ms, -1),
     streaks: {
-      win: longestRun(ms, (m) => m.result === 'W'),
-      unbeaten: longestRun(ms, (m) => m.result === 'W' || m.result === 'D'),
-      loss: longestRun(ms, (m) => m.result === 'L'),
-      winless: longestRun(ms, (m) => m.result === 'D' || m.result === 'L'),
+      win: longestRun(ms, (m) => m.result === 'W', breaks),
+      unbeaten: longestRun(ms, (m) => m.result === 'W' || m.result === 'D', breaks),
+      loss: longestRun(ms, (m) => m.result === 'L', breaks),
+      winless: longestRun(ms, (m) => m.result === 'D' || m.result === 'L', breaks),
     },
     names: [...new Set(names)],
   };

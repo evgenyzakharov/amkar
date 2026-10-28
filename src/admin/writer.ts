@@ -1,5 +1,6 @@
 // Запись в базу. Карточки пишут через этот интерфейс: в приложении — supabase-js,
 // в тестах — PGlite с теми же миграциями и правами (tests/db.ts).
+import { clearCache } from '../db/queries';
 import { supabase } from '../db/supabase';
 import { DbError } from './dbErrors';
 
@@ -26,6 +27,9 @@ async function run<T>(query: PromiseLike<Response>): Promise<T> {
     res = await query;
   } catch (e) {
     throw new DbError({ message: e instanceof Error ? e.message : String(e) });
+  } finally {
+    // запись могла пройти, даже если ответ не дошёл: сайт перечитает общие данные (сезоны, матчи)
+    clearCache();
   }
   if (res.error) throw new DbError(res.error);
   return res.data as T;

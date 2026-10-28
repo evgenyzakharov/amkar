@@ -1047,6 +1047,15 @@ describe('приёмка 1: чемпионат в итогах, последни
     expect(rows).toEqual([{ player_id: 1 }, { player_id: 3 }]);
   });
 
+  it('действующие: следующий сезон заведён заранее, но заявки ещё нет — считаем по прежнему', async () => {
+    await ar.exec(`insert into season (id, label, start_year, end_year) values (3, '2027/28', 2027, 2028)`);
+    const current = async () => (await asUserIn(ar, null, 'select player_id from current_player order by player_id')).rows;
+    expect(await current()).toEqual([{ player_id: 1 }, { player_id: 3 }]);
+    await ar.exec('insert into squad_member (season_id, player_id) values (3, 3)');
+    expect(await current()).toEqual([{ player_id: 3 }]);
+    await ar.exec('delete from squad_member where season_id = 3; delete from season where id = 3');
+  });
+
   it('зрители: не меньше нуля, пишет админ', async () => {
     await asUserIn(ar, ADMIN, 'update match set attendance = 12500 where id = 1');
     await expect(asUserIn(ar, ADMIN, 'update match set attendance = -1 where id = 1')).rejects.toThrow(/match_attendance_check/);
