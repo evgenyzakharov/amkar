@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Card, ScopeSwitch, Tiles, type Tile } from '../components/cards';
 import { LoadStatus, PageNav, ResultBadge } from '../components/common';
 import { Slices, Wdl } from '../components/MatchStats';
@@ -8,6 +8,7 @@ import { VENUE_LABEL, formatDate, formatInt, formatScore, plural } from '../form
 import { useDocumentTitle, useLoad } from '../load';
 import { allOpponents, opponentStats, type OpponentMatch, type OpponentStats } from '../opponents';
 import { matchHref, opponentHref, opponentsHref, playerHref, seasonHref, type LeadersScope } from '../router';
+import { usePageState } from '../pageState';
 
 // Ключ один: список соперников не зависит от адреса
 const ALL = 'all';
@@ -77,8 +78,8 @@ const COLUMNS: { key: SortKey; label: string; num?: boolean; value: (o: Opponent
 ];
 
 function OpponentTable({ stats, scope }: { stats: OpponentStats[]; scope: LeadersScope }) {
-  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'p', dir: -1 });
-  const [query, setQuery] = useState('');
+  const [sort, setSort] = usePageState<{ key: SortKey; dir: 1 | -1 }>('sort', { key: 'p', dir: -1 });
+  const [query, setQuery] = usePageState('query', '');
   const totalsOf = (o: OpponentStats) => (scope === 'league' ? o.league : o.all);
   const column = COLUMNS.find((c) => c.key === sort.key)!;
   const q = query.trim().toLowerCase().replaceAll('ё', 'е');

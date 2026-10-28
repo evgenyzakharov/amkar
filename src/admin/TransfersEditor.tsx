@@ -3,6 +3,7 @@ import { LoadStatus } from '../components/common';
 import { DIRECTION_LABEL, TRANSFER_KIND_LABEL, WINDOW_LABEL } from '../format';
 import { useLoad } from '../load';
 import { playerHref } from '../router';
+import { confirmDiscard } from '../leaveGuard';
 import { dbErrorMessage } from './dbErrors';
 import { findTeam } from './match';
 import { loadTransfersEditor, type TransfersEditorData } from './queries';
@@ -46,21 +47,6 @@ function Transfers({ initial }: { initial: TransfersEditorData }) {
   const dirty = isTransfersDirty(draft, base);
   useUnsavedGuard(dirty);
 
-  // Выбор игрока — только у новых строк: сначала заявка сезона, потом остальные
-  const playerOptions = useMemo(() => {
-    const sorted = [...players].sort((a, b) => a.display_name.localeCompare(b.display_name, 'ru'));
-    const option = (p: SquadPlayerInfo) => (
-      <option key={p.id} value={p.id}>
-        {playerOption(p)}
-      </option>
-    );
-    return (
-      <>
-        <optgroup label="Заявка сезона">{sorted.filter((p) => squadIds.has(p.id)).map(option)}</optgroup>
-        <optgroup label="Остальные игроки">{sorted.filter((p) => !squadIds.has(p.id)).map(option)}</optgroup>
-      </>
-    );
-  }, [players, squadIds]);
 
   const update = (k: string, patch: Partial<TransferDraft>) =>
     setDraft((d) =>
@@ -163,10 +149,7 @@ function Transfers({ initial }: { initial: TransfersEditorData }) {
                       {t.id != null ? (
                         <a href={playerHref(Number(t.player_id))}>{name}</a>
                       ) : (
-                        <select aria-label="игрок" value={t.player_id} onChange={(e) => update(t.key, { player_id: e.target.value })}>
-                          <option value="">— выберите —</option>
-                          {playerOptions}
-                        </select>
+                        <PlayerPicker players={players} squadIds={squadIds} value={t.player_id} onPick={(id) => update(t.key, { player_id: id })} />
                       )}
                     </td>
                     <td>
@@ -248,7 +231,7 @@ function Transfers({ initial }: { initial: TransfersEditorData }) {
           <button type="button" className="primary" disabled={saving || !dirty || errors.length > 0} onClick={() => void save()}>
             {saving ? 'Сохранение…' : 'Сохранить'}
           </button>
-          <button type="button" disabled={saving || !dirty} onClick={() => setDraft(transfersDraft(base))}>
+          <button type="button" disabled={saving || !dirty} onClick={() => confirmDiscard() && setDraft(transfersDraft(base))}>
             Отменить изменения
           </button>
           {!dirty && <span className="muted">Изменений нет.</span>}
@@ -260,5 +243,59 @@ function Transfers({ initial }: { initial: TransfersEditorData }) {
         лето.
       </p>
     </>
+  );
+}
+
+const norm = (s: string) => s.trim().toLowerCase().replaceAll('ё', 'е');
+
+/** Игрок новой строки — поиском по фамилии или имени, как в заявке: в базе сотни игроков. Сначала — заявка сезона. */
+function PlayerPicker({
+  players,
+  squadIds,
+  value,
+  onPick,
+}: {
+  players: SquadPlayerInfo[];
+  squadIds: Set<number>;
+  value: string;
+  onPick: (id: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const chosen = value ? players.find((p) => p.id === Number(value)) : undefined;
+  if (chosen) {
+    return (
+      <span className="nowrap">
+        {playerOption(chosen)}{' '}
+        <button type="button" className="link-button" onClick={() => onPick('')}>
+          другой
+        </button>
+      </span>
+    );
+  }
+  const q = norm(query);
+  const found =
+    q.length < 2
+      ? []
+      : players
+          .filter((p) => [p.display_name, p.last_name, p.first_name ?? ''].some((x) => norm(x).includes(q)))
+          .sort((a, b) => Number(squadIds.has(b.id)) - Number(squadIds.has(a.id)) || a.display_name.localeCompare(b.display_name, 'ru'))
+          .slice(0, 8);
+  return (
+    <div className="player-picker">
+      <input aria-label="игрок: поиск" placeholder="Фамилия — от двух букв" value={query} onChange={(e) => setQuery(e.target.value)} />
+      {found.length > 0 && (
+        <ul className="search-results">
+          {found.map((p) => (
+            <li key={p.id}>
+              <button type="button" className="link-button" onClick={() => onPick(String(p.id))}>
+                {playerOption(p)}
+              </button>
+              {squadIds.has(p.id) && <span className="muted"> · в заявке</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {q.length >= 2 && found.length === 0 && <p className="muted">Не нашлось. Нового игрока заводят на вкладке «Заявка».</p>}
+    </div>
   );
 }

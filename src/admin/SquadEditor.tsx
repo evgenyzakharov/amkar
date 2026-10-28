@@ -4,6 +4,7 @@ import type { Position } from '../db/types';
 import { POSITION_LABEL, formatDate } from '../format';
 import { useLoad } from '../load';
 import { adminPlayerHref, playerHref } from '../router';
+import { confirmDiscard } from '../leaveGuard';
 import { dbErrorMessage } from './dbErrors';
 import { loadSquadEditor, type SquadEditorData } from './queries';
 import {
@@ -292,7 +293,7 @@ function Squad({ initial }: { initial: SquadEditorData }) {
           <button type="button" className="primary" disabled={saving || !dirty || errors.length > 0} onClick={() => void save()}>
             {saving ? 'Сохранение…' : 'Сохранить'}
           </button>
-          <button type="button" disabled={saving || !dirty} onClick={() => setDraft(squadDraft(base))}>
+          <button type="button" disabled={saving || !dirty} onClick={() => confirmDiscard() && setDraft(squadDraft(base))}>
             Отменить изменения
           </button>
           {!dirty && <span className="muted">Изменений нет.</span>}

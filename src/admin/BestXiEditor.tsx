@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LoadStatus } from '../components/common';
 import { FORMATIONS, formationOf, SLOT_LABEL, SLOT_TITLE } from '../format';
 import { useLoad } from '../load';
+import { confirmDiscard } from '../leaveGuard';
 import { dbErrorMessage } from './dbErrors';
 import {
   bestXiDraft,
@@ -149,7 +150,7 @@ function BestXi({ initial }: { initial: BestXiData }) {
           <button type="button" className="primary" disabled={saving || !dirty || errors.length > 0} onClick={() => void save()}>
             {saving ? 'Сохранение…' : 'Сохранить'}
           </button>
-          <button type="button" disabled={saving || !dirty} onClick={reset}>
+          <button type="button" disabled={saving || !dirty} onClick={() => confirmDiscard() && reset()}>
             Отменить изменения
           </button>
           {!dirty && <span className="muted">Изменений нет.</span>}

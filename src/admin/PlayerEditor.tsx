@@ -4,6 +4,7 @@ import type { Position } from '../db/types';
 import { LINK_SITES, POSITION_LABEL, POSITION_TITLE, formatDate } from '../format';
 import { errorMessage, useDocumentTitle, useLoad } from '../load';
 import { adminHref, adminPlayerHref, adminPlayersHref, adminSeasonHref, playerHref } from '../router';
+import { confirmDiscard } from '../leaveGuard';
 import { dbErrorMessage } from './dbErrors';
 import { LINK_SITE_KEYS, isPlayerDirty, playerDraft, savePlayer, validatePlayer, type PlayerDraft } from './people';
 import { PHOTO_TYPES, photoErrorMessage, removePhoto, replacePhoto, supabasePhotoStore } from './photos';
@@ -259,7 +260,7 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
           <button type="button" className="primary" disabled={saving || !dirty || errors.length > 0} onClick={() => void save()}>
             {saving ? 'Сохранение…' : 'Сохранить'}
           </button>
-          <button type="button" disabled={saving || !dirty} onClick={() => setDraft(playerDraft(player, links))}>
+          <button type="button" disabled={saving || !dirty} onClick={() => confirmDiscard() && setDraft(playerDraft(player, links))}>
             Отменить изменения
           </button>
           {!dirty && <span className="muted">Изменений нет.</span>}
@@ -390,7 +391,7 @@ function AdjustmentsPanel({ playerId }: { playerId: number }) {
           <button type="button" className="primary" disabled={saving || !dirty || errors.length > 0} onClick={() => void save()}>
             {saving ? 'Сохранение…' : 'Сохранить поправки'}
           </button>
-          <button type="button" disabled={saving || !dirty} onClick={() => setDraft(adjustmentDraft(data.seasons, data.adjustments))}>
+          <button type="button" disabled={saving || !dirty} onClick={() => confirmDiscard() && setDraft(adjustmentDraft(data.seasons, data.adjustments))}>
             Отменить изменения
           </button>
         </p>

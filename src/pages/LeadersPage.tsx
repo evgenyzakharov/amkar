@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Card, ScopeSwitch } from '../components/cards';
 import { LoadStatus } from '../components/common';
 import { MilestoneClubs } from '../components/MilestoneClubs';
@@ -7,6 +6,7 @@ import type { CareerStats } from '../db/types';
 import { clubYears } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { leadersHref, playerHref, type LeadersScope, type LeadersTab } from '../router';
+import { usePageState } from '../pageState';
 
 // Ключ один: все итоги грузятся разом, фильтр и сортировка — на странице
 const ALL = 'all';
@@ -44,7 +44,7 @@ export function LeadersPage({ scope, tab }: { scope: LeadersScope; tab: LeadersT
   const state = useLoad(ALL, load);
   const league = scope === 'league';
   // Только действующие: места остаются как в общей таблице — видно, где игрок в истории клуба
-  const [onlyCurrent, setOnlyCurrent] = useState(false);
+  const [onlyCurrent, setOnlyCurrent] = usePageState('onlyCurrent', false);
 
   return (
     <div className="card-page">
@@ -104,7 +104,7 @@ export function LeadersPage({ scope, tab }: { scope: LeadersScope; tab: LeadersT
 const only = (rows: Ranked[], current: Set<number> | false) => (current ? rows.filter((r) => current.has(r.player.player_id)) : rows);
 
 function LeaderTable({ title, column, rows, current }: { title: string; column: string; rows: Ranked[]; current: Set<number> }) {
-  const [all, setAll] = useState(false);
+  const [all, setAll] = usePageState(`all-${title}`, false);
   const top = rows.filter((r) => r.rank <= TOP);
   const shown = all ? rows : top;
 

@@ -1,9 +1,9 @@
-import { useState } from 'react';
 import { LoadStatus } from '../components/common';
 import { loadPlayers, type PlayersPageItem } from '../db/queries';
 import { clubYears, plural } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { playerHref } from '../router';
+import { usePageState } from '../pageState';
 
 // Ключ один: список не зависит от адреса
 const ALL = 'all';
@@ -15,7 +15,7 @@ const normalize = (s: string) => s.toLowerCase().replace(/ё/g, 'е');
 export function PlayersPage() {
   useDocumentTitle('Игроки');
   const state = useLoad(ALL, load);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = usePageState('query', '');
   if (state.status !== 'ready') return <LoadStatus state={state} />;
 
   const q = normalize(query.trim());

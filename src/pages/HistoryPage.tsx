@@ -8,6 +8,7 @@ import { NEW_CLUB_FROM, SEASON_EPOCHS, formatAge, formatAgeExact, formatDate, fo
 import { ageRecords, bucketColumns, minuteColumns, seasonAges, type AgeRecord, type MinuteColumn } from '../historyStats';
 import { useDocumentTitle, useLoad } from '../load';
 import { academyHref, matchHref, playerHref, seasonHref, type LeadersScope } from '../router';
+import { usePageState } from '../pageState';
 
 // Ключ один: история не зависит от адреса
 const ALL = 'all';
@@ -411,7 +412,7 @@ const MINUTE_TICKS = new Set(['1', '15', '30', '45+', '60', '75', '90+']);
 
 /** Забитые — вверх, пропущенные — вниз: по 15-минуткам или по каждой минуте. */
 function GoalMinutesCard({ rows }: { rows: GoalMinute[] }) {
-  const [view, setView] = useState<'buckets' | 'minutes'>('buckets');
+  const [view, setView] = usePageState<'buckets' | 'minutes'>('minutesView', 'buckets');
   // По минутам чисел на столбиках нет: нажатый столбик показывает их строкой — на телефоне подсказки при наведении нет
   const [picked, setPicked] = useState<string | null>(null);
   const buckets = bucketColumns(rows);

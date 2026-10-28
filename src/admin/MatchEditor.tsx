@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LoadStatus, PageNav } from '../components/common';
-import { goWithoutAsking } from '../leaveGuard';
+import { confirmDiscard, goWithoutAsking } from '../leaveGuard';
 import { useDocumentTitle, useLoad } from '../load';
 import { adminMatchHref, adminSeasonHref, matchHref } from '../router';
 import { dbErrorMessage } from './dbErrors';
@@ -134,6 +134,17 @@ function MatchCard({ initial }: { initial: MatchCardData }) {
         />
       </section>
 
+      {/* Состав — раньше голов: авторов и ассистентов выбирают из вышедших на поле */}
+      <section>
+        <h3>Состав</h3>
+        <LineupEditor
+          lineup={draft.lineup}
+          squad={squad}
+          end={end}
+          onChange={(update) => setDraft((d) => ({ ...d, lineup: update(d.lineup) }))}
+        />
+      </section>
+
       <section>
         <h3>Голы</h3>
         <GoalsEditor
@@ -147,16 +158,6 @@ function MatchCard({ initial }: { initial: MatchCardData }) {
       <section>
         <h3>Видео</h3>
         <VideosEditor videos={draft.videos} onChange={(update) => setDraft((d) => ({ ...d, videos: update(d.videos) }))} />
-      </section>
-
-      <section>
-        <h3>Состав</h3>
-        <LineupEditor
-          lineup={draft.lineup}
-          squad={squad}
-          end={end}
-          onChange={(update) => setDraft((d) => ({ ...d, lineup: update(d.lineup) }))}
-        />
       </section>
 
       <div className="save-bar">
@@ -192,7 +193,7 @@ function MatchCard({ initial }: { initial: MatchCardData }) {
           <button type="button" disabled={saving || errors.length > 0 || !dirty} onClick={() => void save(true)}>
             {match ? 'Сохранить и к следующему' : 'Сохранить и ввести ещё'}
           </button>
-          <button type="button" disabled={saving || !dirty} onClick={() => reset(data)}>
+          <button type="button" disabled={saving || !dirty} onClick={() => confirmDiscard() && reset(data)}>
             Отменить изменения
           </button>
           {!dirty && match && <span className="muted">Изменений нет.</span>}

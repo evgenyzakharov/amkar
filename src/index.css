@@ -93,6 +93,9 @@ body {
 }
 
 .site-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   padding: 6px 0;
   color: var(--band-text);
   font-family: var(--font-display);
@@ -101,12 +104,6 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-decoration: none;
-}
-
-.site-logo {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .site-logo-img {
@@ -416,23 +413,6 @@ h3 {
   font-size: 0.75rem;
   color: var(--muted);
   vertical-align: 1px;
-}
-
-.season-summary .summary-item {
-  margin-left: 12px;
-  white-space: nowrap;
-}
-
-.match-score {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 1.5rem;
-  margin: 8px 0;
-}
-
-.match-score .score {
-  font-weight: 700;
 }
 
 .event + .event {
@@ -1040,6 +1020,12 @@ h3 {
   outline-offset: 2px;
 }
 
+.form-square:focus-visible,
+.form-square.ringed:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
 .tone-W {
   background: var(--win-bg);
 }
@@ -1429,9 +1415,15 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
+/* Что в нажатой клетке — под таблицей и липко к низу экрана: при нажатии на нижние строки — на виду */
 .hm-picked {
+  position: sticky;
+  bottom: 0;
   min-height: 1.5em;
-  margin: 0 0 8px;
+  margin: 8px 0 0;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
   font-size: 14px;
 }
 
@@ -1764,15 +1756,6 @@ h3 {
   margin: 20px 0 4px;
   font-size: 18px;
   color: var(--accent);
-}
-
-.ribbon-break {
-  margin: 20px 0 0;
-  padding: 10px 14px;
-  border-left: 4px solid var(--border);
-  background: var(--highlight);
-  font-size: 14px;
-  color: var(--muted);
 }
 
 .ribbon-season {
@@ -2383,6 +2366,15 @@ input.w-short {
   color: #8e3aa8;
 }
 
+:root[data-theme='dark'] .season-grid .gh-cup a {
+  color: #7ea6ec;
+}
+
+:root[data-theme='dark'] .season-grid .gh-europe a,
+:root[data-theme='dark'] .season-grid .gh-playoff a {
+  color: #c88ee0;
+}
+
 .season-grid .gh-friendly a {
   color: var(--muted);
   font-style: italic;
@@ -2656,6 +2648,11 @@ input.w-year {
   box-shadow: 0 0 0 1px var(--surface);
 }
 
+:root[data-theme='dark'] .epochs-seg,
+:root[data-theme='dark'] .epochs-legend i {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
 .epochs-seg:hover,
 .epochs-seg:focus-visible {
   outline: 2px solid var(--text);
@@ -2737,10 +2734,10 @@ input.w-year {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  border: 1px solid #e2c66b;
+  border: 1px solid var(--gold-border);
   border-radius: 10px;
-  background: #fff4d6;
-  color: #16130f;
+  background: var(--gold);
+  color: var(--text);
   font-size: 14px;
   font-weight: 500;
 }
@@ -2751,12 +2748,6 @@ input.w-year {
 
 .achievements li span {
   font-size: 22px;
-}
-
-:root[data-theme='dark'] .achievements li {
-  border-color: #7a6420;
-  background: #2e2610;
-  color: var(--text);
 }
 
 .coach-facts {

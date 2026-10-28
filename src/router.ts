@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { leaveAllowed } from './leaveGuard';
-import { rememberScroll } from './scrollMemory';
+import { forgetPageState } from './pageState';
+import { isLinkNavigation, rememberScroll } from './scrollMemory';
 
 // Маршруты на hash: сайт лежит на GitHub Pages в подпапке, а серверной маршрутизации там нет
 
@@ -145,6 +146,8 @@ function onHashChange() {
     return;
   }
   if (shown != null) rememberScroll(shown);
+  // по ссылке страница открывается заново: поиск и сортировка — начальные; «Назад» их вернёт (pageState.ts)
+  if (isLinkNavigation()) forgetPageState(next);
   shown = next;
   listeners.forEach((l) => l());
 }

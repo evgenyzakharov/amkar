@@ -2,7 +2,7 @@
 import { useState, type MouseEvent } from 'react';
 import { loadSeasonGrid } from '../db/queries';
 import type { GridAbsence, GridAppearance, PlayerSeasonStats, SeasonMatch } from '../db/types';
-import { ABSENCE_LABEL, RESULT_LABEL, RESULT_TITLE, opponentName } from '../format';
+import { ABSENCE_LABEL, RESULT_LABEL, RESULT_TITLE, RINGED_KINDS, opponentName } from '../format';
 import { useLoad } from '../load';
 import { matchHref, playerHref } from '../router';
 
@@ -74,9 +74,6 @@ export function SeasonHeatmap({
   return (
     <>
       <HeatmapLegend />
-      <p className="hm-picked" aria-live="polite">
-        {picked?.info ?? 'Нажмите на клетку — покажу соперника и минуты.'}
-      </p>
       <div className="hm-wrap">
         <table className="heatmap" onClick={onClick}>
           <thead>
@@ -92,7 +89,7 @@ export function SeasonHeatmap({
                     <a href={matchHref(m.id)} title={`${m.seq}. ${opponentName(m)}${other} — ${result}`}>
                       <span className="hm-seq">{m.seq}</span>
                       <span
-                        className={`hm-res tone-${m.result ?? 'unknown'}${m.competition.kind === 'league' ? '' : ' ringed'}`}
+                        className={`hm-res tone-${m.result ?? 'unknown'}${RINGED_KINDS.includes(m.competition.kind) ? ' ringed' : ''}`}
                       >
                         {m.result ? RESULT_LABEL[m.result] : '?'}
                       </span>
@@ -130,6 +127,9 @@ export function SeasonHeatmap({
           </tbody>
         </table>
       </div>
+      <p className="hm-picked" aria-live="polite">
+        {picked?.info ?? 'Нажмите на клетку — покажу соперника и минуты.'}
+      </p>
     </>
   );
 }

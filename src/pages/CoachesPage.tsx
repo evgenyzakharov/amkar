@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Card, ScopeSwitch, Tiles, type Tile } from '../components/cards';
 import { LoadStatus, NotFound, PageNav } from '../components/common';
 import { Slices, Wdl } from '../components/MatchStats';
@@ -13,6 +13,7 @@ import { loadCoachPage, loadCoaches, type CoachPlayer } from '../db/queries';
 import { formatDate, formatInt, formatScore, opponentName, plural } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { coachHref, coachesHref, matchHref, playerHref, seasonHref, type LeadersScope } from '../router';
+import { usePageState } from '../pageState';
 
 // Ключ один: данные тренеров не зависят от адреса
 const ALL = 'all';
@@ -96,7 +97,7 @@ function Epochs({ stats }: { stats: CoachStats[] }) {
   const ticks = [1995, 2000, 2005, 2010, 2015, 2021, Number(today.slice(0, 4))];
   return (
     <>
-      <div className="epochs-track" role="img" aria-label="Сроки главных тренеров по годам">
+      <div className="epochs-track" aria-hidden="true">
         {stats.flatMap((c) =>
           c.periods.map((p) => {
             const left = x(p.from);
@@ -106,6 +107,7 @@ function Epochs({ stats }: { stats: CoachStats[] }) {
                 key={`${c.coach.id}-${p.from}`}
                 className="epochs-seg"
                 href={coachHref(c.coach.id)}
+                tabIndex={-1}
                 style={{ left: `${left}%`, width: `${width}%`, background: colorOf(stats, c.coach.id) }}
                 title={`${c.coach.full_name}: ${periodText(p)}`}
                 aria-label={`${c.coach.full_name}: ${periodText(p)}`}
@@ -144,7 +146,7 @@ const COLUMNS: { key: SortKey; label: string; num?: boolean; value: (c: CoachSta
 ];
 
 function CoachTable({ stats, scope }: { stats: CoachStats[]; scope: LeadersScope }) {
-  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'period', dir: 1 });
+  const [sort, setSort] = usePageState<{ key: SortKey; dir: 1 | -1 }>('sort', { key: 'period', dir: 1 });
   const totalsOf = (c: CoachStats) => (scope === 'league' ? c.league : c.all);
   const column = COLUMNS.find((c) => c.key === sort.key)!;
   const rows = stats

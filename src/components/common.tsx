@@ -3,9 +3,10 @@ import type { ReactNode } from 'react';
 import { useIsAdmin } from '../auth';
 import type { Result } from '../db/types';
 import { RESULT_LABEL, RESULT_TITLE } from '../format';
-import type { Loaded } from '../load';
+import { useDocumentTitle, type Loaded } from '../load';
 
 export function NotFound({ message }: { message: string }) {
+  useDocumentTitle('Не найдено');
   return (
     <div>
       <h2>Не найдено</h2>

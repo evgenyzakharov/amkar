@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LoadStatus } from '../components/common';
 import { LINK_SITES } from '../format';
 import { useLoad } from '../load';
+import { confirmDiscard } from '../leaveGuard';
 import { dbErrorMessage } from './dbErrors';
 import { LINK_SITE_KEYS, isSeasonDirty, saveSeason, seasonDraft, validateSeason, type SeasonDraft } from './people';
 import { loadSeasonInfo, type SeasonInfoData } from './queries';
@@ -111,7 +112,7 @@ function SeasonInfo({ initial }: { initial: SeasonInfoData }) {
           <button type="button" className="primary" disabled={saving || !dirty || errors.length > 0} onClick={() => void save()}>
             {saving ? 'Сохранение…' : 'Сохранить'}
           </button>
-          <button type="button" disabled={saving || !dirty} onClick={() => setDraft(seasonDraft(season, links))}>
+          <button type="button" disabled={saving || !dirty} onClick={() => confirmDiscard() && setDraft(seasonDraft(season, links))}>
             Отменить изменения
           </button>
           {!dirty && <span className="muted">Изменений нет.</span>}

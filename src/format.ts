@@ -280,3 +280,6 @@ export const SEASON_EPOCHS: { title: string; until: number }[] = [
 
 /** Нынешний «Амкар» — новый клуб: с этого года начала сезона серии и история идут заново. */
 export const NEW_CLUB_FROM = 2021;
+
+/** Турниры, матчи которых обведены рамкой в квадратах результатов и в тепловой карте. */
+export const RINGED_KINDS: CompetitionKind[] = ['cup', 'europe', 'playoff'];

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Card, Tiles, type Tile } from '../components/cards';
 import { LoadStatus, PageNav } from '../components/common';
 import type { Debut } from '../coaches';
@@ -7,6 +7,7 @@ import type { CareerStats, FirstGoal } from '../db/types';
 import { ageYears, formatAgeExact, formatDate, plural } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { historyHref, matchHref, playerHref } from '../router';
+import { usePageState } from '../pageState';
 
 const ALL = 'all';
 const load = () => loadAcademy();
@@ -94,7 +95,7 @@ const COLUMNS: { key: SortKey; label: string; num?: boolean; value: (g: Graduate
 ];
 
 function GraduatesTable({ list }: { list: Graduate[] }) {
-  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'debut', dir: 1 });
+  const [sort, setSort] = usePageState<{ key: SortKey; dir: 1 | -1 }>('sort', { key: 'debut', dir: 1 });
   const column = COLUMNS.find((c) => c.key === sort.key)!;
   const rows = [...list].sort((a, b) => {
     const va = column.value(a);

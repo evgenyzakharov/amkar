@@ -7,6 +7,9 @@ let byLink = true;
 
 const pathOf = (hash: string) => hash.split('?')[0];
 
+/** Идёт переход по ссылке (а не «Назад» или «Вперёд»): новая страница — сверху и с начальным состоянием. */
+export const isLinkNavigation = () => byLink;
+
 /** Ушли со страницы: запомнить, докуда она была прокручена. */
 export function rememberScroll(hash: string) {
   positions.set(pathOf(hash), window.scrollY);

@@ -3,6 +3,7 @@ import { LoadStatus } from '../components/common';
 import { RESULT_TITLE, formatDate, formatScore, opponentName } from '../format';
 import { useLoad } from '../load';
 import { adminMatchHref } from '../router';
+import { confirmDiscard } from '../leaveGuard';
 import { dbErrorMessage } from './dbErrors';
 import { cellKey, cellText, changedCells, gridBase, parseCell, planGrid, saveGrid, type GridBase } from './grid';
 import type { SquadPlayer } from './match';
@@ -277,7 +278,7 @@ function Grid({ initial }: { initial: SeasonGridData }) {
           <button type="button" className="primary" disabled={saving || !dirty || plan.errors.length > 0} onClick={() => void save()}>
             {saving ? 'Сохранение…' : dirty ? `Сохранить (${changed.size})` : 'Сохранить'}
           </button>
-          <button type="button" disabled={saving || edits.size === 0} onClick={() => setEdits(new Map())}>
+          <button type="button" disabled={saving || edits.size === 0} onClick={() => confirmDiscard() && setEdits(new Map())}>
             Отменить изменения
           </button>
           {!dirty && <span className="muted">Изменений нет.</span>}

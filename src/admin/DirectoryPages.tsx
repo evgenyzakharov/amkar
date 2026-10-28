@@ -1,6 +1,6 @@
 import { Fragment, useState, type ReactNode } from 'react';
 import { LoadStatus, PageNav } from '../components/common';
-import { confirmLeave } from '../leaveGuard';
+import { confirmDiscard, confirmLeave } from '../leaveGuard';
 import { useDocumentTitle, useLoad } from '../load';
 import { adminHref } from '../router';
 import { dbErrorMessage } from './dbErrors';
@@ -403,7 +403,7 @@ function Directory({ config, records, usage, onSaved, addLabel, extra }: Directo
           <button type="button" className="primary" disabled={saving || !dirty || errors.length > 0} onClick={() => void save()}>
             {saving ? 'Сохранение…' : 'Сохранить'}
           </button>
-          <button type="button" disabled={saving || !dirty} onClick={() => setDraft(dirDraft(records, config))}>
+          <button type="button" disabled={saving || !dirty} onClick={() => confirmDiscard() && setDraft(dirDraft(records, config))}>
             Отменить изменения
           </button>
           {!dirty && <span className="muted">Изменений нет.</span>}

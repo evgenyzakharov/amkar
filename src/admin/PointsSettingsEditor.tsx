@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { LoadStatus, PageNav } from '../components/common';
 import { errorMessage, useDocumentTitle, useLoad } from '../load';
 import { adminHref } from '../router';
+import { confirmDiscard } from '../leaveGuard';
 import { dbErrorMessage } from './dbErrors';
 import { POINTS_FIELDS, POINTS_GROUPS, isPointsDirty, pointsDraft, savePoints, validatePoints, type PointsDraft, type PointsSettings } from './points';
 import { loadPointsSettings, loadTopSeasons, type TopSeasonRow } from './queries';
@@ -110,7 +111,7 @@ function PointsForm({ initial }: { initial: PointsSettings }) {
           <button type="button" className="primary" disabled={saving || !dirty || errors.length > 0} onClick={() => void save()}>
             {saving ? 'Сохранение…' : 'Сохранить'}
           </button>
-          <button type="button" disabled={saving || !dirty} onClick={() => setDraft(pointsDraft(settings))}>
+          <button type="button" disabled={saving || !dirty} onClick={() => confirmDiscard() && setDraft(pointsDraft(settings))}>
             Отменить изменения
           </button>
           {!dirty && <span className="muted">Изменений нет.</span>}

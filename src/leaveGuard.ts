@@ -21,6 +21,11 @@ export function confirmLeave(question = QUESTION, scope?: string): boolean {
   return !any || window.confirm(question);
 }
 
+/** «Отменить изменения»: сбросить введённое — только с согласия. */
+export function confirmDiscard(): boolean {
+  return window.confirm('Сбросить все несохранённые изменения в этой форме?');
+}
+
 /** Переход без вопроса: после сохранения или удаления, пока редактор ещё считает правки несохранёнными. */
 export function goWithoutAsking(hash: string) {
   allowed = hash;

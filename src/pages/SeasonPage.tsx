@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Card, ExternalLinks, ScopeSwitch, Tiles, type Tile } from '../components/cards';
 import { EditLink, LoadStatus, Tag } from '../components/common';
 import { SeasonHeatmap } from '../components/SeasonHeatmap';
@@ -12,6 +11,7 @@ import {
   POSITION_ORDER,
   POSITION_TITLE,
   RESULT_LABEL,
+  RINGED_KINDS,
   RESULT_TITLE,
   SLOT_LABEL,
   SLOT_TITLE,
@@ -26,6 +26,7 @@ import {
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { adminSeasonHref, coachHref, matchHref, opponentHref, playerHref, pyramidHref, seasonHref, type LeadersScope } from '../router';
+import { usePageState } from '../pageState';
 
 export function SeasonPage({ label, scope }: { label: string; scope: LeadersScope }) {
   useDocumentTitle(`Сезон ${label}`);
@@ -43,6 +44,8 @@ function SeasonCard({ data, scope }: { data: SeasonPageData; scope: LeadersScope
 
   const official = matches.filter((m) => m.competition.kind !== 'friendly');
   const friendlies = matches.filter((m) => m.competition.kind === 'friendly');
+  // раскрытая «Заявка» переживает «Назад» с карточки игрока
+  const [squadOpen, setSquadOpen] = usePageState('squadOpen', false);
   const codes = opponentCodes(matches.map(opponentName));
   const players = 'data' in squad ? squad.data : [];
   // Бомбардиры и ассистенты: все турниры или только чемпионат — один переключатель над парой, выбор — в адресе
@@ -165,7 +168,7 @@ function SeasonCard({ data, scope }: { data: SeasonPageData; scope: LeadersScope
       {'error' in squad ? (
         <p className="error">Статистика заявки не загрузилась: {squad.error}</p>
       ) : players.length > 0 ? (
-        <details className="card squad-details">
+        <details className="card squad-details" open={squadOpen} onToggle={(e) => setSquadOpen(e.currentTarget.open)}>
           <summary className="card-title">Заявка</summary>
           <SquadTable squad={players} points={pointsBy} />
           <p className="note">
@@ -249,7 +252,7 @@ function seasonTiles(official: SeasonMatch[]): Tile[] {
   return tiles;
 }
 
-const RINGED: CompetitionKind[] = ['cup', 'europe', 'playoff'];
+const RINGED = RINGED_KINDS;
 
 /** Подпись к квадратам: какие турниры обведены рамкой. */
 function legend(official: SeasonMatch[]) {
@@ -322,7 +325,7 @@ type SquadSort = 'number' | 'position' | 'name' | 'games' | 'minutes' | 'goals' 
 
 /** Заявка сезона: порядок — как в заявке, по клику на заголовок — сортировка (основа и молодёжь — отдельно). */
 function SquadTable({ squad, points }: { squad: PlayerSeasonStats[]; points: Map<number, SeasonPoints> }) {
-  const [sort, setSort] = useState<{ key: SquadSort; dir: 1 | -1 } | null>(null);
+  const [sort, setSort] = usePageState<{ key: SquadSort; dir: 1 | -1 } | null>('squadSort', null);
   const hasPositions = squad.some((p) => p.position);
   const hasConceded = squad.some((p) => p.goals_conceded != null);
   const hasPoints = points.size > 0;
@@ -430,6 +433,7 @@ function PointsCell({ points }: { points: SeasonPoints | undefined }) {
 
 /** Все матчи сезона текстом — свёрнуто, как «Заявка»: соперник, дата и турнир без наведения на квадраты. */
 function MatchList({ matches }: { matches: SeasonMatch[] }) {
+  const [open, setOpen] = usePageState('matchesOpen', false);
   const official = matches.filter((m) => m.competition.kind !== 'friendly');
   const count = (kind: CompetitionKind) => official.filter((m) => m.competition.kind === kind).length;
   const byName = new Map<string, number>();
@@ -443,7 +447,7 @@ function MatchList({ matches }: { matches: SeasonMatch[] }) {
   const tournament = (m: SeasonMatch) =>
     m.competition.kind === 'league' ? (m.round && /^\d+$/.test(m.round) ? `чемпионат, ${m.round}-й тур` : 'чемпионат') : [m.competition.name, m.round].filter(Boolean).join(', ');
   return (
-    <details className="card season-matches">
+    <details className="card season-matches" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary>
         <span className="card-title">Матчи</span>
         <span className="card-aside">{summary.join(' · ')}</span>
