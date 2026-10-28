@@ -73,8 +73,6 @@ export interface PlayerSeasonStats {
   goals: number | null;
   assists: number | null;
   goals_conceded: number | null;
-  /** Откуда голы и передачи: matches — по матчам, excel — итоги из таблицы автора. */
-  goals_source?: 'matches' | 'excel';
 }
 
 export interface BestXiSlot {
@@ -289,12 +287,11 @@ export interface Milestone {
   display_name: string;
   stat: 'games' | 'goals';
   milestone: number;
-  /** match — известен матч; season — голы сезона есть только итогом, рубеж с точностью до сезона. */
-  precision: 'match' | 'season';
   season_id: number;
   season_label: string;
-  match_id: number | null;
-  seq: number | null;
+  /** Матч, в котором перейдён рубеж. */
+  match_id: number;
+  seq: number;
   match_date: string | null;
   opponent: string | null;
 }
@@ -330,6 +327,8 @@ export interface PlayerSeasonAge {
   minutes: number;
   /** Сумма «минуты × возраст» — для среднего возраста по минутам. */
   age_minutes: number | null;
+  /** Минуты матчей с датой — знаменатель среднего возраста (миграция 20261029120000; до неё — нет). */
+  minutes_dated?: number;
   age_first: number | null;
   age_last: number | null;
   /** Последний матч сезона (миграция 20261026120000). */

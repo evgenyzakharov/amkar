@@ -87,7 +87,8 @@ export function seasonAges(rows: PlayerSeasonAge[]): Map<number, SeasonAge> {
   }
   for (const [id, list] of bySeason) {
     const dated = list.filter((r) => r.age_first != null && r.age_last != null);
-    const minutes = dated.reduce((s, r) => s + r.minutes, 0);
+    // знаменатель — минуты матчей с датой: возраст на день матча есть только у них
+    const minutes = dated.reduce((s, r) => s + (r.minutes_dated ?? r.minutes), 0);
     const ageMinutes = dated.reduce((s, r) => s + Number(r.age_minutes ?? 0), 0);
     const young = [...dated].sort((a, b) => Number(a.age_first) - Number(b.age_first))[0];
     const old = [...dated].sort((a, b) => Number(b.age_last) - Number(a.age_last))[0];

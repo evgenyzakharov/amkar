@@ -5,21 +5,14 @@ import { loadMilestones } from '../db/queries';
 import type { CareerStats, Milestone } from '../db/types';
 import { formatDate, plural } from '../format';
 import { useLoad } from '../load';
-import { matchHref, playerHref, seasonHref } from '../router';
+import { matchHref, playerHref } from '../router';
 
 // Ключ один: рубежи не зависят от адреса
 const ALL = 'all';
 const load = () => loadMilestones();
 
-/** Когда перейдён рубеж: матч ссылкой (дата или сезон и номер) и соперник; иначе — только сезон. */
+/** Когда перейдён рубеж: матч ссылкой (дата или сезон и номер) и соперник. */
 function Reached({ m }: { m: Milestone }) {
-  if (m.match_id == null) {
-    return (
-      <>
-        <a href={seasonHref(m.season_label)}>{m.season_label}</a> <span className="muted">· в течение сезона</span>
-      </>
-    );
-  }
   return (
     <>
       <a href={matchHref(m.match_id)}>{m.match_date ? formatDate(m.match_date) : `${m.season_label}, №${m.seq}`}</a>
@@ -33,9 +26,9 @@ export function MilestoneClubs({ careers }: { careers: CareerStats[] }) {
   if (state.status !== 'ready') return <LoadStatus state={state} />;
 
   const { milestones, seasons } = state.data;
-  // По времени: порядок сезона, внутри — номер матча; рубеж «в течение сезона» — в конце сезона
+  // По времени: порядок сезона, внутри — номер матча
   const seasonOrder = new Map(seasons.map((s, i) => [s.id, i]));
-  const when = (m: Milestone) => (seasonOrder.get(m.season_id) ?? 0) * 1000 + (m.seq ?? 999);
+  const when = (m: Milestone) => (seasonOrder.get(m.season_id) ?? 0) * 1000 + m.seq;
   const career = new Map(careers.map((c) => [c.player_id, c]));
 
   const games = milestones.filter((m) => m.stat === 'games');
@@ -110,11 +103,6 @@ export function MilestoneClubs({ careers }: { careers: CareerStats[] }) {
               </tbody>
             </table>
           </div>
-          {goals.some((m) => m.match_id == null) && (
-            <p className="note">
-              «В течение сезона» — голы того сезона известны только итогом, поэтому рубеж указан с точностью до сезона.
-            </p>
-          )}
         </Card>
       )}
 

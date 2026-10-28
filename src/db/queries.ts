@@ -53,7 +53,7 @@ export const MATCH_COLUMNS =
   'pens_for, pens_against, awarded, competition(name, kind), team(name), opponent_name';
 const STATS_COLUMNS =
   'season_id, player_id, season_label, start_year, end_year, division, display_name, academy, shirt_number, ' +
-  'position, squad_group, on_loan, sort_order, games, minutes, goals, assists, goals_conceded, goals_source, ' +
+  'position, squad_group, on_loan, sort_order, games, minutes, goals, assists, goals_conceded, ' +
   'games_league, minutes_league, goals_league, assists_league, goals_conceded_league';
 
 /** Итоги только чемпионата — из тех же строк player_season_stats, отдельным списком для фильтра «только чемпионат». */
@@ -488,7 +488,7 @@ const loadAges = () =>
     allRows<PlayerSeasonAge>((from, to) =>
       db()
         .from('player_season_age')
-        .select('season_id, player_id, display_name, academy, birth_date, games, minutes, age_minutes, age_first, age_last')
+        .select('*')
         .order('season_id')
         .order('player_id')
         .range(from, to),
@@ -594,7 +594,7 @@ export async function loadMilestones(): Promise<MilestonesData> {
     allRows<Milestone>((from, to) =>
       db()
         .from('player_milestones')
-        .select('player_id, display_name, stat, milestone, precision, season_id, season_label, match_id, seq, match_date, opponent')
+        .select('player_id, display_name, stat, milestone, season_id, season_label, match_id, seq, match_date, opponent')
         .order('stat')
         .order('milestone')
         .order('player_id')

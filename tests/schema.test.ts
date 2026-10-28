@@ -112,12 +112,14 @@ describe('статистика игрока за сезон (player_season_stats
         (3, 1, 'start', 90, null, null, null),
         (3, 5, 'start', 90, null, null, null),
         (4, 2, 'start', 90, null, null, null);
-      insert into player_season_totals (season_id, player_id, competition_id, goals, assists, goals_conceded) values
-        (1, 1, (select id from competition where kind = 'league'), null, null, 1),
-        (1, 1, (select id from competition where kind = 'cup'), null, null, 2),
-        (1, 2, (select id from competition where kind = 'league'), 1, 0, null),
-        (1, 2, (select id from competition where kind = 'cup'), 2, null, null),
-        (1, 3, (select id from competition where kind = 'league'), null, 1, null);
+      insert into goal (match_id, side, minute, kind, scorer_id, scorer_name, assist_id) values
+        (1, 'amkar', 70, 'open_play', 2, null, 3),
+        (1, 'opponent', 20, 'open_play', null, 'Кержаков', null),
+        (2, 'amkar', 10, 'open_play', 2, null, null),
+        (2, 'amkar', 100, 'penalty', 2, null, null),
+        (2, 'opponent', 30, 'open_play', null, 'Иванов', null),
+        (2, 'opponent', 110, 'open_play', null, 'Петров', null),
+        (3, 'amkar', 5, 'open_play', 5, null, null);
     `);
   }, 60_000);
 
@@ -130,15 +132,16 @@ describe('статистика игрока за сезон (player_season_stats
       )
     ).rows;
 
-  it('игры и минуты по матчам, голы и передачи из итогов, без товарищеских', async () => {
+  it('игры, минуты, голы и передачи по матчам, без товарищеских', async () => {
     expect(await season(1)).toEqual([
-      { player_id: 1, games: 2, minutes: 210, goals: null, assists: null, goals_conceded: 3 },
+      // пропущенные — у вратаря, пока он был на поле
+      { player_id: 1, games: 2, minutes: 210, goals: 0, assists: 0, goals_conceded: 3 },
       { player_id: 2, games: 1, minutes: 30, goals: 3, assists: 0, goals_conceded: null },
-      { player_id: 3, games: 2, minutes: 105, goals: null, assists: 1, goals_conceded: null },
+      { player_id: 3, games: 2, minutes: 105, goals: 0, assists: 1, goals_conceded: null },
       // запас и «минуты неизвестны» — не игры
-      { player_id: 4, games: 0, minutes: 0, goals: null, assists: null, goals_conceded: null },
-      // в заявке, но играл только в товарищеском
-      { player_id: 5, games: 0, minutes: 0, goals: null, assists: null, goals_conceded: null },
+      { player_id: 4, games: 0, minutes: 0, goals: 0, assists: 0, goals_conceded: null },
+      // в заявке, но играл и забил только в товарищеском
+      { player_id: 5, games: 0, minutes: 0, goals: 0, assists: 0, goals_conceded: null },
     ]);
   });
 
@@ -362,7 +365,47 @@ describe('названия клуба по годам', () => {
   });
 });
 
-describe('голы за сезон по матчам (season.goals_from_matches)', () => {
+describe('базовые представления: официальный матч, «сыграл», гол «Амкара»', () => {
+  let bv: PGlite;
+  beforeAll(async () => {
+    bv = await migratedDb(SUPABASE_STRICT);
+    await bv.exec(`
+      insert into season (id, label, start_year, end_year) values (1, '2017/18', 2017, 2018), (2, '2021/22', 2021, 2022);
+      insert into player (id, display_name, last_name, birth_date) values (1, 'Пеев', 'Пеев', '1990-01-01'), (2, 'Кушев', 'Кушев', null);
+      insert into match (id, season_id, competition_id, seq, opponent_raw, match_date) values
+        (1, 1, 1, 1, 'Зенит', '2017-08-01'), (2, 1, (select id from competition where kind = 'friendly'), 2, 'Звезда', '2017-08-05'),
+        (3, 2, 1, 1, 'Торпедо', null);
+      insert into appearance (match_id, player_id, role, minutes) values
+        (1, 1, 'start', 90), (1, 2, 'bench', 0), (2, 1, 'start', 90), (3, 1, null, 30), (3, 2, null, null);
+      insert into goal (match_id, side, minute, kind, scorer_id, scorer_name) values
+        (1, 'amkar', 10, 'open_play', 1, null), (1, 'amkar', 20, 'own_goal', null, 'Защитник'), (1, 'opponent', 30, 'own_goal', 1, null);
+    `);
+  }, 60_000);
+
+  it('товарищеских нет; эпоха клуба — с 2021/22; «сыграл» — минуты или старт/замена', async () => {
+    const q = async (sql: string) => (await asUserIn(bv, null, sql)).rows;
+    expect(await q('select id, era from official_match order by id')).toEqual([{ id: 1, era: 1 }, { id: 3, era: 2 }]);
+    expect(await q('select match_id, player_id, played from official_appearance order by match_id, player_id')).toEqual([
+      { match_id: 1, player_id: 1, played: true },
+      { match_id: 1, player_id: 2, played: false },
+      { match_id: 3, player_id: 1, played: true },
+      // в заявке, минуты неизвестны — не «сыграл»
+      { match_id: 3, player_id: 2, played: false },
+    ]);
+    // гол «Амкара» — только свой: автогол соперника и автогол в свои ворота автору не идут
+    expect(await q('select amkar_scorer_id from official_goal order by id')).toEqual([{ amkar_scorer_id: 1 }, { amkar_scorer_id: null }, { amkar_scorer_id: null }]);
+  });
+
+  it('средний возраст — по минутам матчей с датой', async () => {
+    const { rows } = await asUserIn(bv, null, 'select season_id, minutes, minutes_dated from player_season_age where player_id = 1 order by season_id');
+    expect(rows).toEqual([
+      { season_id: 1, minutes: 90, minutes_dated: 90 },
+      { season_id: 2, minutes: 30, minutes_dated: 0 },
+    ]);
+  });
+});
+
+describe('голы за сезон — по матчам', () => {
   let gm: PGlite;
   beforeAll(async () => {
     gm = await migratedDb(SUPABASE_STRICT);
@@ -371,6 +414,7 @@ describe('голы за сезон по матчам (season.goals_from_matches)
       insert into player (id, display_name, last_name, position) values
         (1, 'Усов', 'Усов', 'FW'), (2, 'Игнатенко', 'Игнатенко', 'MF'), (3, 'Долженко', 'Долженко', null), (4, 'Запасной вратарь', 'Вратарь', 'GK');
       insert into squad_member (season_id, player_id, position) values (1, 1, null), (1, 2, null), (1, 3, 'GK'), (1, 4, null);
+      -- итоги Excel остались архивом: статистика их больше не читает
       insert into player_season_totals (season_id, player_id, competition_id, goals, assists, goals_conceded) values
         (1, 1, 1, 10, 1, null), (1, 3, 1, null, null, 7);
       insert into match (id, season_id, competition_id, seq, opponent_raw) values
@@ -391,26 +435,16 @@ describe('голы за сезон по матчам (season.goals_from_matches)
   }, 60_000);
 
   const stats = async () =>
-    (await asUserIn(gm, null, 'select player_id, goals, assists, goals_conceded, goals_source from player_season_stats order by player_id')).rows;
+    (await asUserIn(gm, null, 'select player_id, goals, assists, goals_conceded from player_season_stats order by player_id')).rows;
 
-  it('переключатель выключен — итоги из таблицы автора, как раньше', async () => {
+  it('без автоголов и товарищеских, пропущенные у вратаря — пока был на поле; итоги Excel не читаются', async () => {
     expect(await stats()).toEqual([
-      { player_id: 1, goals: 10, assists: 1, goals_conceded: null, goals_source: 'excel' },
-      { player_id: 2, goals: null, assists: null, goals_conceded: null, goals_source: 'excel' },
-      { player_id: 3, goals: null, assists: null, goals_conceded: 7, goals_source: 'excel' },
-      { player_id: 4, goals: null, assists: null, goals_conceded: null, goals_source: 'excel' },
-    ]);
-  });
-
-  it('включён — по матчам: без автоголов и товарищеских, пропущенные у вратаря — пока был на поле', async () => {
-    await gm.exec('update season set goals_from_matches = true where id = 1');
-    expect(await stats()).toEqual([
-      { player_id: 1, goals: 2, assists: 0, goals_conceded: null, goals_source: 'matches' },
+      { player_id: 1, goals: 2, assists: 0, goals_conceded: null },
       // автогол в наши ворота автору не засчитан, передача — засчитана
-      { player_id: 2, goals: 0, assists: 1, goals_conceded: null, goals_source: 'matches' },
+      { player_id: 2, goals: 0, assists: 1, goals_conceded: null },
       // гол на 30-й и гол без минуты — на начавшего матч; гол на 70-й — уже на вышедшего на замену
-      { player_id: 3, goals: 0, assists: 0, goals_conceded: 2, goals_source: 'matches' },
-      { player_id: 4, goals: 0, assists: 0, goals_conceded: 1, goals_source: 'matches' },
+      { player_id: 3, goals: 0, assists: 0, goals_conceded: 2 },
+      { player_id: 4, goals: 0, assists: 0, goals_conceded: 1 },
     ]);
   });
 
@@ -447,9 +481,7 @@ describe('итоги за карьеру (player_career_stats)', () => {
   beforeAll(async () => {
     cs = await migratedDb(SUPABASE_EXPOSED);
     await cs.exec(`
-      -- 2011/12 — голы из таблицы автора, 2012/13 — по матчам
-      insert into season (id, label, start_year, end_year, goals_from_matches) values
-        (1, '2011/12', 2011, 2012, false), (2, '2012/13', 2012, 2013, true);
+      insert into season (id, label, start_year, end_year) values (1, '2011/12', 2011, 2012), (2, '2012/13', 2012, 2013);
       insert into player (id, display_name, last_name) values (1, 'Пеев', 'Пеев'), (2, 'Кушев', 'Кушев'), (3, 'Новичок', 'Новичок');
       insert into squad_member (season_id, player_id) values (1, 1), (1, 2), (1, 3), (2, 1), (2, 2);
       insert into match (id, season_id, competition_id, seq, opponent_raw) values
@@ -463,14 +495,14 @@ describe('итоги за карьеру (player_career_stats)', () => {
         (1, 1, 'start', 90, null), (2, 1, 'start', 90, null), (3, 1, 'start', 90, null), (4, 1, 'sub', 20, 71),
         (1, 2, 'bench', 0, null), (2, 2, null, 45, null),
         (5, 1, 'start', 90, null), (6, 1, 'start', 90, null), (5, 2, 'sub', 10, 81);
+      -- итоги Excel — архив: не считаются
       insert into player_season_totals (season_id, player_id, competition_id, goals, assists, goals_conceded) values
-        (1, 1, (select id from competition where kind = 'league'), 5, null, null),
-        (1, 1, (select id from competition where kind = 'cup'), 2, null, null),
-        (1, 2, (select id from competition where kind = 'league'), null, null, null),
-        (1, 2, (select id from competition where kind = 'cup'), 1, null, null),
-        -- сезон по матчам: итоги из таблицы автора не считаются
         (2, 1, (select id from competition where kind = 'league'), 99, null, null);
       insert into goal (match_id, side, minute, kind, scorer_id, scorer_name) values
+        (1, 'amkar', 5, 'open_play', 1, null), (1, 'amkar', 6, 'open_play', 1, null), (1, 'amkar', 7, 'open_play', 1, null),
+        (1, 'amkar', 8, 'open_play', 1, null), (1, 'amkar', 9, 'open_play', 1, null),
+        (2, 'amkar', 20, 'open_play', 1, null), (2, 'amkar', 21, 'open_play', 1, null), (2, 'amkar', 22, 'open_play', 2, null),
+        (3, 'amkar', 30, 'open_play', 1, null),
         (5, 'amkar', 10, 'open_play', 1, null), (5, 'amkar', 80, 'penalty', 1, null),
         (5, 'amkar', 85, 'own_goal', null, 'Защитник Рубина'),
         (6, 'amkar', 30, 'open_play', 2, null),
@@ -486,12 +518,11 @@ describe('итоги за карьеру (player_career_stats)', () => {
        from player_career_stats order by player_id`,
     );
     expect(rows).toEqual([
-      // 2011/12: чемпионат, кубок и стыки (товарищеский не в счёт); голы 5 + 2 из таблицы автора.
-      // 2012/13: голы по матчам — два своих, автогол соперника и автогол в свои ворота не в счёт
+      // 2011/12: чемпионат, кубок и стыки (товарищеский не в счёт); голы 5 + 2 по матчам, гол в товарищеском — нет.
+      // 2012/13: два своих, автогол соперника и автогол в свои ворота не в счёт, итог Excel 99 — тоже
       { player_id: 1, seasons: 2, first_season: '2011/12', last_season: '2012/13', first_year: 2011, last_year: 2013, games: 5, games_league: 2, goals: 9, goals_league: 7 },
-      // в чемпионате 2011/12 голы неизвестны, в 2012/13 — ноль по матчам
       { player_id: 2, seasons: 2, first_season: '2011/12', last_season: '2012/13', first_year: 2011, last_year: 2013, games: 2, games_league: 1, goals: 2, goals_league: 0 },
-      { player_id: 3, seasons: 1, first_season: '2011/12', last_season: '2011/12', first_year: 2011, last_year: 2012, games: 0, games_league: 0, goals: null, goals_league: null },
+      { player_id: 3, seasons: 1, first_season: '2011/12', last_season: '2011/12', first_year: 2011, last_year: 2012, games: 0, games_league: 0, goals: 0, goals_league: 0 },
     ]);
   });
 
@@ -553,8 +584,10 @@ describe('дашборды: season_summary, team_streaks, player_milestones', ()
       insert into appearance (match_id, player_id, role, minutes) values
         (1, 1, 'start', 90), (7, 1, 'start', 90), (8, 1, 'start', 90), (1, 2, 'start', 90);
       insert into appearance (match_id, player_id, role, minutes) select 100 + g, 1, 'start', 90 from generate_series(1, 110) g;
-      insert into player_season_totals (season_id, player_id, competition_id, goals) values
-        (1, 1, 1, 40), (1, 1, (select id from competition where kind = 'cup'), 5), (1, 2, 1, 60);
+      -- 2016/17: 45 голов у Воспитанника (40 в чемпионате, 5 в кубке) и 60 у Приезжего; 2026/27 — ещё 6 у Воспитанника
+      insert into goal (match_id, side, minute, kind, scorer_id) select 1, 'amkar', 10, 'open_play', 1 from generate_series(1, 40);
+      insert into goal (match_id, side, minute, kind, scorer_id) select 7, 'amkar', 10, 'open_play', 1 from generate_series(1, 5);
+      insert into goal (match_id, side, minute, kind, scorer_id) select 1, 'amkar', 20, 'open_play', 2 from generate_series(1, 60);
       insert into goal (match_id, side, minute, kind, scorer_id) select 100 + g, 'amkar', 10, 'open_play', 1 from generate_series(1, 6) g;
     `);
   }, 60_000);
@@ -602,18 +635,18 @@ describe('дашборды: season_summary, team_streaks, player_milestones', ()
     ]);
   });
 
-  it('player_milestones: сотый матч — с учётом прошлых сезонов и без товарищеских; голы — матч или только сезон', async () => {
+  it('player_milestones: сотый матч и пятидесятый гол — с учётом прошлых сезонов, без товарищеских, в каком матче', async () => {
     const { rows } = await asUserIn(
       dash,
       null,
-      `select player_id, stat, milestone, precision, season_label, seq, opponent from player_milestones order by player_id, stat, milestone`,
+      `select player_id, stat, milestone, season_label, seq, opponent from player_milestones order by player_id, stat, milestone`,
     );
     expect(rows).toEqual([
       // два официальных матча в 2016/17, сотый — 98-й в 2026/27
-      { player_id: 1, stat: 'games', milestone: 100, precision: 'match', season_label: '2026/27', seq: 98, opponent: 'Соперник 98' },
-      // 45 голов итогом 2016/17, пятидесятый — пятый гол по матчам 2026/27
-      { player_id: 1, stat: 'goals', milestone: 50, precision: 'match', season_label: '2026/27', seq: 5, opponent: 'Соперник 5' },
-      { player_id: 2, stat: 'goals', milestone: 50, precision: 'season', season_label: '2016/17', seq: null, opponent: null },
+      { player_id: 1, stat: 'games', milestone: 100, season_label: '2026/27', seq: 98, opponent: 'Соперник 98' },
+      // 45 голов в 2016/17, пятидесятый — пятый гол 2026/27
+      { player_id: 1, stat: 'goals', milestone: 50, season_label: '2026/27', seq: 5, opponent: 'Соперник 5' },
+      { player_id: 2, stat: 'goals', milestone: 50, season_label: '2016/17', seq: 1, opponent: 'А' },
     ]);
   });
 

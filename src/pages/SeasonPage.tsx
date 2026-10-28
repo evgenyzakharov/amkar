@@ -169,9 +169,7 @@ function SeasonCard({ data, scope }: { data: SeasonPageData; scope: LeadersScope
           <summary className="card-title">Заявка</summary>
           <SquadTable squad={players} points={pointsBy} />
           <p className="note">
-            {players[0]?.goals_source === 'matches'
-              ? 'Игры, минуты, голы и передачи — по записанным матчам, без товарищеских.'
-              : 'Игры и минуты — без товарищеских матчей. Голы и передачи — итоги сезона без разбивки по матчам, пустая ячейка — данных нет.'}
+            Игры, минуты, голы и передачи — по записанным матчам, без товарищеских.
             {pointsBy.size > 0 && (
               <>
                 {' '}

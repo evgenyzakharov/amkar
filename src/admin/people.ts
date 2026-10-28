@@ -306,14 +306,12 @@ export interface SeasonRecord {
   final_place: number | null;
   teams_count: number | null;
   notes: string | null;
-  /** Голы и передачи за сезон — по карточкам матчей, а не из таблицы автора. */
-  goals_from_matches: boolean;
   /** Ожидаемое место для очков сезона; undefined — столбца в базе ещё нет (миграция 20261020200000). */
   expected_place?: number | null;
 }
 
 export const SEASON_RECORD_COLUMNS =
-  'id, label, start_year, end_year, division, tier, final_place, teams_count, notes, goals_from_matches';
+  'id, label, start_year, end_year, division, tier, final_place, teams_count, notes';
 
 export interface SeasonDraft {
   division: string;
@@ -323,7 +321,6 @@ export interface SeasonDraft {
   /** null — поля нет: столбец в базе ещё не создан. */
   expected_place: string | null;
   notes: string;
-  goals_from_matches: boolean;
   links: Record<LinkSite, string>;
 }
 
@@ -337,7 +334,6 @@ export function seasonDraft(s: SeasonRecord, links: { site: LinkSite; url: strin
     teams_count: numText(s.teams_count),
     expected_place: s.expected_place === undefined ? null : decimalText(s.expected_place),
     notes: s.notes ?? '',
-    goals_from_matches: s.goals_from_matches,
     links: linksDraft(links),
   };
 }
@@ -362,7 +358,6 @@ function seasonValues(d: SeasonDraft) {
     // без столбца в базе поле не пишем вовсе
     ...(d.expected_place === null ? {} : { expected_place: expected == null || Number.isNaN(expected) ? null : expected }),
     notes: d.notes.trim() || null,
-    goals_from_matches: d.goals_from_matches,
   };
 }
 
