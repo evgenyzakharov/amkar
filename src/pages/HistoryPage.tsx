@@ -2,7 +2,7 @@ import { Fragment, useState, type ReactNode } from 'react';
 import { Card, Tiles, type Tile } from '../components/cards';
 import { LoadStatus } from '../components/common';
 import { Streaks } from '../components/Streaks';
-import { FINAL, cupEditions, editionResult, shortScore } from '../cup';
+import { FINAL, cupEditions, editionResult, tieScore } from '../cup';
 import { loadHistory, type HistoryPageData } from '../db/queries';
 import type { CareerStats, GoalMinute, SeasonSummary } from '../db/types';
 import { NEW_CLUB_FROM, SEASON_EPOCHS, formatAge, formatAgeExact, formatDate, formatInt, formatRatio, plural } from '../format';
@@ -44,7 +44,10 @@ export function HistoryPage({ scope }: { scope: LeadersScope }) {
           {state.data.cup.length > 0 && (
             <Card title="Кубок России" aside={<a href={cupHref}>все розыгрыши →</a>}>
               <CupChart data={state.data} />
-              <p className="note">Высота столбика — стадия, до которой дошли в розыгрыше: от 1/256 до финала.</p>
+              <p className="note">
+                Высота столбика — стадия, до которой дошли в розыгрыше, по числу матчей, которые оставалось выиграть до кубка:
+                с 2022/23 раунды «пути регионов» глубже своих названий.
+              </p>
             </Card>
           )}
           <Card title="Сезон за сезоном" aside={<WdlLegend />}>
@@ -173,18 +176,18 @@ function TierChart({ seasons }: { seasons: SeasonSummary[] }) {
   );
 }
 
-/** Кубок по розыгрышам: стадия — 1/10 высоты, неузнанный раунд — самый низ. */
+/** Кубок по розыгрышам: стадия — 1/12 высоты (от 1/2048 до финала), неузнанный раунд — полступени. */
 function CupChart({ data }: { data: HistoryPageData }) {
   const editions = cupEditions(data.cup, new Map(data.seasons.map((s) => [s.season_id, s.start_year])));
   return (
     <SeasonColumns
       seasons={editions}
-      axis={['1/256', '1/64', '1/16', '1/4', 'финал']}
+      axis={['1/1024', '1/256', '1/64', '1/16', '1/4', 'финал']}
       href={() => cupHref}
       column={(e) => {
-        const exit = e.exit && [e.exit.opponent, e.exit.matches.map(shortScore).filter(Boolean).join(' / ')].filter(Boolean).join(' ');
+        const exit = e.exit && [e.exit.opponent, tieScore(e.exit)].filter(Boolean).join(' ');
         return {
-          value: (e.best + 2) / (FINAL + 2),
+          value: Math.max(e.best + 1, 0.5) / (FINAL + 1),
           title: [e.label, editionResult(e), exit].filter(Boolean).join(' · '),
           mark: e.best === FINAL ? (e.won ? 'кубок' : 'финал') : undefined,
         };

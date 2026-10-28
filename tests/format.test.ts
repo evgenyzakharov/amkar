@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ageExact, formatAgeExact, formatHomeScore, formatScore, opponentCodes } from '../src/format';
+import { ageExact, formatAgeExact, formatHomeScore, formatScore, opponentCodes, softHyphens } from '../src/format';
 
 const match = { goals_for: 0, goals_against: 2, extra_time: false, pens_for: null, pens_against: null };
 
@@ -62,5 +62,21 @@ describe('соперник в 3–4 буквы', () => {
 
   it('не складывается в слово', () => {
     expect(codes('Спартак Москва', 'Спартак Нальчик')).toEqual({ 'Спартак Москва': 'СМОС', 'Спартак Нальчик': 'СПАН' });
+  });
+});
+
+describe('мягкие переносы', () => {
+  const show = (name: string) => softHyphens(name).replaceAll('\u00AD', '-');
+
+  it('рвёт длинное слово по слогу ближе к середине', () => {
+    expect(show('Черноморец')).toBe('Черно-морец');
+    expect(show('Ростсельмаш')).toBe('Рост-сельмаш');
+    expect(show('Металлург Красноярск')).toBe('Металлург Крас-ноярск');
+    expect(show('Нефтехимик')).toBe('Нефте-химик');
+  });
+
+  it('короткие слова и слова с дефисом не трогает', () => {
+    expect(show('Дзержинск')).toBe('Дзержинск');
+    expect(show('Металлург-Кузбасс')).toBe('Металлург-Кузбасс');
   });
 });

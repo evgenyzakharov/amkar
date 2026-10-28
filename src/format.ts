@@ -209,6 +209,31 @@ export function opponentCodes(names: string[]): Map<string, string> {
   return codes;
 }
 
+const VOWEL = /[аеёиоуыэюя]/i;
+
+/**
+ * Мягкий перенос в длинных словах названия («Черно-морец», «Рост-сельмаш») — для узких клеток: по слогу ближе
+ * к середине, в обеих частях есть гласная, «ь/ъ/й» не отрываются, слово с дефисом не трогаем.
+ */
+export function softHyphens(name: string): string {
+  return name
+    .split(' ')
+    .map((word) => {
+      if (word.length < 10 || word.includes('-')) return word;
+      let best = -1;
+      for (let i = 2; i <= word.length - 2; i++) {
+        const left = word.slice(0, i);
+        const right = word.slice(i);
+        const split = VOWEL.test(left) && VOWEL.test(right) && !/^[ьъй]/i.test(right) && !/^.[ьъ]/i.test(right);
+        // согласную перед гласной не отрываем: «Крас-ноярск», а не «Красн-оярск»
+        const ok = split && (VOWEL.test(left.at(-1)!) || !VOWEL.test(right[0]));
+        if (ok && (best < 0 || Math.abs(i - word.length / 2) < Math.abs(best - word.length / 2))) best = i;
+      }
+      return best < 0 ? word : `${word.slice(0, best)}\u00AD${word.slice(best)}`;
+    })
+    .join(' ');
+}
+
 /** «2:1», «1:1 д.в. (пен. 4:3)», «д.в.», если счёт ещё не внесён. Счёт — со стороны «Амкара». */
 export function formatScore(m: Pick<MatchRow, 'goals_for' | 'goals_against' | 'extra_time' | 'pens_for' | 'pens_against'>): string {
   let s = m.goals_for != null && m.goals_against != null ? `${m.goals_for}:${m.goals_against}` : '';

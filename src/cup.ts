@@ -6,39 +6,50 @@ export interface CupMatch extends MatchRow {
   season_id: number;
 }
 
-/** Стадии по порядку. Раунд, который не узнали по названию, — стадия −1, раньше 1/256. */
-export const CUP_STAGES = ['1/256', '1/128', '1/64', '1/32', '1/16', '1/8', '1/4', '1/2', 'Финал'] as const;
+/**
+ * Стадии по порядку — по тому, сколько матчей оставалось выиграть до кубка: 1/256 — девять, финал — один.
+ * Раунд, который не узнали по названию, — стадия −1, раньше всех.
+ */
+export const CUP_STAGES = ['1/2048', '1/1024', '1/512', '1/256', '1/128', '1/64', '1/32', '1/16', '1/8', '1/4', '1/2', 'Финал'] as const;
 export const FINAL = CUP_STAGES.length - 1;
 export const SEMI = FINAL - 1;
-const STAGE_NAMES = ['1/256 финала', '1/128 финала', '1/64 финала', '1/32 финала', '1/16 финала', '1/8 финала', '1/4 финала', 'полуфинал', 'финал'];
+const STAGE_NAMES = [...CUP_STAGES.slice(0, SEMI).map((s) => `${s} финала`), 'полуфинал', 'финал'];
 /** С 1/8 финала весенний матч — окончание розыгрыша, начатого прошлым летом. */
 const LATE = CUP_STAGES.indexOf('1/8');
 
-/**
- * Раунды «пути регионов» — те же стадии от 1/256 до 1/8: раундов шесть, первый — 1/256 финала (Википедия,
- * розыгрыши 2024/25–2026/27). В базе 2024/25 записан стадиями 1/128…1/8 — это раунды 2–6, а с 2025/26 — раундами.
- */
+/** Раунды «пути регионов»: их шесть, официально — от 1/256 до 1/8 финала («1-й раунд — 1/256 финала», Википедия 2022/23). */
 const PATH_ROUNDS = ['перв', 'втор', 'трет', 'четв', 'пят', 'шест'];
 
 function pathRound(round: string): number {
   const m = /^(?:(\d)-й|(\S+)) раунд/i.exec(round);
   if (!m) return -1;
   const n = m[1] ? Number(m[1]) : PATH_ROUNDS.findIndex((w) => m[2].toLowerCase().startsWith(w)) + 1;
-  return n >= 1 && n <= PATH_ROUNDS.length ? n - 1 : -1;
+  return n >= 1 && n <= PATH_ROUNDS.length ? CUP_STAGES.indexOf('1/256') + n - 1 : -1;
 }
 
-/** Стадия по названию раунда: «1/8 финала, второй матч» — 1/8, «Второй раунд пути регионов» — 1/128; неизвестный — −1. */
+/** Стадия по официальному названию: «1/8 финала, второй матч» — 1/8, «Второй раунд пути регионов» — 1/128; неизвестный — −1. */
 export function stageOf(round: string | null): number {
   const r = (round ?? '').trim();
   const i = CUP_STAGES.findIndex((s) => r.startsWith(s));
   return i >= 0 ? i : pathRound(r);
 }
 
-/** Название раунда из протокола; у раунда «пути регионов» — и стадия: «Второй раунд пути регионов (1/128)». */
-export function roundText(round: string | null): string {
-  if (!round) return '—';
-  const stage = pathRound(round.trim());
-  return stage >= 0 ? `${round} (${CUP_STAGES[stage]})` : round;
+/**
+ * С 2022/23 кубок делится на путь РПЛ и путь регионов. После шести раундов пути регионов (официально 1/256…1/8)
+ * команде ещё играть нижнюю сетку: 1/4 и 1/2 — по два этапа с разными соперниками, финал пути, суперфинал.
+ * Поэтому по числу матчей до кубка раунды глубже своих названий (Википедия, сверено 28.10.2026):
+ * в 2022/23 и финал пути был в два этапа — после 6-го раунда ещё 7 матчей, на 4 ступени глубже (2-й раунд — 1/2048);
+ * с 2023/24 финал пути — один матч, на 3 ступени (2-й раунд — 1/1024, 6-й — 1/64).
+ * В 2021/22 группы по три команды заменили 1/32 и 1/16 — те же два соперника, стадии как названы.
+ * Нижнюю сетку «Амкар» пока не играл: для её этапов сдвиг другой, понадобится своё правило.
+ */
+const PATH_FROM = 2022;
+const pathShift = (start: number) => (start < PATH_FROM ? 0 : start === PATH_FROM ? 4 : 3);
+
+/** Стадия матча по числу матчей до кубка; 1-й раунд 2022/23 (1/4096) — в первом столбце, «Амкар» его не играл. */
+export function depthOf(round: string | null, start: number): number {
+  const stage = stageOf(round);
+  return stage >= 0 && stage <= LATE ? Math.max(0, stage - pathShift(start)) : stage;
 }
 
 /**
@@ -90,7 +101,7 @@ export function cupEditions(matches: CupMatch[], seasonStart: Map<number, number
     const ties: CupTie[] = [];
     for (const m of list) {
       const prev = ties.at(-1);
-      const stage = stageOf(m.round);
+      const stage = depthOf(m.round, year);
       if (prev && prev.stage === stage && prev.opponent === opponentName(m)) prev.matches.push(m);
       else ties.push({ stage, opponent: opponentName(m), matches: [m], lost: false });
     }
@@ -105,10 +116,11 @@ export function cupEditions(matches: CupMatch[], seasonStart: Map<number, number
 
 export const stageName = (stage: number) => (stage < 0 ? 'отбор' : STAGE_NAMES[stage]);
 
-/** Итог розыгрыша: «обладатель», «финал», «1/8 финала»; идущий — «в игре: …». */
+/** Итог розыгрыша — стадия вылета, как в протоколе: «1/8 финала», «Третий раунд пути регионов»; «обладатель»; идущий — «в игре: …». */
 export function editionResult(e: CupEdition): string {
   if (e.won) return 'обладатель';
-  return e.alive ? `в игре: ${stageName(e.best)}` : stageName(e.best);
+  const round = e.matches.at(-1)!.round?.replace(/,.*$/, '') || stageName(e.best);
+  return e.alive ? `в игре: ${round}` : round;
 }
 
 /** Счёт коротко: «2:2, пен. 1:4»; без счёта — пусто. */
@@ -116,6 +128,9 @@ export function shortScore(m: Pick<MatchRow, 'goals_for' | 'goals_against' | 'pe
   if (m.goals_for == null || m.goals_against == null) return '';
   return `${m.goals_for}:${m.goals_against}${m.pens_for != null && m.pens_against != null ? `, пен. ${m.pens_for}:${m.pens_against}` : ''}`;
 }
+
+/** Счёт противостояния: «3:0 / 2:1»; неизвестный счёт матча — прочерк, ни одного известного — пусто. */
+export const tieScore = (t: CupTie) => (t.matches.some((m) => shortScore(m)) ? t.matches.map((m) => shortScore(m) || '—').join(' / ') : '');
 
 /** Крупнейшие победы: по разнице мячей, затем по забитым, затем раньше по дате. */
 export function biggestWins<M extends Pick<MatchRow, 'goals_for' | 'goals_against' | 'match_date'>>(matches: M[], n: number): M[] {

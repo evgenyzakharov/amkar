@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 import { Card, Tiles, type Tile } from '../components/cards';
 import { LoadStatus, PageNav, ResultBadge } from '../components/common';
-import { CUP_STAGES, FINAL, SEMI, biggestWins, cupEditions, editionResult, roundText, shootouts, shortScore, stageName, type CupEdition, type CupTie } from '../cup';
+import { CUP_STAGES, FINAL, SEMI, biggestWins, cupEditions, editionResult, shootouts, shortScore, stageName, tieScore, type CupEdition, type CupTie } from '../cup';
 import { loadCup, type CupPageData } from '../db/queries';
 import { totals } from '../coaches';
 import type { MatchRow } from '../db/types';
-import { RESULT_LABEL, VENUE_LABEL, formatDate, formatScore, opponentName, plural } from '../format';
+import { RESULT_LABEL, VENUE_LABEL, formatDate, formatScore, opponentName, plural, softHyphens } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { usePageState } from '../pageState';
 import { historyHref, matchHref, opponentHref, playerHref } from '../router';
@@ -91,56 +91,74 @@ function stagesOf(editions: CupEdition[]) {
 }
 
 const tieTitle = (t: CupTie) =>
-  t.matches.map((m) => `${m.round ? roundText(m.round) : stageName(t.stage)}${m.match_date ? `, ${formatDate(m.match_date)}` : ''}: ${t.opponent} ${formatScore(m) || (m.result ? RESULT_LABEL[m.result] : '—')}`).join('; ');
+  t.matches.map((m) => `${m.round ?? stageName(t.stage)}${m.match_date ? `, ${formatDate(m.match_date)}` : ''}: ${t.opponent} ${formatScore(m) || (m.result ? RESULT_LABEL[m.result] : '—')}`).join('; ');
 
-/** Клетка «лестницы»: соперник, на ком вылетели — со счётом; ссылка — на решающий матч. */
+/** Клетка «лестницы»: соперник и счёт; ссылка — на решающий матч. */
 function TieChip({ tie }: { tie: CupTie }) {
   const last = tie.matches.at(-1)!;
   const tone = tie.lost ? 'lost' : last.result == null ? 'ahead' : 'won';
+  const score = tieScore(tie);
   return (
     <a className={`cup-tie cup-tie-${tone}${tie.stage === FINAL ? ' cup-tie-final' : ''}`} href={matchHref(last.id)} title={tieTitle(tie)}>
-      {tie.opponent}
-      {tie.lost && <small>{tie.matches.map((m) => shortScore(m) || (m.result ? RESULT_LABEL[m.result] : '—')).join(' / ')}</small>}
+      {softHyphens(tie.opponent)}
+      {score && <small>{score}</small>}
     </a>
   );
 }
 
-/** «Лестница»: строка — розыгрыш, столбец — стадия. На телефоне вместо неё — список (EditionList). */
+/**
+ * «Лестница»: строка — розыгрыш, столбец — стадия по числу матчей до кубка (depthOf в cup.ts), справа — стадия вылета,
+ * как в протоколе. На телефоне вместо неё — список (EditionList).
+ */
 function Ladder({ editions }: { editions: CupEdition[] }) {
   const stages = stagesOf(editions);
   return (
-    <div className="table-wrap cup-ladder">
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th scope="col">Розыгрыш</th>
+    <>
+      <div className="table-wrap cup-ladder">
+        <table className="data-table">
+          <colgroup>
+            <col className="cup-col-edition" />
             {stages.map((s) => (
-              <th scope="col" key={s}>
-                {s < 0 ? 'Отбор' : CUP_STAGES[s]}
-              </th>
+              <col key={s} />
             ))}
-            <th scope="col">Итог</th>
-          </tr>
-        </thead>
-        <tbody>
-          {[...editions].reverse().map((e) => (
-            <tr key={e.label}>
-              <th scope="row">{e.label}</th>
+            <col className="cup-col-result" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th scope="col">Розыгрыш</th>
               {stages.map((s) => (
-                <td key={s}>
-                  {e.ties
-                    .filter((t) => t.stage === s)
-                    .map((t) => (
-                      <TieChip key={t.matches[0].id} tie={t} />
-                    ))}
-                </td>
+                <th scope="col" key={s}>
+                  {s < 0 ? 'Отбор' : CUP_STAGES[s]}
+                </th>
               ))}
-              <td className="muted">{editionResult(e)}</td>
+              <th scope="col">Итог</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {[...editions].reverse().map((e) => (
+              <tr key={e.label}>
+                <th scope="row">{e.label}</th>
+                {stages.map((s) => (
+                  <td key={s}>
+                    {e.ties
+                      .filter((t) => t.stage === s)
+                      .map((t) => (
+                        <TieChip key={t.matches[0].id} tie={t} />
+                      ))}
+                  </td>
+                ))}
+                <td className="muted">{editionResult(e)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="note cup-ladder-note">
+        Стадии соотнесены по числу матчей, которые надо выиграть, чтобы взять кубок. С 2022/23 после шести раундов «пути
+        регионов» ещё нижняя сетка и суперфинал, поэтому эти раунды стоят левее своих названий; справа — стадия вылета, как в
+        протоколе.
+      </p>
+    </>
   );
 }
 
@@ -167,12 +185,10 @@ function EditionList({ editions }: { editions: CupEdition[] }) {
                   {i > 0 && ' · '}
                   {t.lost ? (
                     <b>
-                      {t.opponent} <a href={matchHref(t.matches.at(-1)!.id)}>{t.matches.map((m) => shortScore(m) || '—').join(' / ')}</a>
+                      <TieLine tie={t} />
                     </b>
                   ) : (
-                    <a href={matchHref(t.matches.at(-1)!.id)} title={tieTitle(t)}>
-                      {t.opponent}
-                    </a>
+                    <TieLine tie={t} />
                   )}
                 </span>
               ))}
@@ -181,6 +197,21 @@ function EditionList({ editions }: { editions: CupEdition[] }) {
         );
       })}
     </ul>
+  );
+}
+
+/** Соперник и счёт ссылкой на матч; без счёта ссылка — на названии. */
+function TieLine({ tie }: { tie: CupTie }) {
+  const score = tieScore(tie);
+  const href = matchHref(tie.matches.at(-1)!.id);
+  return score ? (
+    <>
+      {tie.opponent} <a href={href}>{score}</a>
+    </>
+  ) : (
+    <a href={href} title={tieTitle(tie)}>
+      {tie.opponent}
+    </a>
   );
 }
 
@@ -199,7 +230,7 @@ function BiggestWins({ data }: { data: CupPageData }) {
             <a href={matchHref(m.id)}>{shortScore(m)}</a> — <OpponentLink m={m} />
             <span className="muted">
               {' '}
-              · {roundText(m.round)}
+              · {m.round}
               {m.match_date && `, ${formatDate(m.match_date)}`}
             </span>
           </li>
@@ -318,7 +349,7 @@ function AllMatches({ editions }: { editions: CupEdition[] }) {
               </tr>
               {e.matches.map((m) => (
                 <tr key={m.id}>
-                  <td>{roundText(m.round)}</td>
+                  <td>{m.round ?? '—'}</td>
                   <td>{m.match_date ? formatDate(m.match_date) : '—'}</td>
                   <td>
                     <OpponentLink m={m} />

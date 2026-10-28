@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { biggestWins, cupEditions, editionResult, editionStart, roundText, shootouts, shortScore, stageOf, type CupMatch } from '../src/cup';
+import { CUP_STAGES, FINAL, biggestWins, cupEditions, depthOf, editionResult, editionStart, shootouts, shortScore, stageOf, tieScore, type CupMatch } from '../src/cup';
 import type { Result } from '../src/db/types';
 
 let id = 0;
@@ -32,26 +32,40 @@ const match = (date: string | null, round: string, opponent: string, score: stri
 
 describe('stageOf', () => {
   it('reads the stage from the round name', () => {
-    expect(stageOf('1/256 финала')).toBe(0);
-    expect(stageOf('1/8 финала, второй матч')).toBe(5);
-    expect(stageOf('1/2 финала')).toBe(7);
-    expect(stageOf('Финал')).toBe(8);
+    expect(stageOf('1/256 финала')).toBe(3);
+    expect(stageOf('1/8 финала, второй матч')).toBe(8);
+    expect(stageOf('1/2 финала')).toBe(10);
+    expect(stageOf('Финал')).toBe(FINAL);
   });
 
-  it('treats the regional-path rounds as 1/256…1/8', () => {
-    expect(stageOf('Первый раунд пути регионов')).toBe(0);
-    expect(stageOf('Второй раунд пути регионов')).toBe(1);
-    expect(stageOf('Третий раунд пути регионов')).toBe(2);
-    expect(stageOf('Четвёртый раунд пути регионов')).toBe(3);
-    expect(stageOf('6-й раунд')).toBe(5);
-    expect(roundText('Второй раунд пути регионов')).toBe('Второй раунд пути регионов (1/128)');
-    expect(roundText('1/8 финала, второй матч')).toBe('1/8 финала, второй матч');
+  it('reads the regional-path rounds by their official names 1/256…1/8', () => {
+    expect(stageOf('Первый раунд пути регионов')).toBe(stageOf('1/256 финала'));
+    expect(stageOf('Второй раунд пути регионов')).toBe(stageOf('1/128 финала'));
+    expect(stageOf('Четвёртый раунд пути регионов')).toBe(stageOf('1/32 финала'));
+    expect(stageOf('6-й раунд')).toBe(stageOf('1/8 финала'));
   });
 
   it('puts unknown rounds before 1/256', () => {
     expect(stageOf('Седьмой раунд пути регионов')).toBe(-1);
     expect(stageOf('Квалификация')).toBe(-1);
     expect(stageOf(null)).toBe(-1);
+  });
+});
+
+describe('depthOf', () => {
+  const stage = (s: string) => CUP_STAGES.indexOf(s as (typeof CUP_STAGES)[number]);
+
+  it('keeps the official stage before 2022/23', () => {
+    expect(depthOf('1/256 финала', 2021)).toBe(stage('1/256'));
+    expect(depthOf('1/8 финала', 2007)).toBe(stage('1/8'));
+  });
+
+  it('moves regional-path rounds deeper: by 4 steps in 2022/23, by 3 from 2023/24', () => {
+    expect(depthOf('1/128 финала', 2022)).toBe(stage('1/2048'));
+    expect(depthOf('1/128 финала', 2023)).toBe(stage('1/1024'));
+    expect(depthOf('1/8 финала', 2024)).toBe(stage('1/64'));
+    expect(depthOf('Второй раунд пути регионов', 2025)).toBe(stage('1/1024'));
+    expect(depthOf('Третий раунд пути регионов', 2026)).toBe(stage('1/512'));
   });
 });
 
@@ -82,11 +96,11 @@ describe('cupEditions', () => {
       match('2008-05-17', 'Финал', 'ЦСКА', '2:2', { pens: '1:4' }),
     ]);
     expect(e.label).toBe('2007/08');
-    expect(e.best).toBe(8);
+    expect(e.best).toBe(FINAL);
     expect(e.won).toBe(false);
     expect(e.exit?.opponent).toBe('ЦСКА');
     expect(e.ties.filter((t) => t.lost)).toHaveLength(1);
-    expect(editionResult(e)).toBe('финал');
+    expect(editionResult(e)).toBe('Финал');
   });
 
   it('joins the two legs of a tie', () => {
@@ -100,13 +114,16 @@ describe('cupEditions', () => {
     expect(eds.map((e) => e.label)).toEqual(['2003/04', '2004/05']);
     expect(eds[0].ties.map((t) => t.matches.length)).toEqual([1, 2]);
     expect(eds[0].exit?.opponent).toBe('ФК Москва');
+    expect(editionResult(eds[0])).toBe('1/16 финала');
+    expect(tieScore(eds[0].ties[1])).toBe('3:2 / 0:2');
   });
 
   it('keeps the latest edition alive after a win or between the legs', () => {
     const won = run([match('2026-08-25', 'Второй раунд пути регионов', 'Победа НН', '2:0')]);
     expect(won[0].alive).toBe(true);
     expect(won[0].exit).toBeNull();
-    expect(editionResult(won[0])).toBe('в игре: 1/128 финала');
+    expect(editionResult(won[0])).toBe('в игре: Второй раунд пути регионов');
+    expect(won[0].best).toBe(CUP_STAGES.indexOf('1/1024'));
 
     const leg = run([match('2026-09-20', '1/8 финала, первый матч', 'Урал', '0:1')]);
     expect(leg[0].alive).toBe(true);
