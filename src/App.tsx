@@ -3,6 +3,8 @@ import { signOut, useAuth } from './auth';
 import { currentTheme, followSystem, logoSrc, setTheme, type Theme } from './theme';
 import { AuthProvider } from './components/AuthProvider';
 import { NotFound } from './components/common';
+import { PageErrorBoundary } from './components/PageErrorBoundary';
+import { confirmLeave } from './leaveGuard';
 import { MatchPage } from './pages/MatchPage';
 import { PlayerPage } from './pages/PlayerPage';
 import { LeadersPage } from './pages/LeadersPage';
@@ -131,7 +133,14 @@ function AdminLinks() {
       <span className="muted" title="вы вошли как">
         {auth.email}
       </span>
-      <button type="button" className="link-button" onClick={() => void signOut()}>
+      <button
+        type="button"
+        className="link-button"
+        onClick={() => {
+          // после выхода админка закрывается — несохранённое пропало бы
+          if (confirmLeave()) void signOut();
+        }}
+      >
         Выйти
       </button>
     </nav>
@@ -200,7 +209,9 @@ function App() {
       </header>
 
       <main className="site-main">
-        <Page route={route} />
+        <PageErrorBoundary resetKey={path}>
+          <Page route={route} />
+        </PageErrorBoundary>
       </main>
     </AuthProvider>
   );

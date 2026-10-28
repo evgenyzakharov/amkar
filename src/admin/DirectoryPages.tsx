@@ -1,5 +1,6 @@
 import { Fragment, useState, type ReactNode } from 'react';
 import { LoadStatus, PageNav } from '../components/common';
+import { confirmLeave } from '../leaveGuard';
 import { useDocumentTitle, useLoad } from '../load';
 import { adminHref } from '../router';
 import { dbErrorMessage } from './dbErrors';
@@ -117,6 +118,8 @@ function RawOpponents({ raw, teams, onChange }: { raw: RawOpponent[]; teams: Tea
   async function bind(r: RawOpponent) {
     const name = (names[r.raw] ?? r.raw).trim();
     if (!name) return;
+    // справочник после привязки перечитывается заново — несохранённое в нём пропало бы
+    if (!confirmLeave('Несохранённые изменения в справочнике пропадут. Привязать?')) return;
     setBusy(r.raw);
     setStatus(null);
     try {
@@ -255,7 +258,11 @@ interface DirectoryProps {
 function Directory({ config, records, usage, onSaved, addLabel, extra }: DirectoryProps) {
   const [draft, setDraft] = useState<DirDraft[]>(() => dirDraft(records, config));
   const [open, setOpen] = useState<{ id: number; what: 'usage' | 'extra' } | null>(null);
-  const toggle = (id: number, what: 'usage' | 'extra') => setOpen(open?.id === id && open.what === what ? null : { id, what });
+  const toggle = (id: number, what: 'usage' | 'extra') => {
+    // открытая строка закрывается — несохранённое во вложенном редакторе (сроки, названия) пропало бы
+    if (open?.what === 'extra' && !confirmLeave('Несохранённые изменения в открытой строке пропадут. Закрыть её?', 'nested')) return;
+    setOpen(open?.id === id && open.what === what ? null : { id, what });
+  };
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<Status | null>(null);
   const errors = validateDir(draft, config);

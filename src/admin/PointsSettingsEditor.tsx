@@ -41,8 +41,10 @@ function PointsForm({ initial }: { initial: PointsSettings }) {
   async function save() {
     setSaving(true);
     setStatus(null);
+    let saved = false;
     try {
       await savePoints(supabaseWriter, draft);
+      saved = true;
       setStatus({ kind: 'ok', text: 'Сохранено — очки пересчитаны.' });
     } catch (e) {
       setStatus({ kind: 'error', text: dbErrorMessage(e) });
@@ -50,7 +52,8 @@ function PointsForm({ initial }: { initial: PointsSettings }) {
     try {
       const fresh = await loadPointsSettings();
       setSettings(fresh);
-      setDraft(pointsDraft(fresh));
+      // После ошибки введённое остаётся в форме: исправить и сохранить ещё раз
+      if (saved) setDraft(pointsDraft(fresh));
       setVersion((v) => v + 1);
     } catch (e) {
       setStatus({ kind: 'error', text: `Не удалось перечитать формулу: ${dbErrorMessage(e)}` });

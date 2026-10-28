@@ -23,7 +23,7 @@ import type { Row, Writer } from './writer';
 const MATCH_FIELDS = [
   'id', 'season_id', 'competition_id', 'seq', 'round', 'match_date', 'venue', 'opponent_id', 'opponent_raw',
   'result', 'goals_for', 'goals_against', 'extra_time', 'pens_for', 'pens_against', 'awarded', 'coach_id',
-  'formation', 'notes',
+  'formation', 'notes', 'attendance',
 ] as const;
 const GOAL_FIELDS = ['id', 'match_id', 'side', 'minute', 'added_time', 'kind', 'scorer_id', 'scorer_name', 'assist_id'] as const;
 const VIDEO_FIELDS = ['id', 'match_id', 'kind', 'url', 'title'] as const;

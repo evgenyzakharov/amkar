@@ -4,6 +4,7 @@ import { errorMessage } from '../load';
 import { dbErrorMessage } from './dbErrors';
 import { isTenuresDirty, saveTenures, tenuresDraft, validateTenures, type TenureDraft } from './directory';
 import { loadTenures, type TenuresData } from './queries';
+import { useUnsavedGuard } from './useUnsavedGuard';
 import { supabaseWriter } from './writer';
 
 let key = 0;
@@ -31,11 +32,12 @@ export function CoachTenuresEditor({ coachId, onSaved }: { coachId: number; onSa
     };
   }, [coachId]);
 
+  const dirty = data ? isTenuresDirty(draft, data.records) : false;
+  useUnsavedGuard(dirty, 'nested');
   if (loadError) return <p className="error">Не удалось загрузить сроки: {loadError}</p>;
   if (!data) return <p className="muted">Загрузка…</p>;
 
   const { errors, warnings } = validateTenures(draft);
-  const dirty = isTenuresDirty(draft, data.records);
   const set = (k: string, patch: Partial<TenureDraft>) => setDraft((d) => d.map((x) => (x.key === k ? { ...x, ...patch } : x)));
   const add = () => setDraft((d) => [...d, { key: `new-${++key}`, id: null, from_date: '', to_date: '' }]);
 

@@ -413,6 +413,21 @@ describe('голы за сезон по матчам (season.goals_from_matches)
       { player_id: 4, goals: 0, assists: 0, goals_conceded: 1, goals_source: 'matches' },
     ]);
   });
+
+  it('гол на минуте замены вратаря — ушедшему, а не обоим', async () => {
+    await gm.exec(`
+      insert into match (id, season_id, competition_id, seq, opponent_raw) values (3, 1, 1, 3, 'Ротор');
+      insert into appearance (match_id, player_id, role, minutes, minute_on, minute_off, replaced_player_id) values
+        (3, 1, 'start', 90, null, null, null), (3, 3, 'start', 45, null, 45, null), (3, 4, 'sub', 45, 45, null, 3);
+      insert into goal (match_id, side, minute, added_time, kind, scorer_id, scorer_name, assist_id) values
+        (3, 'opponent', 45, null, 'open_play', null, 'Петров', null),
+        (3, 'opponent', 45, 2, 'open_play', null, 'Петров', null),
+        (3, 'opponent', 46, null, 'open_play', null, 'Петров', null);
+    `);
+    const conceded = (await stats()).filter((r) => r.player_id === 3 || r.player_id === 4).map((r) => r.goals_conceded);
+    // замена в перерыве (45-я): 45 и 45+2 — на ушедшего, 46 — на вышедшего; вместе — все голы соперника, 3 + 3
+    expect(conceded).toEqual([4, 2]);
+  });
 });
 
 describe('итоги за карьеру (player_career_stats)', () => {

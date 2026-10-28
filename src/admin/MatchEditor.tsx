@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { LoadStatus, PageNav } from '../components/common';
+import { goWithoutAsking } from '../leaveGuard';
 import { useDocumentTitle, useLoad } from '../load';
 import { adminMatchHref, adminSeasonHref, matchHref } from '../router';
 import { dbErrorMessage } from './dbErrors';
@@ -70,10 +71,10 @@ function MatchCard({ initial }: { initial: MatchCardData }) {
         reset(await loadNewMatchCard(label));
         setStatus({ kind: 'ok', text: 'Сохранено. Вводите следующий матч.', link: savedLink });
       } else if (!match) {
-        window.location.hash = adminMatchHref(saved.id);
+        goWithoutAsking(adminMatchHref(saved.id));
         return;
       } else if (goNext) {
-        window.location.hash = nextId ? adminMatchHref(nextId) : adminSeasonHref(label);
+        goWithoutAsking(nextId ? adminMatchHref(nextId) : adminSeasonHref(label));
         return;
       } else {
         reset(await loadMatchCard(saved.id));
@@ -93,7 +94,7 @@ function MatchCard({ initial }: { initial: MatchCardData }) {
     setSaving(true);
     try {
       await supabaseWriter.remove('match', { id: match.id });
-      window.location.hash = adminSeasonHref(label);
+      goWithoutAsking(adminSeasonHref(label));
     } catch (e) {
       setStatus({ kind: 'error', text: dbErrorMessage(e) });
       setSaving(false);

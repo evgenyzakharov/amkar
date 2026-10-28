@@ -106,8 +106,10 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
   async function save() {
     setSaving(true);
     setStatus(null);
+    let saved = false;
     try {
       await savePlayer(supabaseWriter, player, links, draft);
+      saved = true;
       setStatus({ kind: 'ok', text: 'Сохранено.' });
     } catch (e) {
       setStatus({ kind: 'error', text: dbErrorMessage(e) });
@@ -115,7 +117,8 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
     try {
       const fresh = await loadPlayerCard(player.id);
       setData(fresh);
-      setDraft(playerDraft(fresh.player, fresh.links));
+      // После ошибки введённое остаётся в форме: исправить и сохранить ещё раз
+      if (saved) setDraft(playerDraft(fresh.player, fresh.links));
     } catch (e) {
       setStatus({ kind: 'error', text: `Не удалось перечитать карточку: ${dbErrorMessage(e)}` });
     }
@@ -305,8 +308,10 @@ function AdjustmentsPanel({ playerId }: { playerId: number }) {
     if (!data) return;
     setSaving(true);
     setStatus(null);
+    let saved = false;
     try {
       await saveAdjustments(supabaseWriter, playerId, data.seasons, data.adjustments, draft);
+      saved = true;
       setStatus({ kind: 'ok', text: 'Поправки сохранены.' });
     } catch (e) {
       setStatus({ kind: 'error', text: dbErrorMessage(e) });
@@ -314,7 +319,7 @@ function AdjustmentsPanel({ playerId }: { playerId: number }) {
     try {
       const fresh = await loadPlayerPoints(playerId);
       setData(fresh);
-      setDraft(adjustmentDraft(fresh.seasons, fresh.adjustments));
+      if (saved) setDraft(adjustmentDraft(fresh.seasons, fresh.adjustments));
     } catch (e) {
       setStatus({ kind: 'error', text: `Не удалось перечитать очки: ${dbErrorMessage(e)}` });
     }

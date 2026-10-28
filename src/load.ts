@@ -13,6 +13,9 @@ export type Part<T> = { data: T } | { error: string };
 
 export const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+/** Файла страницы уже нет: сайт обновили, пока вкладка была открыта (старые файлы с хэшами удаляются при деплое). */
+export const isStaleChunkError = (e: unknown) => /dynamically imported module|Importing a module script failed/i.test(errorMessage(e));
+
 export async function part<T>(promise: Promise<T>): Promise<Part<T>> {
   try {
     return { data: await promise };

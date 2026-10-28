@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { leaveAllowed } from './leaveGuard';
 
 // Маршруты на hash: сайт лежит на GitHub Pages в подпапке, а серверной маршрутизации там нет
 
@@ -126,12 +127,39 @@ export function parseRoute(hash: string): Route {
   return { page: 'not-found' };
 }
 
-function subscribe(onChange: () => void) {
-  window.addEventListener('hashchange', onChange);
-  return () => window.removeEventListener('hashchange', onChange);
+// Показанный адрес. С несохранёнными правками админки уходим только с согласия (leaveGuard.ts):
+// при отказе в адресной строке возвращается прежний адрес, страница не меняется
+let shown: string | null = null;
+const listeners = new Set<() => void>();
+
+function onHashChange() {
+  const next = window.location.hash;
+  if (next === shown) return;
+  if (!leaveAllowed()) {
+    window.history.pushState(null, '', window.location.pathname + window.location.search + (shown ?? ''));
+    return;
+  }
+  shown = next;
+  listeners.forEach((l) => l());
 }
 
-/** Текущий hash; компонент перерисовывается при переходе по ссылке. */
+/** Подписка на смену адреса — для useHash. */
+export function subscribeHash(onChange: () => void) {
+  if (listeners.size === 0) {
+    shown = window.location.hash;
+    window.addEventListener('hashchange', onHashChange);
+  }
+  listeners.add(onChange);
+  return () => {
+    listeners.delete(onChange);
+    if (listeners.size === 0) window.removeEventListener('hashchange', onHashChange);
+  };
+}
+
+/** Показанный адрес страницы. */
+export const shownHash = () => shown ?? window.location.hash;
+
+/** Текущий hash; компонент перерисовывается при переходе по ссылке и кнопками «Назад» и «Вперёд». */
 export function useHash() {
-  return useSyncExternalStore(subscribe, () => window.location.hash);
+  return useSyncExternalStore(subscribeHash, shownHash);
 }

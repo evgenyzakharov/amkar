@@ -33,8 +33,10 @@ function SeasonInfo({ initial }: { initial: SeasonInfoData }) {
   async function save() {
     setSaving(true);
     setStatus(null);
+    let saved = false;
     try {
       await saveSeason(supabaseWriter, season, links, draft);
+      saved = true;
       setStatus({ kind: 'ok', text: 'Сохранено.' });
     } catch (e) {
       setStatus({ kind: 'error', text: dbErrorMessage(e) });
@@ -42,7 +44,8 @@ function SeasonInfo({ initial }: { initial: SeasonInfoData }) {
     try {
       const fresh = await loadSeasonInfo(season.label);
       setData(fresh);
-      setDraft(seasonDraft(fresh.season, fresh.links));
+      // После ошибки введённое остаётся в форме: исправить и сохранить ещё раз
+      if (saved) setDraft(seasonDraft(fresh.season, fresh.links));
     } catch (e) {
       setStatus({ kind: 'error', text: `Не удалось перечитать сезон: ${dbErrorMessage(e)}` });
     }

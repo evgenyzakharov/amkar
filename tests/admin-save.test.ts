@@ -173,6 +173,19 @@ describe('сохранение карточки матча', () => {
     expect(isDirty(saved, cardDraft(saved, competitions))).toBe(false);
   });
 
+  it('правка одних зрителей — тоже изменение', async () => {
+    const base = await loadBase(matchId);
+    const draft = cardDraft(base, competitions);
+    const next = { ...draft, header: { ...draft.header, attendance: '5000' } };
+    expect(isDirty(base, next)).toBe(true);
+    const out = await saveMatchCard(pgliteWriter(db), base, next);
+    expect(out.error).toBeNull();
+
+    const saved = await loadBase(matchId);
+    expect(saved.match).toMatchObject({ attendance: 5000 });
+    expect(isDirty(saved, cardDraft(saved, competitions))).toBe(false);
+  });
+
   it('сбой посередине: записанное не дублируется при повторе', async () => {
     const base = await loadBase(matchId);
     const draft = cardDraft(base, competitions);

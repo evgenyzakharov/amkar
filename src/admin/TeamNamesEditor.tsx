@@ -12,6 +12,7 @@ import {
   type TeamNameDraft,
 } from './directory';
 import { loadTeamNames, type TeamNamesData } from './queries';
+import { useUnsavedGuard } from './useUnsavedGuard';
 import { supabaseWriter } from './writer';
 
 let key = 0;
@@ -39,11 +40,12 @@ export function TeamNamesEditor({ teamId, current, onSaved }: { teamId: number; 
     };
   }, [teamId]);
 
+  const dirty = data ? isTeamNamesDirty(draft, data.names) : false;
+  useUnsavedGuard(dirty, 'nested');
   if (loadError) return <p className="error">Не удалось загрузить названия: {loadError}</p>;
   if (!data) return <p className="muted">Загрузка…</p>;
 
   const { errors, warnings } = validateTeamNames(draft);
-  const dirty = isTeamNamesDirty(draft, data.names);
   const set = (k: string, patch: Partial<TeamNameDraft>) => setDraft((d) => d.map((x) => (x.key === k ? { ...x, ...patch } : x)));
   const add = (name = '', from = '', to = '') =>
     setDraft((d) => [...d, { key: `new-${++key}`, id: null, name, from_year: from, to_year: to }]);

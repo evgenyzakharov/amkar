@@ -1,19 +1,20 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { markUnsaved } from '../leaveGuard';
 
-/** Несохранённое не теряем: ни при закрытии вкладки, ни при переходе по ссылке внутри сайта. */
-export function useUnsavedGuard(dirty: boolean) {
+/**
+ * Несохранённое не теряем: ни при закрытии вкладки, ни при уходе со страницы — ссылкой, «Назад» или «Выйти» (leaveGuard.ts).
+ * scope 'nested' — вложенный редактор в строке справочника: про него спрашивают и когда строку закрывают.
+ */
+export function useUnsavedGuard(dirty: boolean, scope?: 'nested') {
+  const [owner] = useState(() => ({}));
   useEffect(() => {
+    markUnsaved(owner, dirty, scope);
     if (!dirty) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
-    const onClick = (e: MouseEvent) => {
-      const link = e.target instanceof Element ? e.target.closest('a[href^="#"]') : null;
-      if (link && !window.confirm('Есть несохранённые изменения. Уйти без сохранения?')) e.preventDefault();
-    };
     window.addEventListener('beforeunload', onBeforeUnload);
-    document.addEventListener('click', onClick, true);
     return () => {
+      markUnsaved(owner, false);
       window.removeEventListener('beforeunload', onBeforeUnload);
-      document.removeEventListener('click', onClick, true);
     };
-  }, [dirty]);
+  }, [owner, dirty, scope]);
 }
