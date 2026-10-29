@@ -4,7 +4,7 @@ import { LoadStatus, PageNav, ResultBadge } from '../components/common';
 import { Slices, Wdl } from '../components/MatchStats';
 import { KIND_ROWS, VENUE_ROWS, WDL, ppmText, type Run, type Totals } from '../coaches';
 import { loadOpponent, loadOpponents, type OpponentPageData } from '../db/queries';
-import { VENUE_LABEL, formatDate, formatInt, formatScore, plural } from '../format';
+import { VENUE_LABEL, byDisplayName, formatDate, formatInt, formatScore, plural } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { allOpponents, opponentStats, type OpponentMatch, type OpponentStats } from '../opponents';
 import { matchHref, opponentHref, opponentsHref, playerHref, seasonHref, type LeadersScope } from '../router';
@@ -293,7 +293,7 @@ function Milestones({ o }: { o: OpponentStats }) {
 }
 
 function Scorers({ data }: { data: OpponentPageData }) {
-  const top = [...data.scorers].sort((a, b) => b.goals - a.goals || a.display_name.localeCompare(b.display_name, 'ru')).slice(0, 7);
+  const top = [...data.scorers].sort((a, b) => b.goals - a.goals || byDisplayName(a.display_name, b.display_name)).slice(0, 7);
   if (top.length === 0) return <p className="muted">Голов «Амкара» в этих матчах не записано.</p>;
   return (
     <ol className="coach-top">

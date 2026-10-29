@@ -169,6 +169,15 @@ export function bestXiLines(key: string | null | undefined, filled: string[]): s
 }
 
 /** Соперник так, как он назывался в сезон матча; без названия по годам — по справочнику или тексту из Excel. */
+/**
+ * Ключ сортировки «как показывать» — по фамилии: «Р. Джалович» → «Джалович Р.», «Вад. Шпитальный» → «Шпитальный Вад.».
+ * Иначе после «И. Фамилия» списки шли бы по первой букве имени.
+ */
+export const nameSortKey = (displayName: string) => displayName.replace(/^([А-ЯЁA-Z][а-яёa-z]{0,3}\.)\s+(.+)$/, '$2 $1');
+
+/** Сравнение подписей «как показывать» по фамилии — для сортировок. */
+export const byDisplayName = (a: string, b: string) => nameSortKey(a).localeCompare(nameSortKey(b), 'ru');
+
 /** Имя и фамилия: «Радомир Джалович»; имени в базе нет — как показываем на сайте («Ю. Волков»). */
 export const fullName = (p: { display_name: string; first_name: string | null; last_name: string }) =>
   p.first_name ? `${p.first_name} ${p.last_name}` : p.display_name;

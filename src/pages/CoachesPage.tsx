@@ -10,7 +10,7 @@ import {
   coachStats,
   ppmText, type CoachMatch, type CoachStats, type Period, type Run, type Totals } from '../coaches';
 import { loadCoachPage, loadCoaches, type CoachPlayer } from '../db/queries';
-import { formatDate, formatInt, formatScore, opponentName, plural } from '../format';
+import { byDisplayName, formatDate, formatInt, formatScore, opponentName, plural } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { coachHref, coachesHref, matchHref, playerHref, seasonHref, type LeadersScope } from '../router';
 import { usePageState } from '../pageState';
@@ -446,7 +446,7 @@ function Milestones({ c }: { c: CoachStats }) {
 function TopPlayers({ players, stat }: { players: CoachPlayer[]; stat: 'games' | 'goals' }) {
   const top = players
     .filter((p) => p[stat] > 0)
-    .sort((a, b) => b[stat] - a[stat] || b.minutes - a.minutes || a.display_name.localeCompare(b.display_name, 'ru'))
+    .sort((a, b) => b[stat] - a[stat] || b.minutes - a.minutes || byDisplayName(a.display_name, b.display_name))
     .slice(0, 5);
   if (top.length === 0) return <p className="muted">{stat === 'goals' ? 'Голов при нём не записано.' : 'Составов при нём не записано.'}</p>;
   return (

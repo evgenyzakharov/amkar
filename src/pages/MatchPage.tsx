@@ -9,6 +9,7 @@ import {
   AWARDED_LABEL,
   POSITION_ORDER,
   VENUE_LABEL,
+  byDisplayName,
   formatDate,
   formatInt,
   formatHomeScore,
@@ -340,7 +341,7 @@ function Absences({ absences }: { absences: Absence[] }) {
         {ABSENCE_ORDER.map((reason) => {
           const players = absences
             .filter((a) => a.reason === reason)
-            .sort((a, b) => a.player.display_name.localeCompare(b.player.display_name, 'ru'));
+            .sort((a, b) => byDisplayName(a.player.display_name, b.player.display_name));
           if (players.length === 0) return null;
           return (
             <div key={reason}>

@@ -5,7 +5,7 @@ import { CUP_STAGES, FINAL, SEMI, biggestWins, cupEditions, editionResult, shoot
 import { loadCup, type CupPageData } from '../db/queries';
 import { totals } from '../coaches';
 import type { MatchRow } from '../db/types';
-import { RESULT_LABEL, VENUE_LABEL, formatDate, formatScore, opponentName, plural, softHyphens } from '../format';
+import { RESULT_LABEL, VENUE_LABEL, byDisplayName, formatDate, formatScore, opponentName, plural, softHyphens } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { usePageState } from '../pageState';
 import { historyHref, matchHref, opponentHref, playerHref } from '../router';
@@ -275,7 +275,7 @@ function Shootouts({ data, editions }: { data: CupPageData; editions: CupEdition
  * Если таких слишком много (по два гола — у полутора десятков), их не перечисляем — только сколько их.
  */
 function Scorers({ data }: { data: CupPageData }) {
-  const sorted = [...data.scorers].sort((a, b) => b.goals - a.goals || a.display_name.localeCompare(b.display_name, 'ru'));
+  const sorted = [...data.scorers].sort((a, b) => b.goals - a.goals || byDisplayName(a.display_name, b.display_name));
   if (sorted.length === 0) return null;
   const cut = sorted[Math.min(TOP_SCORERS, sorted.length) - 1].goals;
   const tied = sorted.filter((s) => s.goals >= cut);

@@ -110,6 +110,7 @@ export const CONSTRAINT_MESSAGES: Record<string, string> = {
   season_teams_count_check: 'Число команд — больше нуля.',
   season_tier_check: 'Уровень лиги — от 1 до 4.',
   season_league_group_check: 'Группа — «Золото» или «Серебро».',
+  player_citizenship_check: 'Гражданство — название страны или пусто.',
   squad_member_pkey: 'Игрок уже есть в заявке этого сезона.',
   squad_member_shirt_number_check: 'Номер на футболке — от 1 до 99.',
   squad_member_position_check: 'Позиция — вратарь, защитник, полузащитник или нападающий.',

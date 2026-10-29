@@ -17,8 +17,10 @@ import {
   SLOT_TITLE,
   VENUE_LABEL,
   WINDOW_LABEL,
+  byDisplayName,
   formatDate,
   formatScore,
+  nameSortKey,
   num,
   opponentCodes,
   opponentName,
@@ -297,7 +299,7 @@ function ResultStrip({ matches, codes }: { matches: SeasonMatch[]; codes: Map<st
 function TopList({ players, value }: { players: PlayerSeasonStats[]; value: (p: PlayerSeasonStats) => number }) {
   const leaders = players
     .filter((p) => value(p) > 0)
-    .sort((a, b) => value(b) - value(a) || a.games - b.games || a.display_name.localeCompare(b.display_name, 'ru'))
+    .sort((a, b) => value(b) - value(a) || a.games - b.games || byDisplayName(a.display_name, b.display_name))
     .slice(0, 5);
   if (leaders.length === 0) return <p className="muted">Данных нет.</p>;
   const top = value(leaders[0]);
@@ -335,7 +337,7 @@ function SquadTable({ squad, points }: { squad: PlayerSeasonStats[]; points: Map
   const value: Record<SquadSort, (p: PlayerSeasonStats) => number | string> = {
     number: (p) => p.shirt_number ?? 999,
     position: (p) => (p.position ? POSITION_ORDER[p.position] : 9),
-    name: (p) => p.display_name,
+    name: (p) => nameSortKey(p.display_name),
     games: (p) => p.games,
     minutes: (p) => p.minutes,
     goals: (p) => p.goals ?? -1,
@@ -348,7 +350,7 @@ function SquadTable({ squad, points }: { squad: PlayerSeasonStats[]; points: Map
     const f = value[sort.key];
     return [...rows].sort((a, b) => {
       const [va, vb] = [f(a), f(b)];
-      return (va > vb ? 1 : va < vb ? -1 : 0) * sort.dir || a.display_name.localeCompare(b.display_name, 'ru');
+      return (va > vb ? 1 : va < vb ? -1 : 0) * sort.dir || byDisplayName(a.display_name, b.display_name);
     });
   };
   const groups = [

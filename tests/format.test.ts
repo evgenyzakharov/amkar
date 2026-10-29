@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ageExact, formatAgeExact, formatHomeScore, formatScore, fullName, opponentCodes, softHyphens } from '../src/format';
+import { ageExact, byDisplayName, formatAgeExact, formatHomeScore, formatScore, fullName, nameSortKey, opponentCodes, softHyphens } from '../src/format';
 
 const match = { goals_for: 0, goals_against: 2, extra_time: false, pens_for: null, pens_against: null };
 
@@ -85,5 +85,14 @@ describe('имя и фамилия', () => {
   it('имя есть — «Имя Фамилия», нет — как на сайте', () => {
     expect(fullName({ display_name: 'Джалович', first_name: 'Радомир', last_name: 'Джалович' })).toBe('Радомир Джалович');
     expect(fullName({ display_name: 'Ю. Волков', first_name: null, last_name: 'Волков' })).toBe('Ю. Волков');
+  });
+});
+
+describe('сортировка по фамилии', () => {
+  it('инициал — в конец ключа, особые подписи как есть', () => {
+    expect(nameSortKey('Р. Джалович')).toBe('Джалович Р.');
+    expect(nameSortKey('Вад. Шпитальный')).toBe('Шпитальный Вад.');
+    expect(nameSortKey('Благо')).toBe('Благо');
+    expect(['Р. Джалович', 'А. Попов', 'Благо', 'К. Попов'].sort(byDisplayName)).toEqual(['Благо', 'Р. Джалович', 'А. Попов', 'К. Попов']);
   });
 });

@@ -3,7 +3,7 @@ import { LoadStatus } from '../components/common';
 import { MilestoneClubs } from '../components/MilestoneClubs';
 import { loadLeaders } from '../db/queries';
 import type { CareerStats } from '../db/types';
-import { clubYears } from '../format';
+import { byDisplayName, clubYears } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
 import { leadersHref, playerHref, type LeadersScope, type LeadersTab } from '../router';
 import { usePageState } from '../pageState';
@@ -30,7 +30,7 @@ function rank(players: CareerStats[], value: (p: CareerStats) => number | null):
       (a, b) =>
         b.value - a.value ||
         a.player.last_name.localeCompare(b.player.last_name, 'ru') ||
-        a.player.display_name.localeCompare(b.player.display_name, 'ru'),
+        byDisplayName(a.player.display_name, b.player.display_name),
     );
   let place = 0;
   return sorted.map((r, i) => {
