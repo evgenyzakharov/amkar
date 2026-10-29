@@ -135,6 +135,7 @@ function PlayerHero({
   const facts = [
     player.position && { term: 'Позиция', value: POSITION_NAME[player.position], strong: true },
     player.birth_date && { term: 'Дата рождения', value: formatDate(player.birth_date), strong: false },
+    player.citizenship && { term: 'Гражданство', value: player.citizenship, strong: false },
     (years || player.academy) && {
       term: 'В «Амкаре»',
       value: [years, player.academy && 'воспитанник'].filter(Boolean).join(' · '),

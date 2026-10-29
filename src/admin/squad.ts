@@ -1,6 +1,7 @@
 // Заявка сезона: номер, позиция, основа или молодёжь, аренда, порядок строк; добавить и убрать игрока.
 // «Воспитанник» — флаг игрока (player.academy), он в карточке игрока, а не в заявке.
 import type { Position } from '../db/types';
+import { defaultDisplayName } from '../format';
 import type { Writer } from './writer';
 
 export interface SquadRecord {
@@ -62,7 +63,7 @@ let tempId = 0;
 export const newTempId = () => --tempId;
 
 export const rowName = (r: SquadRowDraft, base: SquadBase) =>
-  r.newPlayer ? r.newPlayer.display_name.trim() || r.newPlayer.last_name.trim() || 'новый игрок' : (base.players.get(r.player_id)?.display_name ?? `игрок №${r.player_id}`);
+  r.newPlayer ? r.newPlayer.display_name.trim() || defaultDisplayName(r.newPlayer.last_name, r.newPlayer.first_name) || 'новый игрок' : (base.players.get(r.player_id)?.display_name ?? `игрок №${r.player_id}`);
 
 const shirt = (s: string) => {
   const t = s.trim();
@@ -138,12 +139,12 @@ export async function saveSquad(w: Writer, base0: SquadBase, draft0: SquadRowDra
       const first = p.first_name.trim() || null;
       const [created] = await w.insert<{ id: number }>(
         'player',
-        [{ display_name: p.display_name.trim() || last, last_name: last, first_name: first }],
+        [{ display_name: p.display_name.trim() || defaultDisplayName(last, first), last_name: last, first_name: first }],
         [`new-${r.player_id}`],
       );
       base.players.set(created.id, {
         id: created.id,
-        display_name: p.display_name.trim() || last,
+        display_name: p.display_name.trim() || defaultDisplayName(last, first),
         last_name: last,
         first_name: first,
         birth_date: null,

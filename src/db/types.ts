@@ -163,6 +163,8 @@ export interface Player {
   notes: string | null;
   /** Основная позиция для карточки игрока. */
   position: Position | null;
+  /** Гражданство — одна страна (до миграции 20261031120000 столбца нет). */
+  citizenship?: string | null;
   /** Путь к фото в бакете player-photos. */
   photo_path: string | null;
   /** Фото по ссылке на внешний сайт (до миграции 20261018200000 столбца нет). */

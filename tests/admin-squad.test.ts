@@ -87,7 +87,8 @@ describe('заявка сезона', () => {
       { display_name: 'Пеев', first_name: null, academy: false, shirt_number: 10, position: 'MF', squad_group: 'main', on_loan: true, sort_order: 1 },
       { display_name: 'Нарубин', first_name: null, academy: false, shirt_number: 1, position: 'GK', squad_group: 'main', on_loan: false, sort_order: 2 },
       { display_name: 'Волков', first_name: null, academy: false, shirt_number: null, position: 'DF', squad_group: 'youth', on_loan: false, sort_order: 3 },
-      { display_name: 'Комаров', first_name: 'Илья', academy: false, shirt_number: 33, position: 'FW', squad_group: 'main', on_loan: false, sort_order: 4 },
+      // новый игрок без «как показывать» — «И. Фамилия»
+      { display_name: 'И. Комаров', first_name: 'Илья', academy: false, shirt_number: 33, position: 'FW', squad_group: 'main', on_loan: false, sort_order: 4 },
     ]);
     // Кушева убрали из заявки — отметка «воспитанник» у игрока осталась
     expect((await db.query(`select academy from player where id = 3`)).rows).toEqual([{ academy: true }]);

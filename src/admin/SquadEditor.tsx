@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { LoadStatus } from '../components/common';
 import type { Position } from '../db/types';
-import { POSITION_LABEL, formatDate } from '../format';
+import { POSITION_LABEL, defaultDisplayName, formatDate } from '../format';
 import { useLoad } from '../load';
 import { adminPlayerHref, playerHref } from '../router';
 import { confirmDiscard } from '../leaveGuard';
@@ -187,8 +187,8 @@ function Squad({ initial }: { initial: SquadEditorData }) {
                         />
                         <input
                           aria-label="как показывать"
-                          placeholder={`на сайте: ${r.newPlayer.last_name.trim() || 'как фамилия'}`}
-                          title="как показывать в таблицах; однофамильцев различайте: «Ю. Волков»"
+                          placeholder={`на сайте: ${r.newPlayer.last_name.trim() ? defaultDisplayName(r.newPlayer.last_name, r.newPlayer.first_name) : '«И. Фамилия»'}`}
+                          title="как показывать в таблицах — «И. Фамилия»; у однофамильцев с одной буквой — две: «Вад. Шпитальный»"
                           value={r.newPlayer.display_name}
                           onChange={(e) => updateNew(r.player_id, { display_name: e.target.value })}
                         />

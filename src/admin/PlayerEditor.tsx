@@ -179,8 +179,8 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
       <div className="form-grid">
         <label>
           Как показывать
-          <input value={draft.display_name} placeholder="Ю. Волков" onChange={(e) => set('display_name', e.target.value)} />
-          <span className="field-note">в таблицах; однофамильцев различайте инициалом</span>
+          <input value={draft.display_name} placeholder="Р. Джалович" onChange={(e) => set('display_name', e.target.value)} />
+          <span className="field-note">в таблицах — «И. Фамилия»; у однофамильцев с одной буквой — две: «Вад. Шпитальный»</span>
         </label>
         <label>
           Фамилия
@@ -208,6 +208,11 @@ function PlayerForm({ initial }: { initial: PlayerCardData }) {
               </option>
             ))}
           </select>
+        </label>
+        <label>
+          Гражданство
+          <input value={draft.citizenship} placeholder="Россия" onChange={(e) => set('citizenship', e.target.value)} />
+          <span className="field-note">одна страна; двойное — по сборной, за которую играл</span>
         </label>
         <label className="inline">
           <input type="checkbox" checked={draft.academy} onChange={(e) => set('academy', e.target.checked)} /> воспитанник клуба

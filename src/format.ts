@@ -178,6 +178,10 @@ export const nameSortKey = (displayName: string) => displayName.replace(/^([А-�
 /** Сравнение подписей «как показывать» по фамилии — для сортировок. */
 export const byDisplayName = (a: string, b: string) => nameSortKey(a).localeCompare(nameSortKey(b), 'ru');
 
+/** «Как показывать» по умолчанию: «Р. Джалович»; имени нет — фамилия. */
+export const defaultDisplayName = (lastName: string, firstName: string | null) =>
+  firstName?.trim() ? `${firstName.trim()[0].toUpperCase()}. ${lastName.trim()}` : lastName.trim();
+
 /** Имя и фамилия: «Радомир Джалович»; имени в базе нет — как показываем на сайте («Ю. Волков»). */
 export const fullName = (p: { display_name: string; first_name: string | null; last_name: string }) =>
   p.first_name ? `${p.first_name} ${p.last_name}` : p.display_name;

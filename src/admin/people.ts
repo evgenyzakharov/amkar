@@ -163,6 +163,7 @@ export interface PlayerRecord {
   birth_date: string | null;
   academy: boolean;
   position: Position | null;
+  citizenship: string | null;
   notes: string | null;
   /** Путь к фото в бакете player-photos; меняется загрузкой фото, не формой. */
   photo_path: string | null;
@@ -172,7 +173,7 @@ export interface PlayerRecord {
 }
 
 export const PLAYER_COLUMNS =
-  'id, display_name, last_name, first_name, middle_name, birth_date, academy, position, notes, photo_path, photo_url, photo_credit';
+  'id, display_name, last_name, first_name, middle_name, birth_date, academy, position, citizenship, notes, photo_path, photo_url, photo_credit';
 
 export interface PlayerDraft {
   display_name: string;
@@ -182,6 +183,7 @@ export interface PlayerDraft {
   birth_date: string;
   academy: boolean;
   position: '' | Position;
+  citizenship: string;
   notes: string;
   photo_url: string;
   photo_credit: string;
@@ -197,6 +199,7 @@ export function playerDraft(p: PlayerRecord, links: { site: LinkSite; url: strin
     birth_date: p.birth_date ?? '',
     academy: p.academy,
     position: p.position ?? '',
+    citizenship: p.citizenship ?? '',
     notes: p.notes ?? '',
     photo_url: p.photo_url ?? '',
     photo_credit: p.photo_credit ?? '',
@@ -214,6 +217,7 @@ function playerValues(d: PlayerDraft) {
     birth_date: text(d.birth_date),
     academy: d.academy,
     position: d.position || null,
+    citizenship: text(d.citizenship),
     notes: text(d.notes),
     photo_url: text(d.photo_url),
     photo_credit: text(d.photo_credit),
