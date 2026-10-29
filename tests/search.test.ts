@@ -22,9 +22,10 @@ const index: SearchIndex = {
 describe('поиск в шапке', () => {
   it('игроки — по началу фамилии или имени, сыгравшие больше — выше; середина слова не в счёт', () => {
     const hits = search(index, 'поп');
-    expect(hits.map((h) => h.title)).toEqual(['А. Попов', 'К. Попов']);
+    // в результатах — имя и фамилия
+    expect(hits.map((h) => h.title)).toEqual(['Алексей Попов', 'Кирилл Попов']);
     expect(hits[0]).toMatchObject({ group: 'Игроки', href: '#/player/27', detail: '1996–2014 · 462 матча' });
-    expect(search(index, 'алексей попов').map((h) => h.title)).toEqual(['А. Попов']);
+    expect(search(index, 'алексей попов').map((h) => h.title)).toEqual(['Алексей Попов']);
   });
 
   it('ё и е не различаются; меньше двух букв — пусто', () => {

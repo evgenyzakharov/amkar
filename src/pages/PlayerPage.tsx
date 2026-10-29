@@ -13,6 +13,7 @@ import {
   formatDate,
   formatInt,
   formatRatio,
+  fullName,
   plural,
   sumKnown,
 } from '../format';
@@ -22,7 +23,7 @@ import { adminPlayerHref, compareHref, opponentHref, playerHref, playersHref, py
 
 export function PlayerPage({ id, scope }: { id: number; scope: LeadersScope }) {
   const state = useLoad(id, loadPlayer);
-  useDocumentTitle(state.status === 'ready' ? state.data.player.display_name : `Игрок №${id}`);
+  useDocumentTitle(state.status === 'ready' ? fullName(state.data.player) : `Игрок №${id}`);
   if (state.status !== 'ready') return <LoadStatus state={state} />;
 
   const { player, photoUrl, links, career, transfers, points, league, current } = state.data;

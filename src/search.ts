@@ -32,7 +32,8 @@ export function search(index: SearchIndex, query: string): SearchHit[] {
     .map((p): SearchHit => ({
       group: 'Игроки',
       href: playerHref(p.id),
-      title: p.name,
+      // в результатах — имя и фамилия: так тёзок различить проще
+      title: p.first ? `${p.first} ${p.last}` : p.name,
       detail: [p.years, p.games ? `${p.games} ${plural(p.games, ['матч', 'матча', 'матчей'])}` : 'без матчей'].filter(Boolean).join(' · '),
     }));
   const teams = index.teams

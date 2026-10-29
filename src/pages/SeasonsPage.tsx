@@ -55,7 +55,7 @@ function Home({ data }: { data: HomeData }) {
             <ul className="milestone-near">
               {near.map((n) => (
                 <li key={`${n.player.player_id}-${n.stat}`}>
-                  <a href={playerHref(n.player.player_id)}>{n.player.display_name}</a> — <b>{n.value}</b>{' '}
+                  <a href={playerHref(n.player.player_id)}>{data.names.get(n.player.player_id) ?? n.player.display_name}</a> — <b>{n.value}</b>{' '}
                   {n.stat === 'games' ? plural(n.value, ['матч', 'матча', 'матчей']) : plural(n.value, ['гол', 'гола', 'голов'])}, до {n.target} — {n.target - n.value}
                   <div className="milestone-bar" aria-hidden="true">
                     <div style={{ width: `${Math.round((100 * (n.value - (n.target - n.step))) / n.step)}%` }} />
@@ -166,7 +166,7 @@ function thisDay(data: HomeData, official: AnyMatch[], day: string, today: Date)
         year: Number(t.transfer_date.slice(0, 4)),
         text: (
           <>
-            <a href={playerHref(t.player.id)}>{t.player.display_name}</a> {t.direction === 'in' ? 'пришёл' : 'ушёл'}
+            <a href={playerHref(t.player.id)}>{data.names.get(t.player.id) ?? t.player.display_name}</a> {t.direction === 'in' ? 'пришёл' : 'ушёл'}
             {t.club && ` ${t.direction === 'in' ? 'из' : 'в'} «${t.club}»`}
             {t.kind === 'loan' && <span className="muted"> · аренда</span>}
           </>

@@ -487,6 +487,8 @@ export interface HistoryPageData {
   firstGoals: FirstGoal[];
   /** Кубковые матчи — для карточки «Кубок России»; не загрузились — карточки нет. */
   cup: AnyMatch[];
+  /** «Имя Фамилия» по id игрока — для рекордов возраста. */
+  names: Map<number, string>;
 }
 
 const loadAges = () =>
@@ -527,7 +529,7 @@ export async function loadHistory(): Promise<HistoryPageData> {
 }
 
 async function loadHistoryData(): Promise<HistoryPageData> {
-  const [seasons, graduates, minutes, ages, debuts, firstGoals, cup] = await Promise.all([
+  const [seasons, graduates, minutes, ages, debuts, firstGoals, cup, names] = await Promise.all([
     rows<SeasonSummary[]>(
       db()
         .from('season_summary')
@@ -552,6 +554,7 @@ async function loadHistoryData(): Promise<HistoryPageData> {
     ),
     optional(rows<FirstGoal[]>(db().from('player_first_goal').select('player_id, match_id, match_date, season_label, opponent, minute'))),
     optional(loadAllMatches()).then((all) => all.filter((m) => m.competition.kind === 'cup')),
+    namesOrEmpty(),
   ]);
   const academy =
     graduates.length === 0
@@ -569,7 +572,7 @@ async function loadHistoryData(): Promise<HistoryPageData> {
             .order('last_name')
             .limit(10),
         );
-  return { seasons, academy, minutes, ages, debuts, firstGoals, cup };
+  return { seasons, academy, minutes, ages, debuts, firstGoals, cup, names };
 }
 
 /** Серии: пять самых длинных за историю и лучшие в каждом сезоне, для всех турниров и только чемпионата. */
@@ -824,10 +827,12 @@ export interface HomeData {
   /** Для «В этот день»: дни рождения игроков с матчами за «Амкар» и тренеров, трансферы с датой. */
   birthdays: { kind: 'player' | 'coach'; id: number; name: string; birth_date: string }[];
   transfers: { id: number; direction: 'in' | 'out'; transfer_date: string; kind: Transfer['kind']; club: string | null; player: { id: number; display_name: string } }[];
+  /** «Имя Фамилия» по id игрока — для «В этот день» и «Близко к рубежу». */
+  names: Map<number, string>;
 }
 
 export async function loadHome(): Promise<HomeData> {
-  const [seasons, matches, current, born, played, coaches, transfers] = await Promise.all([
+  const [seasons, matches, current, born, played, coaches, transfers, names] = await Promise.all([
     loadSeasons(),
     loadAllMatches(),
     loadCurrentPlayers(),
@@ -847,6 +852,7 @@ export async function loadHome(): Promise<HomeData> {
           .order('id')
           .range(from, to),
     ),
+    namesOrEmpty(),
   ]);
   const playedIds = new Set(played.map((p) => p.player_id));
   const careers =
@@ -867,8 +873,32 @@ export async function loadHome(): Promise<HomeData> {
       ...coaches.map((c) => ({ kind: 'coach' as const, id: c.id, name: c.full_name, birth_date: c.birth_date })),
     ],
     transfers: transfers.map((t) => ({ id: t.id, direction: t.direction, transfer_date: t.transfer_date, kind: t.kind, club: t.other_team_name ?? t.other_team_raw, player: t.player })),
+    names,
   };
 }
+
+// ===========================================================================
+// Полные имена
+// ===========================================================================
+
+/**
+ * «Имя Фамилия» всех игроков (fullName) — для мест, где игрок упомянут поштучно: «В этот день», рубежи, рекорды.
+ * View отдают только «как показывать», поэтому имена — отдельным запросом, один раз за визит. Не загрузились —
+ * пусто: страницы показывают «как показывать».
+ */
+export const loadPlayerNames = () =>
+  cached('playerNames', async () => {
+    const players = await allRows<{ id: number; display_name: string; first_name: string | null; last_name: string }>((from, to) =>
+      db().from('player').select('id, display_name, first_name, last_name').order('id').range(from, to),
+    );
+    return new Map(players.map((p) => [p.id, fullName(p)]));
+  });
+
+const namesOrEmpty = () =>
+  loadPlayerNames().catch((e: unknown) => {
+    console.warn('Имена игроков не загрузились:', e);
+    return new Map<number, string>();
+  });
 
 // ===========================================================================
 // Общий поиск
@@ -994,7 +1024,9 @@ export interface ComparePlayer {
 export async function loadComparePlayers(key: string): Promise<[ComparePlayer, ComparePlayer]> {
   const ids = key.split('-').map(Number);
   const [players, careers, points, seasons, seasonPoints] = await Promise.all([
-    rows<{ id: number; display_name: string; position: Player['position'] }[]>(db().from('player').select('id, display_name, position').in('id', ids)),
+    rows<{ id: number; display_name: string; first_name: string | null; last_name: string; position: Player['position'] }[]>(
+      db().from('player').select('id, display_name, first_name, last_name, position').in('id', ids),
+    ),
     rows<CareerStats[]>(
       db().from('player_career_stats').select('player_id, display_name, last_name, seasons, first_year, last_year, games, games_league, goals, goals_league').in('player_id', ids),
     ),
@@ -1007,7 +1039,7 @@ export async function loadComparePlayers(key: string): Promise<[ComparePlayer, C
     if (!p) throw new NotFoundError(`Игрока №${id} в базе нет.`);
     return {
       id,
-      name: p.display_name,
+      name: fullName(p),
       position: p.position,
       career: careers.find((c) => c.player_id === id) ?? null,
       points: points.find((c) => c.player_id === id) ?? null,

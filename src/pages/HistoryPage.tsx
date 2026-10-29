@@ -402,13 +402,13 @@ function AgeCard({ data }: { data: HistoryPageData }) {
         }}
       />
       <dl className="coach-facts age-records">
-        {records.youngestDebut && <AgeFact term="Самый молодой дебют" r={records.youngestDebut} />}
-        {records.youngestScorer && <AgeFact term="Самый молодой автор гола" r={records.youngestScorer} />}
+        {records.youngestDebut && <AgeFact term="Самый молодой дебют" r={records.youngestDebut} names={data.names} />}
+        {records.youngestScorer && <AgeFact term="Самый молодой автор гола" r={records.youngestScorer} names={data.names} />}
         {records.oldest && (
           <div>
             <dt>Самый возрастной игрок</dt>
             <dd>
-              <a href={playerHref(records.oldest.player_id)}>{records.oldest.name}</a> —{' '}
+              <a href={playerHref(records.oldest.player_id)}>{data.names.get(records.oldest.player_id) ?? records.oldest.name}</a> —{' '}
               {records.oldest.birth && records.oldest.date ? formatAgeExact(records.oldest.birth, records.oldest.date) : `${formatAge(records.oldest.age)} года`}
               <span className="muted">
                 {' '}
@@ -433,12 +433,13 @@ function AgeCard({ data }: { data: HistoryPageData }) {
   );
 }
 
-function AgeFact({ term, r }: { term: string; r: AgeRecord }) {
+/** Рекорд возраста: игрок — именем и фамилией. */
+function AgeFact({ term, r, names }: { term: string; r: AgeRecord; names: Map<number, string> }) {
   return (
     <div>
       <dt>{term}</dt>
       <dd>
-        <a href={playerHref(r.player_id)}>{r.name}</a> — {r.date ? formatAgeExact(r.birth, r.date) : `${formatAge(r.age)} года`}{' '}
+        <a href={playerHref(r.player_id)}>{names.get(r.player_id) ?? r.name}</a> — {r.date ? formatAgeExact(r.birth, r.date) : `${formatAge(r.age)} года`}{' '}
         <span className="muted">
           (<a href={matchHref(r.match_id)}>{r.date ? formatDate(r.date) : 'матч'}</a>
           {r.opponent && `, ${r.opponent}`})
