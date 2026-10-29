@@ -3,7 +3,7 @@ import type { CoachInfo, CoachMatch, CoachesData, Debut, Tenure } from '../coach
 import type { OpponentMatch, OpponentTeam } from '../opponents';
 import { NotFoundError, part, type Part } from '../load';
 import type { SearchIndex } from '../search';
-import { isPlayed } from '../format';
+import { fullName, isPlayed } from '../format';
 import { supabase } from './supabase';
 import type {
   Absence,
@@ -831,8 +831,8 @@ export async function loadHome(): Promise<HomeData> {
     loadSeasons(),
     loadAllMatches(),
     loadCurrentPlayers(),
-    allRows<{ id: number; display_name: string; birth_date: string }>((from, to) =>
-      db().from('player').select('id, display_name, birth_date').not('birth_date', 'is', null).order('id').range(from, to),
+    allRows<{ id: number; display_name: string; first_name: string | null; last_name: string; birth_date: string }>((from, to) =>
+      db().from('player').select('id, display_name, first_name, last_name, birth_date').not('birth_date', 'is', null).order('id').range(from, to),
     ),
     allRows<{ player_id: number; games: number }>((from, to) =>
       db().from('player_career_stats').select('player_id, games').gt('games', 0).order('player_id').range(from, to),
@@ -863,7 +863,7 @@ export async function loadHome(): Promise<HomeData> {
     matches,
     current: careers,
     birthdays: [
-      ...born.filter((p) => playedIds.has(p.id)).map((p) => ({ kind: 'player' as const, id: p.id, name: p.display_name, birth_date: p.birth_date })),
+      ...born.filter((p) => playedIds.has(p.id)).map((p) => ({ kind: 'player' as const, id: p.id, name: fullName(p), birth_date: p.birth_date })),
       ...coaches.map((c) => ({ kind: 'coach' as const, id: c.id, name: c.full_name, birth_date: c.birth_date })),
     ],
     transfers: transfers.map((t) => ({ id: t.id, direction: t.direction, transfer_date: t.transfer_date, kind: t.kind, club: t.other_team_name ?? t.other_team_raw, player: t.player })),

@@ -169,6 +169,10 @@ export function bestXiLines(key: string | null | undefined, filled: string[]): s
 }
 
 /** Соперник так, как он назывался в сезон матча; без названия по годам — по справочнику или тексту из Excel. */
+/** Имя и фамилия: «Радомир Джалович»; имени в базе нет — как показываем на сайте («Ю. Волков»). */
+export const fullName = (p: { display_name: string; first_name: string | null; last_name: string }) =>
+  p.first_name ? `${p.first_name} ${p.last_name}` : p.display_name;
+
 export const opponentName = (m: Pick<MatchRow, 'team' | 'opponent_raw' | 'opponent_name'>) =>
   m.opponent_name ?? m.team?.name ?? m.opponent_raw ?? 'соперник не указан';
 

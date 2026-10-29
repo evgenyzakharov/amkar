@@ -144,11 +144,17 @@ function thisDay(data: HomeData, official: AnyMatch[], day: string, today: Date)
         return {
           key: `b${b.kind}${b.id}`,
           year: Number(b.birth_date.slice(0, 4)),
+          // «🎂 Радомир Джалович (44)»: день рождения сегодня, возраст — сколько исполнилось
           text: (
             <>
-              <span aria-hidden="true">🎂</span> родился {b.kind === 'coach' ? 'тренер ' : ''}
-              <a href={b.kind === 'coach' ? coachHref(b.id) : playerHref(b.id)}>{b.name}</a>
-              <span className="muted"> — сегодня {age} {plural(age, ['год', 'года', 'лет'])}</span>
+              <span role="img" aria-label="день рождения">
+                🎂
+              </span>{' '}
+              {b.kind === 'coach' && 'тренер '}
+              <a href={b.kind === 'coach' ? coachHref(b.id) : playerHref(b.id)}>{b.name}</a>{' '}
+              <span className="muted" title={`сегодня ${age} ${plural(age, ['год', 'года', 'лет'])}`}>
+                ({age})
+              </span>
             </>
           ),
         };

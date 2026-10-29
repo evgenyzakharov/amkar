@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ageExact, formatAgeExact, formatHomeScore, formatScore, opponentCodes, softHyphens } from '../src/format';
+import { ageExact, formatAgeExact, formatHomeScore, formatScore, fullName, opponentCodes, softHyphens } from '../src/format';
 
 const match = { goals_for: 0, goals_against: 2, extra_time: false, pens_for: null, pens_against: null };
 
@@ -78,5 +78,12 @@ describe('мягкие переносы', () => {
   it('короткие слова и слова с дефисом не трогает', () => {
     expect(show('Дзержинск')).toBe('Дзержинск');
     expect(show('Металлург-Кузбасс')).toBe('Металлург-Кузбасс');
+  });
+});
+
+describe('имя и фамилия', () => {
+  it('имя есть — «Имя Фамилия», нет — как на сайте', () => {
+    expect(fullName({ display_name: 'Джалович', first_name: 'Радомир', last_name: 'Джалович' })).toBe('Радомир Джалович');
+    expect(fullName({ display_name: 'Ю. Волков', first_name: null, last_name: 'Волков' })).toBe('Ю. Волков');
   });
 });
