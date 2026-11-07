@@ -322,6 +322,9 @@ function Directory({ config, records, usage, onSaved, addLabel, extra }: Directo
                         value={r.values[f.key]}
                         onChange={(e) => set(r.key, f.key, e.target.value)}
                       />
+                      {f.type === 'url' && /^https:\/\//.test(r.values[f.key].trim()) && (
+                        <img className="dir-preview" src={r.values[f.key].trim()} alt="" referrerPolicy="no-referrer" />
+                      )}
                     </td>
                   ))}
                   {extra && (

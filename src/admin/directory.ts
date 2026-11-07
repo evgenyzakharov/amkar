@@ -7,7 +7,8 @@ export interface DirField {
   key: string;
   label: string;
   required?: boolean;
-  type?: 'text' | 'date';
+  /** url — ссылка https://, в таблице рядом с полем — картинка по ссылке. */
+  type?: 'text' | 'date' | 'url';
   placeholder?: string;
 }
 
@@ -25,6 +26,7 @@ export const TEAM_CONFIG: DirConfig = {
   fields: [
     { key: 'name', label: 'Название', required: true, placeholder: 'Динамо Пермь' },
     { key: 'city', label: 'Город' },
+    { key: 'crest_url', label: 'Герб (ссылка)', type: 'url', placeholder: 'https://…' },
     { key: 'notes', label: 'Заметки' },
   ],
   unique: 'name',
@@ -76,6 +78,9 @@ export function validateDir(draft: DirDraft[], config: DirConfig) {
       if (f.required && !d.values[f.key]?.trim()) errors.push(`Строка ${i + 1}: заполните «${f.label}».`);
       if (f.type === 'date' && d.values[f.key] && !/^\d{4}-\d{2}-\d{2}$/.test(d.values[f.key])) {
         errors.push(`${config.nameOf(d.values)}: «${f.label}» — в формате ГГГГ-ММ-ДД.`);
+      }
+      if (f.type === 'url' && d.values[f.key]?.trim() && !/^https:\/\//.test(d.values[f.key].trim())) {
+        errors.push(`${config.nameOf(d.values)}: «${f.label}» — ссылка должна начинаться с https://.`);
       }
     }
   });

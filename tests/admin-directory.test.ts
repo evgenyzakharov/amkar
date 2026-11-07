@@ -74,6 +74,20 @@ describe('справочники', () => {
     expect(dbErrorMessage(out.error)).toBe('Удалить нельзя: на эту запись ссылаются матчи.');
   });
 
+  it('герб соперника — ссылка https://; не https — ошибка в форме и в базе', async () => {
+    const records = (await db.query<DirRecord>('select id, name, city, crest_url, notes from team order by id')).rows;
+    const draft = dirDraft(records, TEAM_CONFIG);
+    draft[0] = { ...draft[0], values: { ...draft[0].values, crest_url: 'http://example.org/irtysh.png' } };
+    expect(validateDir(draft, TEAM_CONFIG)).toEqual(['Иртыш: «Герб (ссылка)» — ссылка должна начинаться с https://.']);
+    const bad = await saveDir(pgliteWriter(db), TEAM_CONFIG, records, draft);
+    expect(dbErrorMessage(bad.error)).toBe('Ссылка на герб должна начинаться с https://');
+    draft[0].values.crest_url = ' https://upload.wikimedia.org/irtysh.png ';
+    expect(validateDir(draft, TEAM_CONFIG)).toEqual([]);
+    const out = await saveDir(pgliteWriter(db), TEAM_CONFIG, records, draft);
+    expect(out.error).toBeNull();
+    expect((await db.query('select crest_url from team where id = 1')).rows).toEqual([{ crest_url: 'https://upload.wikimedia.org/irtysh.png' }]);
+  });
+
   it('соперники из Excel: по числу матчей, с сезонами; привязка — только непривязанных', async () => {
     const rows = (await db.query<{ opponent_raw: string; season: { label: string; start_year: number } }>(`
       select m.opponent_raw, json_build_object('label', s.label, 'start_year', s.start_year) season

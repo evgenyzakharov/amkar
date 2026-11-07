@@ -265,6 +265,8 @@ export interface MatchPageData {
   nextId: number | null;
   /** Зрители; null — не записано. */
   attendance: number | null;
+  /** Герб соперника (team.crest_url); нет или не загрузился — без герба. */
+  crestUrl: string | null;
 }
 
 export async function loadMatch(id: number): Promise<MatchPageData> {
@@ -292,18 +294,22 @@ export async function loadMatch(id: number): Promise<MatchPageData> {
   const match = await rows<(MatchDetails & { attendance: number | null }) | null>(
     db()
       .from('match')
-      .select(`${MATCH_COLUMNS}, season_id, opponent_id, formation, notes, attendance, season(label), coach(id, short_name)`)
+      .select(`${MATCH_COLUMNS}, season_id, opponent_id, formation, notes, attendance, season(label, start_year), coach(id, short_name)`)
       .eq('id', id)
       .maybeSingle(),
   );
   if (!match) throw new NotFoundError(`Матча №${id} в базе нет.`);
 
-  const [[lineup, goals, absences], squad, seasonMatches] = await Promise.all([
+  const [[lineup, goals, absences], squad, seasonMatches, crest] = await Promise.all([
     details,
     rows<SquadEntry[]>(
       db().from('squad_member').select('player_id, shirt_number, position, sort_order').eq('season_id', match.season_id),
     ),
     rows<{ id: number }[]>(db().from('match').select('id').eq('season_id', match.season_id).order('seq')),
+    // герб — необязательная часть: не загрузился — шапка без него
+    match.opponent_id == null
+      ? Promise.resolve([])
+      : optional(rows<{ crest_url: string | null }[]>(db().from('team').select('crest_url').eq('id', match.opponent_id))),
   ]);
   const i = seasonMatches.findIndex((m) => m.id === id);
   // Голы по ходу матча; без минуты — в конце, в порядке записи
@@ -317,6 +323,7 @@ export async function loadMatch(id: number): Promise<MatchPageData> {
     squad,
     prevId: seasonMatches[i - 1]?.id ?? null,
     nextId: seasonMatches[i + 1]?.id ?? null,
+    crestUrl: crest[0]?.crest_url ?? null,
   };
 }
 

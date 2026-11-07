@@ -1,5 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { ageExact, byDisplayName, defaultDisplayName, formatAgeExact, formatHomeScore, formatScore, fullName, nameSortKey, opponentCodes, softHyphens } from '../src/format';
+import {
+  AMKAR_CREST_NEW,
+  AMKAR_CREST_OLD,
+  NEW_CLUB_FROM,
+  ageExact,
+  amkarCrest,
+  byDisplayName,
+  defaultDisplayName,
+  formatAgeExact,
+  formatHomeScore,
+  formatScore,
+  fullName,
+  homeAwayGoals,
+  nameSortKey,
+  opponentCodes,
+  softHyphens,
+} from '../src/format';
 
 const match = { goals_for: 0, goals_against: 2, extra_time: false, pens_for: null, pens_against: null };
 
@@ -9,6 +25,18 @@ describe('счёт со стороны хозяев', () => {
     expect(formatHomeScore({ ...match, venue: 'neutral' })).toBe('0:2');
     expect(formatHomeScore({ ...match, venue: null })).toBe('0:2');
     expect(formatHomeScore({ ...match, venue: 'away' })).toBe('2:0');
+  });
+
+  it('табло на телефоне: хозяева сверху, у каждой строки свои голы и пенальти', () => {
+    const shootout = { goals_for: 1, goals_against: 1, pens_for: 3, pens_against: 5 };
+    expect(homeAwayGoals({ ...shootout, venue: 'away' })).toEqual({ home: 1, away: 1, homePens: 5, awayPens: 3 });
+    expect(homeAwayGoals({ ...match, venue: 'home' })).toEqual({ home: 0, away: 2, homePens: null, awayPens: null });
+    expect(homeAwayGoals({ ...match, venue: 'away' })).toEqual({ home: 2, away: 0, homePens: null, awayPens: null });
+  });
+
+  it('герб «Амкара» своего времени: старый клуб — до перерыва, новый — с 2021/22', () => {
+    expect(amkarCrest(2017)).toBe(AMKAR_CREST_OLD);
+    expect(amkarCrest(NEW_CLUB_FROM)).toBe(AMKAR_CREST_NEW);
   });
 
   it('серия пенальти переворачивается вместе со счётом', () => {

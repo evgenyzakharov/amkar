@@ -326,5 +326,23 @@ export const SEASON_EPOCHS: { title: string; until: number }[] = [
 /** Нынешний «Амкар» — новый клуб: с этого года начала сезона серии и история идут заново. */
 export const NEW_CLUB_FROM = 2021;
 
+/** Гербы «Амкара» на карточке матча — своего времени: старого клуба (Википедия) и нового (Wikimedia Commons). */
+export const AMKAR_CREST_OLD = 'https://upload.wikimedia.org/wikipedia/ru/thumb/c/c8/FC_Amkar_Perm_Logo.svg/500px-FC_Amkar_Perm_Logo.svg.png';
+export const AMKAR_CREST_NEW = 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Amkar_FC_logo_2021.png/250px-Amkar_FC_logo_2021.png';
+export const amkarCrest = (startYear: number) => (startYear >= NEW_CLUB_FROM ? AMKAR_CREST_NEW : AMKAR_CREST_OLD);
+
+/** Табло «хозяева сверху, гости снизу»: голы и серия пенальти каждой стороны; в гостях «Амкар» — вторая строка. */
+export function homeAwayGoals(m: Pick<MatchRow, 'venue' | 'goals_for' | 'goals_against' | 'pens_for' | 'pens_against'>): {
+  home: number | null;
+  away: number | null;
+  homePens: number | null;
+  awayPens: number | null;
+} {
+  const amkarAway = m.venue === 'away';
+  return amkarAway
+    ? { home: m.goals_against, away: m.goals_for, homePens: m.pens_against, awayPens: m.pens_for }
+    : { home: m.goals_for, away: m.goals_against, homePens: m.pens_for, awayPens: m.pens_against };
+}
+
 /** Турниры, матчи которых обведены рамкой в квадратах результатов и в тепловой карте. */
 export const RINGED_KINDS: CompetitionKind[] = ['cup', 'europe', 'playoff'];

@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { Card } from '../components/cards';
 import { EditLink, LoadStatus, PageNav, ResultBadge, Tag } from '../components/common';
 import { loadMatch } from '../db/queries';
@@ -9,10 +9,12 @@ import {
   AWARDED_LABEL,
   POSITION_ORDER,
   VENUE_LABEL,
+  amkarCrest,
   byDisplayName,
   formatDate,
   formatInt,
   formatHomeScore,
+  homeAwayGoals,
   num,
   opponentName,
 } from '../format';
@@ -27,13 +29,30 @@ export function MatchPage({ id }: { id: number }) {
   useDocumentTitle(match ? `${opponentName(match)}, ${match.season.label}` : `Матч №${id}`);
   if (state.status !== 'ready') return <LoadStatus state={state} />;
 
-  const { lineup, goals, absences, squad, prevId, nextId, attendance } = state.data;
+  const { lineup, goals, absences, squad, prevId, nextId, attendance, crestUrl } = state.data;
   const m = state.data.match;
-  // Хозяева слева: в гостях «Амкар» справа — в заголовке, счёте и голах
+  // Хозяева слева (на телефоне — сверху): в гостях «Амкар» справа — в заголовке, счёте и голах
   const away = m.venue === 'away';
   const opponent = m.opponent_id ? <a href={opponentHref(m.opponent_id)}>{opponentName(m)}</a> : opponentName(m);
   const [left, right] = away ? [opponent, 'Амкар'] : ['Амкар', opponent];
+  // табло скрыто от диктора — его ссылка не берёт фокус, ссылка заголовка остаётся
+  const boardOpponent = m.opponent_id ? (
+    <a href={opponentHref(m.opponent_id)} tabIndex={-1}>
+      {opponentName(m)}
+    </a>
+  ) : (
+    opponentName(m)
+  );
+  const [boardLeft, boardRight] = away ? [boardOpponent, 'Амкар'] : ['Амкар', boardOpponent];
+  const ownCrest = amkarCrest(m.season.start_year);
+  const [leftCrest, rightCrest] = away ? [crestUrl, ownCrest] : [ownCrest, crestUrl];
   const score = formatHomeScore(m);
+  const board = homeAwayGoals(m);
+  // На табло у голов только серия пенальти в скобках — словами её и «д.в.» пишем в строке под табло
+  const boardNotes = [
+    m.extra_time && 'д.в.',
+    board.homePens != null && board.awayPens != null && `по пенальти ${board.homePens}:${board.awayPens}`,
+  ].filter(Boolean);
   const kicker = [m.competition.name, m.round && (/^\d+$/.test(m.round) ? `${m.round}-й тур` : m.round)].filter(Boolean).join(' · ');
   const details: ReactNode[] = [
     m.match_date && formatDate(m.match_date),
@@ -63,8 +82,21 @@ export function MatchPage({ id }: { id: number }) {
         <div className="season-hero-main">
           {kicker && <div className="season-kicker">{kicker}</div>}
           <h1 className="match-title">
-            {left} <span className="match-title-score">{score ?? '—'}</span> {right}
+            <span className="match-team">
+              <Crest src={leftCrest} />
+              {left}
+            </span>{' '}
+            <span className="match-title-score">{score ?? '—'}</span>{' '}
+            <span className="match-team">
+              {right}
+              <Crest src={rightCrest} />
+            </span>
           </h1>
+          {/* Телефон: табло в две строки — герб, команда, голы; заголовок выше остаётся для экранного диктора */}
+          <div className="match-board" aria-hidden="true">
+            <BoardRow crest={leftCrest} name={boardLeft} goals={board.home} pens={board.homePens} />
+            <BoardRow crest={rightCrest} name={boardRight} goals={board.away} pens={board.awayPens} />
+          </div>
           <p className="match-meta">
             <ResultBadge result={m.result} />
             {!m.result && <span> результат неизвестен</span>}
@@ -74,6 +106,7 @@ export function MatchPage({ id }: { id: number }) {
                 {d}
               </Fragment>
             ))}
+            {boardNotes.length > 0 && <span className="board-only"> · {boardNotes.join(', ')}</span>}
           </p>
           {m.awarded && <p className="match-meta">Результат присуждён без игры{m.result && `: ${AWARDED_LABEL[m.result]}`}.</p>}
           {m.notes && <p className="match-notes">{m.notes}</p>}
@@ -104,6 +137,29 @@ export function MatchPage({ id }: { id: number }) {
 }
 
 /** Видео матча — ссылками в новой вкладке, без встроенных плееров и их трекеров. */
+/** Герб по ссылке, без referer (как фото игрока по ссылке); не открылся — картинки нет. */
+function Crest({ src }: { src: string | null }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  if (!src || failed === src) return null;
+  return <img className="match-crest" src={src} alt="" referrerPolicy="no-referrer" onError={() => setFailed(src)} />;
+}
+
+/** Строка табло на телефоне: место под герб есть всегда — названия встают ровной колонкой. */
+function BoardRow({ crest, name, goals, pens }: { crest: string | null; name: ReactNode; goals: number | null; pens: number | null }) {
+  return (
+    <>
+      <span className="board-crest">
+        <Crest src={crest} />
+      </span>
+      <span className="board-name">{name}</span>
+      <span className="board-goals">
+        {goals ?? '—'}
+        {pens != null && <span className="board-pens">({pens})</span>}
+      </span>
+    </>
+  );
+}
+
 function Videos({ videos }: { videos: MatchVideo[] }) {
   return (
     <Card title="Видео">

@@ -365,7 +365,7 @@ export interface TeamsPageData {
 
 export async function loadTeamsPage(): Promise<TeamsPageData> {
   const [records, unbound] = await Promise.all([
-    rows<TeamsPageData['records']>(db().from('team').select('id, name, city, notes, match(count), transfer(count), team_name(count)').order('name')),
+    rows<TeamsPageData['records']>(db().from('team').select('id, name, city, crest_url, notes, match(count), transfer(count), team_name(count)').order('name')),
     allRows<{ opponent_raw: string | null; season: { label: string; start_year: number } }>((from, to) =>
       db().from('match').select('opponent_raw, season(label, start_year)').is('opponent_id', null).order('id').range(from, to),
     ),

@@ -52,7 +52,7 @@ export interface MatchDetails extends MatchRow {
   season_id: number;
   formation: string | null;
   notes: string | null;
-  season: { label: string };
+  season: { label: string; start_year: number };
   coach: { id: number; short_name: string } | null;
   opponent_id: number | null;
 }
