@@ -1059,6 +1059,11 @@ h3 {
   text-decoration-color: var(--accent);
 }
 
+/* «Главные тренеры: А → Б → В» */
+.season-hero .coach-arrow {
+  color: var(--band-muted);
+}
+
 .season-hero .edit-link {
   color: var(--band-muted);
 }
@@ -1209,6 +1214,39 @@ h3 {
   font-size: 16px;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+/* Лента сезона по тренерам: отрезок на тренера, между отрезками — черта. Черта у отрезка в начале строки
+   уходит за левый край и срезается, поэтому каждая строка начинается ровно по краю карточки. */
+.strip-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 0;
+  margin-left: -14px;
+  clip-path: inset(-12px -12px -12px 2px);
+}
+
+.strip-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 12px;
+  border-left: 2px solid var(--border);
+}
+
+.strip-coach {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.strip-coach a {
+  font-weight: 600;
+}
+
+/* переносится только между частями подписи */
+.strip-coach span {
+  white-space: nowrap;
 }
 
 /* Лучшие бомбардиры с полосками */
@@ -2883,6 +2921,14 @@ input.w-year {
 
 .achievements li span {
   font-size: 22px;
+}
+
+/* «13 из 27 матчей сезона» — итог, который тренер делил с другими */
+.achievements li small {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .coach-facts {

@@ -71,8 +71,10 @@ export interface Run<M = CoachMatch> {
 export interface CoachSeason {
   season: Season;
   totals: Totals;
-  /** Тренер провёл бо́льшую часть матчей чемпионата: место в таблице — его. */
-  led: boolean;
+  /** Официальных матчей в сезоне у всей команды. */
+  seasonGames: number;
+  /** В сезоне работал и другой тренер: итог сезона (место, победа, повышение) — у всех тренеров сезона, с пометкой «N из M матчей». */
+  shared: boolean;
 }
 
 export type AchievementKind = 'record' | 'title' | 'promotion' | 'place' | 'cup' | 'europe' | 'streak' | 'youth' | 'longevity';
@@ -81,6 +83,8 @@ export interface Achievement {
   kind: AchievementKind;
   icon: string;
   title: string;
+  /** Итог сезона, который тренер делил с другими: «13 из 27 матчей сезона». */
+  note?: string;
 }
 
 export interface Period {
@@ -209,14 +213,12 @@ export function coachStats(data: CoachesData): CoachStats[] {
     .filter((m) => m.competition.kind !== 'friendly')
     .sort((a, b) => (order(a) < order(b) ? -1 : order(a) > order(b) ? 1 : 0));
 
-  // Кто вёл сезон: тренер большинства матчей чемпионата
-  const leadOf = new Map<number, number>();
-  for (const s of data.seasons) {
-    const count = new Map<number, number>();
-    for (const m of official) if (m.season_id === s.id && m.competition.kind === 'league' && m.coach_id) count.set(m.coach_id, (count.get(m.coach_id) ?? 0) + 1);
-    let best: [number, number] | null = null;
-    for (const [id, n] of count) if (!best || n > best[1]) best = [id, n];
-    if (best) leadOf.set(s.id, best[0]);
+  // Сколько официальных матчей в сезоне и сколько тренеров их провели
+  const gamesOf = new Map<number, number>();
+  const coachesOf = new Map<number, Set<number>>();
+  for (const m of official) {
+    gamesOf.set(m.season_id, (gamesOf.get(m.season_id) ?? 0) + 1);
+    if (m.coach_id) (coachesOf.get(m.season_id) ?? coachesOf.set(m.season_id, new Set()).get(m.season_id)!).add(m.coach_id);
   }
   const seasonsSorted = [...data.seasons].sort((a, b) => a.start_year - b.start_year || a.end_year - b.end_year);
   const breaks = clubBreak(data.seasons);
@@ -249,7 +251,9 @@ export function coachStats(data: CoachesData): CoachStats[] {
       }
       const seasons = [...new Set(ms.map((m) => m.season_id))].flatMap((id) => {
         const season = seasonOf.get(id);
-        return season ? [{ season, totals: totals(ms.filter((m) => m.season_id === id)), led: leadOf.get(id) === coach.id }] : [];
+        return season
+          ? [{ season, totals: totals(ms.filter((m) => m.season_id === id)), seasonGames: gamesOf.get(id) ?? 0, shared: (coachesOf.get(id)?.size ?? 0) > 1 }]
+          : [];
       });
 
       return {
@@ -285,20 +289,30 @@ export function coachStats(data: CoachesData): CoachStats[] {
   return stats;
 }
 
+/** «13 из 27 матчей сезона» — у сезона, где работал и другой тренер; иначе ничего. */
+export function seasonShare(cs: CoachSeason): string | undefined {
+  if (!cs.shared) return undefined;
+  return `${cs.totals.p} из ${cs.seasonGames} ${plural(cs.seasonGames, ['матча', 'матчей', 'матчей'])} сезона`;
+}
+
 function achievements(c: CoachStats, seasonsSorted: Season[]): Achievement[] {
   const out: Achievement[] = [];
-  const led = c.seasons.filter((s) => s.led).map((s) => s.season);
-  for (const s of led) {
-    if (s.final_place === 1) out.push({ kind: 'title', icon: '🏆', title: `Победитель: ${s.division ?? 'чемпионат'}, ${s.label}` });
+  // Итог сезона — у всех его тренеров; кто работал часть сезона — с пометкой
+  for (const cs of c.seasons) {
+    const s = cs.season;
+    const note = seasonShare(cs);
+    if (s.final_place === 1) out.push({ kind: 'title', icon: '🏆', title: `Победитель: ${s.division ?? 'чемпионат'}, ${s.label}`, note });
     const next = seasonsSorted[seasonsSorted.indexOf(s) + 1];
     // выше классом — лига выше или из «Серебра» второй лиги «А» в «Золото»
     const up = next && next.tier != null && s.tier != null && (next.tier < s.tier || (next.tier === s.tier && s.league_group === 'silver' && next.league_group === 'gold'));
     if (next && up && newClub(next) === newClub(s)) {
-      out.push({ kind: 'promotion', icon: '⬆', title: next.tier === 1 ? `Вывел в Премьер-лигу: ${s.label}` : `Повышение в классе: ${s.label}` });
+      out.push({ kind: 'promotion', icon: '⬆', title: next.tier === 1 ? `Вывел в Премьер-лигу: ${s.label}` : `Повышение в классе: ${s.label}`, note });
     }
   }
-  const top = led.filter((s) => s.tier === 1 && s.final_place != null && s.final_place <= 8).sort((a, b) => a.final_place! - b.final_place!)[0];
-  if (top) out.push({ kind: 'place', icon: '⭐', title: `${top.final_place}-е место в Премьер-лиге (${top.label})` });
+  const top = c.seasons
+    .filter(({ season: s }) => s.tier === 1 && s.final_place != null && s.final_place <= 8)
+    .sort((a, b) => a.season.final_place! - b.season.final_place!)[0];
+  if (top) out.push({ kind: 'place', icon: '⭐', title: `${top.season.final_place}-е место в Премьер-лиге (${top.season.label})`, note: seasonShare(top) });
 
   // Кубок: годы матчей стадии; полуфинал — в те годы, когда до финала не дошли
   const stageYears = (stage: string) => [...new Set(c.matches.filter((m) => cupStage(m) === stage).map(year))];

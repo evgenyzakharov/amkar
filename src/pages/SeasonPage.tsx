@@ -1,6 +1,7 @@
 import { Card, ExternalLinks, ScopeSwitch, Tiles, type Tile } from '../components/cards';
 import { EditLink, LoadStatus, Tag } from '../components/common';
 import { SeasonHeatmap } from '../components/SeasonHeatmap';
+import { ppmText, totals } from '../coaches';
 import { loadSeason, type SeasonPageData } from '../db/queries';
 import type { BestXiSlot, CompetitionKind, PlayerSeasonStats, SeasonMatch, SeasonPoints, SeasonTransfer } from '../db/types';
 import {
@@ -53,14 +54,22 @@ function SeasonCard({ data, scope }: { data: SeasonPageData; scope: LeadersScope
   // Бомбардиры и ассистенты: все турниры или только чемпионат — один переключатель над парой, выбор — в адресе
   const leagueOnly = scope === 'league';
   const leagueBy = new Map(data.league.map((l) => [l.player_id, l]));
-  const coach = mainCoach(official);
+  const coaches = seasonCoaches(official);
   const facts = [
     season.division && { term: 'Турнир', value: season.division },
     season.final_place && {
       term: 'Итоговое место',
       value: season.teams_count ? `${season.final_place} из ${season.teams_count}` : String(season.final_place),
     },
-    coach && { term: 'Главный тренер', value: <a href={coachHref(coach.id)}>{coach.name}</a> },
+    coaches.length > 0 && {
+      term: coaches.length > 1 ? 'Главные тренеры' : 'Главный тренер',
+      value: coaches.map((c, i) => (
+        <span key={`${c.id}-${i}`}>
+          {i > 0 && <span className="coach-arrow"> → </span>}
+          <a href={coachHref(c.id)}>{c.full_name}</a>
+        </span>
+      )),
+    },
   ].filter((f) => !!f);
 
   // Блок лидеров — только если есть кого показать: передачи в старых сезонах не учитывались (null)
@@ -126,7 +135,7 @@ function SeasonCard({ data, scope }: { data: SeasonPageData; scope: LeadersScope
 
       {matches.length > 0 ? (
         <Card title="Результаты по ходу сезона" aside={legend(official)}>
-          {official.length > 0 && <ResultStrip matches={official} codes={codes} />}
+          {official.length > 0 && <CoachStrips matches={official} codes={codes} />}
           {friendlies.length > 0 && (
             <>
               <h3 className="strip-title">Товарищеские матчи</h3>
@@ -199,18 +208,22 @@ function leaderTile(p: SeasonPoints): Tile {
   };
 }
 
-/** Главный тренер — тот, кто провёл больше всего официальных матчей сезона. */
-function mainCoach(matches: SeasonMatch[]): { id: number; name: string } | null {
-  const count = new Map<number, { id: number; name: string; n: number }>();
+/** Отрезки официальных матчей подряд у одного тренера — по порядку матчей. */
+function coachRuns(matches: SeasonMatch[]): { coach: SeasonMatch['coach']; matches: SeasonMatch[] }[] {
+  const runs: { coach: SeasonMatch['coach']; matches: SeasonMatch[] }[] = [];
   for (const m of matches) {
-    if (!m.coach) continue;
-    const c = count.get(m.coach.id) ?? { id: m.coach.id, name: m.coach.full_name, n: 0 };
-    c.n += 1;
-    count.set(m.coach.id, c);
+    const last = runs.at(-1);
+    if (last && last.coach?.id === m.coach?.id) last.matches.push(m);
+    else runs.push({ coach: m.coach, matches: [m] });
   }
-  let best: { id: number; name: string; n: number } | null = null;
-  for (const c of count.values()) if (!best || c.n > best.n) best = c;
-  return best && { id: best.id, name: best.name };
+  return runs;
+}
+
+/** Главные тренеры сезона по порядку работы: матчи без тренера не разрывают отрезок. */
+function seasonCoaches(matches: SeasonMatch[]): { id: number; full_name: string }[] {
+  const out: { id: number; full_name: string }[] = [];
+  for (const { coach } of coachRuns(matches)) if (coach && out.at(-1)?.id !== coach.id) out.push(coach);
+  return out;
 }
 
 // «В–Н–П» не переносится по тире: между буквами — невидимые неразрывные соединители
@@ -262,6 +275,36 @@ const RINGED = RINGED_KINDS;
 function legend(official: SeasonMatch[]) {
   const ringed = [...new Set(official.filter((m) => RINGED.includes(m.competition.kind)).map((m) => m.competition.name))];
   return ringed.length ? `с рамкой — ${ringed.join(', ')}` : undefined;
+}
+
+/** Официальные матчи: при смене тренера лента делится на отрезки, над каждым — тренер и его итоги в этом сезоне. */
+function CoachStrips({ matches, codes }: { matches: SeasonMatch[]; codes: Map<string, string> }) {
+  const runs = coachRuns(matches);
+  if (runs.length < 2) return <ResultStrip matches={matches} codes={codes} />;
+  return (
+    <div className="strip-groups">
+      {runs.map((run) => {
+        const t = totals(run.matches);
+        const n = run.matches.length;
+        return (
+          <div key={run.matches[0].id} className="strip-group">
+            <div className="strip-coach">
+              <span>{run.coach ? <a href={coachHref(run.coach.id)}>{run.coach.full_name}</a> : 'Тренер не указан'}</span> ·{' '}
+              <span>
+                {n} {plural(n, ['матч', 'матча', 'матчей'])}
+              </span>{' '}
+              ·{' '}
+              <span>
+                {t.w}–{t.d}–{t.l}
+              </span>{' '}
+              · <span>{ppmText(t)} очка/м</span>
+            </div>
+            <ResultStrip matches={run.matches} codes={codes} />
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /** Матчи квадратами по порядку: буква результата и счёт, пока счёта нет — номер матча; под квадратом — соперник в 3–4 буквы. */

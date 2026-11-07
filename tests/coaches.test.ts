@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clubBreak, coachStats, longestRun, totals, type CoachMatch, type CoachesData } from '../src/coaches';
+import { clubBreak, coachStats, longestRun, seasonShare, totals, type CoachMatch, type CoachesData } from '../src/coaches';
 import type { CompetitionKind, Result, Season } from '../src/db/types';
 
 const season = (id: number, label: string, tier: number, final_place: number | null = null, division = 'Лига'): Season => ({
@@ -128,9 +128,23 @@ describe('тренеры', () => {
     expect(of('Оборин').last?.season_id).toBe(3);
   });
 
-  it('место в таблице — у того, кто вёл бо́льшую часть сезона', () => {
-    expect(of('Рахимов').seasons.find((s) => s.season.label === '2008')?.led).toBe(true);
-    expect(of('Оборин').seasons.find((s) => s.season.label === '2008')?.led).toBe(false);
+  it('итог сезона — у всех его тренеров; кто работал часть сезона — с пометкой «N из M матчей»', () => {
+    const in2008 = (name: string) => of(name).seasons.find((s) => s.season.label === '2008');
+    expect(in2008('Рахимов')).toMatchObject({ seasonGames: 5, shared: true });
+    expect(in2008('Оборин')).toMatchObject({ seasonGames: 5, shared: true });
+    // товарищеский в сезон не входит
+    expect(of('Оборин').seasons.find((s) => s.season.label === '1996')).toMatchObject({ seasonGames: 7, shared: false });
+    const place = (name: string) => of(name).achievements.find((a) => a.kind === 'place');
+    expect(place('Рахимов')).toMatchObject({ title: '4-е место в Премьер-лиге (2008)', note: '4 из 5 матчей сезона' });
+    expect(place('Оборин')).toMatchObject({ title: '4-е место в Премьер-лиге (2008)', note: '1 из 5 матчей сезона' });
+    expect(of('Оборин').achievements.find((a) => a.kind === 'title')?.note).toBeUndefined();
+  });
+
+  it('«из 21 матча», «из 27 матчей»', () => {
+    const share = (p: number, seasonGames: number) => seasonShare({ ...of('Рахимов').seasons[0], totals: { ...totals([]), p }, seasonGames, shared: true });
+    expect(share(13, 21)).toBe('13 из 21 матча сезона');
+    expect(share(13, 27)).toBe('13 из 27 матчей сезона');
+    expect(seasonShare({ ...of('Рахимов').seasons[0], shared: false })).toBeUndefined();
   });
 
   it('крупнейшие победа и поражение', () => {

@@ -77,7 +77,7 @@ function overviewTiles(stats: CoachStats[]): Tile[] {
   const longest = [...stats].sort((a, b) => b.all.p - a.all.p)[0];
   const best = stats.filter((c) => c.all.p >= 20).sort((a, b) => (b.all.ppm ?? 0) - (a.all.ppm ?? 0))[0];
   const top = stats
-    .flatMap((c) => c.seasons.filter((s) => s.led && s.season.tier === 1 && s.season.final_place).map((s) => ({ c, s: s.season })))
+    .flatMap((c) => c.seasons.filter((s) => s.season.tier === 1 && s.season.final_place).map((s) => ({ c, s: s.season })))
     .sort((a, b) => a.s.final_place! - b.s.final_place!)[0];
   const tiles: Tile[] = [
     { value: stats.length, label: `${plural(stats.length, ['главный тренер', 'главных тренера', 'главных тренеров'])} с 1995 года` },
@@ -199,7 +199,7 @@ function CoachTable({ stats, scope }: { stats: CoachStats[]; scope: LeadersScope
                 <td className="num nowrap">
                   {t.gf}:{t.ga}
                 </td>
-                <td className="coach-icons" title={c.achievements.map((a) => a.title).join('\n')}>
+                <td className="coach-icons" title={c.achievements.map((a) => (a.note ? `${a.title} (${a.note})` : a.title)).join('\n')}>
                   <AchievementIcons c={c} />
                 </td>
               </tr>
@@ -281,6 +281,7 @@ export function CoachPage({ id }: { id: number }) {
   if (!c) return <NotFound message="У этого тренера нет ни матчей, ни сроков работы." />;
   const prev = stats[i - 1];
   const next = stats[i + 1];
+  const shared = c.seasons.find((s) => s.shared);
 
   return (
     <div className="card-page coaches">
@@ -306,7 +307,10 @@ export function CoachPage({ id }: { id: number }) {
             {c.achievements.map((a) => (
               <li key={a.title} className={a.kind === 'record' ? 'record' : undefined}>
                 <span aria-hidden="true">{a.icon}</span>
-                {a.title}
+                <div>
+                  {a.title}
+                  {a.note && <small>{a.note}</small>}
+                </div>
               </li>
             ))}
           </ul>
@@ -314,7 +318,10 @@ export function CoachPage({ id }: { id: number }) {
       )}
       <Card title="По сезонам">
         <CoachSeasons c={c} />
-        <p className="note">Место в таблице — у сезонов, где тренер провёл бо́льшую часть матчей чемпионата.</p>
+        <p className="note">
+          Место — итоговое место команды.
+          {shared && ` «${shared.totals.p} из ${shared.seasonGames}» — тренер работал часть сезона.`}
+        </p>
       </Card>
       <div className="card-row card-row-even">
         <Card title="По турнирам">
@@ -371,19 +378,22 @@ function CoachSeasons({ c }: { c: CoachStats }) {
           </tr>
         </thead>
         <tbody>
-          {c.seasons.map(({ season: s, totals: t, led }) => (
+          {c.seasons.map(({ season: s, totals: t, seasonGames, shared }) => (
             <tr key={s.id}>
               <td>
                 <a href={seasonHref(s.label)}>{s.label}</a>
               </td>
               <td>{s.division}</td>
-              <td className="num">{t.p}</td>
+              <td className="num nowrap">
+                {t.p}
+                {shared && <span className="muted"> из {seasonGames}</span>}
+              </td>
               <td>
                 <Wdl t={t} />
               </td>
               <td className="num">{ppmText(t)}</td>
               <td className="num nowrap">
-                {led && s.final_place ? `${s.final_place}${s.teams_count ? ` из ${s.teams_count}` : ''}` : <span className="muted">—</span>}
+                {s.final_place ? `${s.final_place}${s.teams_count ? ` из ${s.teams_count}` : ''}` : <span className="muted">—</span>}
               </td>
             </tr>
           ))}
