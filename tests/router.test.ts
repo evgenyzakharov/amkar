@@ -12,6 +12,7 @@ import {
   compareHref,
   academyHref,
   cupHref,
+  transfersHref,
   opponentHref,
   opponentsHref,
   historyHref,
@@ -51,6 +52,7 @@ describe('маршруты', () => {
     expect(parseRoute(opponentHref(7))).toEqual({ page: 'opponent', id: 7 });
     expect(parseRoute(academyHref)).toEqual({ page: 'academy' });
     expect(parseRoute(cupHref)).toEqual({ page: 'cup' });
+    expect(parseRoute(transfersHref)).toEqual({ page: 'transfers' });
     expect(parseRoute('#/coach/oborin')).toEqual({ page: 'not-found' });
   });
 

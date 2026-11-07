@@ -1,5 +1,6 @@
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { Card } from '../components/cards';
+import { Crest } from '../components/Crest';
 import { EditLink, LoadStatus, PageNav, ResultBadge, Tag } from '../components/common';
 import { loadMatch } from '../db/queries';
 import type { Absence, AbsenceReason, Appearance, Goal, SquadEntry } from '../db/types';
@@ -137,13 +138,6 @@ export function MatchPage({ id }: { id: number }) {
 }
 
 /** Видео матча — ссылками в новой вкладке, без встроенных плееров и их трекеров. */
-/** Герб по ссылке, без referer (как фото игрока по ссылке); не открылся — картинки нет. */
-function Crest({ src }: { src: string | null }) {
-  const [failed, setFailed] = useState<string | null>(null);
-  if (!src || failed === src) return null;
-  return <img className="match-crest" src={src} alt="" referrerPolicy="no-referrer" onError={() => setFailed(src)} />;
-}
-
 /** Строка табло на телефоне: место под герб есть всегда — названия встают ровной колонкой. */
 function BoardRow({ crest, name, goals, pens }: { crest: string | null; name: ReactNode; goals: number | null; pens: number | null }) {
   return (

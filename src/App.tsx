@@ -30,6 +30,7 @@ const PyramidPage = lazy(() => import('./pages/PyramidPage').then((m) => ({ defa
 // Сравнение и кубок — тоже по запросу
 const ComparePage = lazy(() => import('./pages/ComparePage').then((m) => ({ default: m.ComparePage })));
 const CupPage = lazy(() => import('./pages/CupPage').then((m) => ({ default: m.CupPage })));
+const TransfersPage = lazy(() => import('./pages/TransfersPage').then((m) => ({ default: m.TransfersPage })));
 
 function Page({ route }: { route: Route }) {
   switch (route.page) {
@@ -85,6 +86,12 @@ function Page({ route }: { route: Route }) {
       return (
         <Suspense fallback={<p className="muted">Загрузка…</p>}>
           <CupPage />
+        </Suspense>
+      );
+    case 'transfers':
+      return (
+        <Suspense fallback={<p className="muted">Загрузка…</p>}>
+          <TransfersPage />
         </Suspense>
       );
     case 'pyramid':
@@ -202,7 +209,7 @@ function sectionOf(route: Route): 'seasons' | 'history' | 'coaches' | 'opponents
   if (route.page === 'leaders') return 'leaders';
   if (route.page === 'pyramid') return 'pyramid';
   if (route.page === 'opponents' || route.page === 'opponent') return 'opponents';
-  if (route.page === 'academy' || route.page === 'cup') return 'history';
+  if (route.page === 'academy' || route.page === 'cup' || route.page === 'transfers') return 'history';
   if (route.page === 'coaches' || route.page === 'coach') return 'coaches';
   if (route.page === 'history') return 'history';
   if (route.page === 'seasons' || route.page === 'season' || route.page === 'match') return 'seasons';

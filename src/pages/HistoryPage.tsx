@@ -3,12 +3,14 @@ import { Card, Tiles, type Tile } from '../components/cards';
 import { LoadStatus } from '../components/common';
 import { Streaks } from '../components/Streaks';
 import { FINAL, cupEditions, editionResult, tieScore } from '../cup';
-import { loadHistory, type HistoryPageData } from '../db/queries';
+import { TransferLegend, TransferSeasons } from '../components/TransferSeasons';
+import { loadHistory, loadTransfers, type HistoryPageData } from '../db/queries';
 import type { CareerStats, GoalMinute, SeasonSummary } from '../db/types';
 import { NEW_CLUB_FROM, SEASON_EPOCHS, formatAge, formatAgeExact, formatDate, formatInt, formatRatio, plural } from '../format';
 import { ageRecords, bucketColumns, minuteColumns, seasonAges, type AgeRecord, type MinuteColumn } from '../historyStats';
 import { useDocumentTitle, useLoad } from '../load';
-import { academyHref, cupHref, matchHref, playerHref, seasonHref, type LeadersScope } from '../router';
+import { academyHref, cupHref, matchHref, playerHref, seasonHref, transfersHref, type LeadersScope } from '../router';
+import { transferStats } from '../transfers';
 import { usePageState } from '../pageState';
 
 // Ключ один: история не зависит от адреса
@@ -70,11 +72,27 @@ export function HistoryPage({ scope }: { scope: LeadersScope }) {
               <p className="note">По матчам за «Амкар» во всех турнирах, без товарищеских.</p>
             </div>
           </Card>
+          <TransfersCard />
           <Streaks seasons={state.data.seasons} scope={scope} />
           {state.data.minutes.length > 0 && <GoalMinutesCard rows={state.data.minutes} />}
         </>
       )}
     </div>
+  );
+}
+
+/** Трансферы по сезонам — своим запросом: не загрузились — карточки нет, остальная история на месте. */
+function TransfersCard() {
+  const state = useLoad(ALL, loadTransfers);
+  if (state.status !== 'ready') return null;
+  const { bySeason } = transferStats(state.data.transfers, state.data.seasons);
+  return (
+    <Card title="Трансферы" aside={<a href={transfersHref}>все трансферы →</a>}>
+      <TransferSeasons seasons={bySeason} />
+      <p className="note">
+        <TransferLegend /> — сколько игроков пришло и ушло за сезон: переходы и аренды, без возвратов из аренды.
+      </p>
+    </Card>
   );
 }
 

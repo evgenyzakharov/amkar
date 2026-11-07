@@ -28,7 +28,19 @@ import {
   plural,
 } from '../format';
 import { useDocumentTitle, useLoad } from '../load';
-import { adminSeasonHref, coachHref, compareHref, cupHref, matchHref, opponentHref, playerHref, pyramidHref, seasonHref, type LeadersScope } from '../router';
+import {
+  adminSeasonHref,
+  coachHref,
+  compareHref,
+  cupHref,
+  matchHref,
+  opponentHref,
+  playerHref,
+  pyramidHref,
+  seasonHref,
+  transfersHref,
+  type LeadersScope,
+} from '../router';
 import { usePageState } from '../pageState';
 
 export function SeasonPage({ label, scope }: { label: string; scope: LeadersScope }) {
@@ -584,7 +596,14 @@ function Transfers({ transfers, winterFirst }: { transfers: SeasonTransfer[]; wi
   };
   const n = (d: 'in' | 'out') => transfers.filter((t) => t.direction === d).length;
   return (
-    <Card title="Трансферы" aside={`пришли ${n('in')} · ушли ${n('out')}`}>
+    <Card
+      title="Трансферы"
+      aside={
+        <>
+          пришли {n('in')} · ушли {n('out')} · <a href={transfersHref}>все трансферы клуба →</a>
+        </>
+      }
+    >
       <div className="season-transfers">
         {column('in')}
         {column('out')}

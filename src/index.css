@@ -3882,3 +3882,254 @@ button.mirror-col {
     display: block;
   }
 }
+
+/* ===== Трансферы (#/transfers) ===== */
+
+/* Топ клубов: место, герб, клуб, полоска, число — кнопкой раскрывает игроков */
+.tr-top {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tr-top > li {
+  display: grid;
+  grid-template-columns: 24px 28px minmax(0, 1.3fr) minmax(48px, 1fr) auto;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tr-top > li.open {
+  background: var(--highlight);
+}
+
+.tr-place {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tr-crest {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tr-crest-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.tr-club {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.tr-club a {
+  font-weight: 600;
+}
+
+.tr-club small {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tr-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bar);
+}
+
+.tr-bar {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--accent);
+}
+
+.tr-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.tr-chev {
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tr-moves {
+  grid-column: 3 / -1;
+  margin: 2px 0 4px;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  columns: 2 14em;
+  column-gap: 16px;
+}
+
+.tr-moves li {
+  break-inside: avoid;
+}
+
+/* По сезонам: приходы вверх от черты, уходы вниз */
+.tr-legend {
+  display: inline-flex;
+  gap: 14px;
+}
+
+.tr-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+
+.tr-seasons {
+  display: flex;
+  align-items: flex-start;
+  gap: 3px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.tr-season-wrap {
+  display: flex;
+  flex: none;
+}
+
+.tr-season {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 30px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.tr-season:hover .tr-label,
+.tr-season:focus-visible .tr-label {
+  color: var(--link);
+}
+
+.tr-up,
+.tr-down {
+  height: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tr-up {
+  justify-content: flex-end;
+  border-bottom: 1px solid var(--muted);
+}
+
+.tr-down {
+  justify-content: flex-start;
+}
+
+.tr-in,
+.tr-out {
+  display: block;
+  width: 16px;
+}
+
+.tr-in {
+  background: var(--win);
+  border-radius: 3px 3px 0 0;
+}
+
+.tr-out {
+  background: var(--loss);
+  border-radius: 0 0 3px 3px;
+}
+
+.tr-legend .tr-in,
+.tr-legend .tr-out {
+  width: 10px;
+  border-radius: 2px;
+}
+
+.tr-v {
+  font-size: 11px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.tr-label {
+  margin-top: 2px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.tr-gap {
+  width: 22px;
+  padding-top: 80px;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* Обмен в обе стороны */
+.tr-partners {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 10px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tr-partners li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 0 10px;
+}
+
+.tr-partners li > a,
+.tr-partners li > span:not(.tr-crest) {
+  font-weight: 600;
+}
+
+.tr-both {
+  grid-column: 2;
+  font-size: 13px;
+  font-weight: 400 !important;
+  color: var(--muted);
+}
+
+.tr-both b {
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .tr-top > li {
+    grid-template-columns: 22px 24px minmax(0, 1fr) 56px auto;
+    gap: 4px 8px;
+  }
+
+  .tr-moves {
+    grid-column: 1 / -1;
+    padding-left: 30px;
+    columns: 1;
+  }
+}

@@ -3,6 +3,7 @@ import type { CoachInfo, CoachMatch, CoachesData, Debut, Tenure } from '../coach
 import type { OpponentMatch, OpponentTeam } from '../opponents';
 import { NotFoundError, part, type Part } from '../load';
 import type { SearchIndex } from '../search';
+import type { TransferRow } from '../transfers';
 import { fullName, isPlayed } from '../format';
 import { supabase } from './supabase';
 import type {
@@ -790,6 +791,35 @@ export interface AcademyData {
   debuts: Debut[];
   firstGoals: FirstGoal[];
   careers: CareerStats[];
+}
+
+export interface TransfersPageData {
+  transfers: TransferRow[];
+  seasons: Season[];
+  /** Клубы, с которыми «Амкар» играл: у них есть страница соперника — название ссылкой. */
+  opponentIds: Set<number>;
+}
+
+/** Все трансферы с клубом (нынешнее название, герб и название того года), сезоны и клубы с матчами. За визит — один раз: их берут и «Трансферы», и «История». */
+export const loadTransfers = () => cached('transfers', loadTransfersData);
+
+async function loadTransfersData(): Promise<TransfersPageData> {
+  const [transfers, seasons, opponents] = await Promise.all([
+    allRows<TransferRow>((from, to) =>
+      db()
+        .from('transfer')
+        .select('id, player_id, direction, kind, other_team_id, other_team_name, season(label, start_year, end_year), team(name, crest_url), player(display_name)')
+        .order('id')
+        .range(from, to),
+    ),
+    loadSeasons(),
+    rows<{ id: number; match: { count: number }[] }[]>(db().from('team').select('id, match(count)')),
+  ]);
+  return {
+    transfers,
+    seasons: seasons.filter(hasMatches),
+    opponentIds: new Set(opponents.filter((t) => (t.match[0]?.count ?? 0) > 0).map((t) => t.id)),
+  };
 }
 
 /** Все воспитанники: дебют, первый гол, итоги за «Амкар». */
