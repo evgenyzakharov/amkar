@@ -923,7 +923,8 @@ export const loadSearchIndex = () =>
       allRows<Pick<CareerStats, 'player_id' | 'first_year' | 'last_year' | 'games'>>((from, to) =>
         db().from('player_career_stats').select('player_id, first_year, last_year, games').order('player_id').range(from, to),
       ),
-      rows<{ id: number; name: string; city: string | null }[]>(db().from('team').select('id, name, city')),
+      // в справочнике и клубы только из трансферов — в поиск идут те, с кем «Амкар» играл: у них есть страница соперника
+      rows<{ id: number; name: string; city: string | null; match: { count: number }[] }[]>(db().from('team').select('id, name, city, match(count)')),
       rows<{ team_id: number; name: string }[]>(db().from('team_name').select('team_id, name')),
       rows<{ id: number; full_name: string; short_name: string }[]>(db().from('coach').select('id, full_name, short_name')),
       rows<Tenure[]>(db().from('coach_tenure').select('coach_id, from_date, to_date')),
@@ -936,7 +937,9 @@ export const loadSearchIndex = () =>
         const c = careerOf.get(p.id);
         return { id: p.id, name: p.display_name, last: p.last_name, first: p.first_name, years: c ? span(c.first_year, c.last_year) : null, games: c?.games ?? 0 };
       }),
-      teams: teams.map((t) => ({ ...t, names: names.filter((n) => n.team_id === t.id).map((n) => n.name) })),
+      teams: teams
+        .filter((t) => (t.match[0]?.count ?? 0) > 0)
+        .map(({ id, name, city }) => ({ id, name, city, names: names.filter((n) => n.team_id === id).map((n) => n.name) })),
       coaches: coaches.map((c) => {
         const ts = tenures.filter((t) => t.coach_id === c.id);
         const from = ts.length ? Math.min(...ts.map((t) => year(t.from_date)!)) : null;
